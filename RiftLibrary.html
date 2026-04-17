@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RiftLibrary — Riftbound Deck Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="riftlibrary.css">
+</head>
+<body>
+
+<nav>
+  <div class="logo">Rift<em>Library</em></div>
+  <div class="nav-links">
+    <button class="nl active" onclick="goto('search',this)">Cards</button>
+    <button class="nl" onclick="goto('decks',this)">Decks</button>
+    <button class="nl" onclick="goto('statistics',this)">Statistics</button>
+    <button class="nl" onclick="goto('events',this)">Events</button>
+    <button class="nl" onclick="goto('play',this)">⚔ Play</button>
+  </div>
+  <div class="auth-btn-wrap" id="auth-nav-area">
+    <!-- Populated by JS: shows Login button or user pill -->
+    <button class="btn btn-g" style="font-size:12px;padding:6px 14px;" onclick="openAuthModal('login')">Log in</button>
+    <button class="btn btn-p" style="font-size:12px;padding:6px 14px;" onclick="openAuthModal('register')">Sign up</button>
+  </div>
+</nav>
+
+<!-- MY DECKS -->
+<div class="page" id="page-decks">
+  <div id="dl">
+    <div class="ph"><h1>My Decks</h1><p>Your personal deck collection</p></div>
+    <div class="filters">
+      <div class="sw"><span class="si">⌕</span><input type="text" id="ds" placeholder="Search decks…" oninput="renderDecks()"></div>
+      <select id="dsl" onchange="renderDecks()"><option value="">All legends</option><option>Jinx</option><option>Viktor</option><option>Ahri</option><option>Darius</option><option>Lee Sin</option><option>Volibear</option><option>Miss Fortune</option><option>Kai'Sa</option></select>
+      <select id="dsd" onchange="renderDecks()"><option value="">All domains</option><option>Fury</option><option>Chaos</option><option>Calm</option><option>Mind</option><option>Body</option><option>Order</option></select>
+      <button class="btn btn-p" onclick="openModal()">+ New Deck</button>
+    </div>
+    <div class="dg" id="dg"></div>
+  </div>
+  <div id="dd" style="display:none;">
+    <button class="bb" onclick="closeDeckDetail()">← Back to decks</button>
+    <div id="ddc"></div>
+  </div>
+</div>
+
+<!-- CARDS / ARTISTS PAGE -->
+<div class="page active" id="page-search">
+  <div class="cs-wrap">
+    <div class="cs-top">
+      <div class="cs-search-wrap">
+        <span class="cs-si">⌕</span>
+        <input type="text" class="cs-input" id="cs" placeholder="Search cards by name or text…" oninput="onQ()">
+      </div>
+      <div class="cs-row2">
+        <!-- Cards / Artists toggle -->
+        <div class="view-tog">
+          <button class="vt on" id="vt-c" onclick="setView('cards')">Cards</button>
+          <button class="vt"    id="vt-a" onclick="setView('artists')">Artists</button>
+        </div>
+        <!-- card dropdowns -->
+        <div class="cs-drop-wrap" id="dw-set">
+          <button class="cs-drop-btn" onclick="toggleDrop('dd-set',this)"><span class="dv-lbl">Set</span><span class="dv-val" id="dv-set">All</span><span class="caret">⌄</span></button>
+          <div class="cs-dropdown" id="dd-set">
+            <div class="cs-dopt active" onclick="setDrop('set','','All',this)">All</div>
+            <div class="cs-dopt" onclick="setDrop('set','OGN','Origins',this)">Origins</div>
+            <div class="cs-dopt" onclick="setDrop('set','SFD','Spiritforged',this)">Spiritforged</div>
+          </div>
+        </div>
+        <div class="cs-drop-wrap" id="dw-type">
+          <button class="cs-drop-btn" onclick="toggleDrop('dd-type',this)"><span class="dv-lbl">Type</span><span class="dv-val" id="dv-type">All</span><span class="caret">⌄</span></button>
+          <div class="cs-dropdown" id="dd-type">
+            <div class="cs-dopt active" onclick="setDrop('type','','All',this)">All</div>
+            <div class="cs-dopt" onclick="setDrop('type','Champion','Champion',this)">Champion</div>
+            <div class="cs-dopt" onclick="setDrop('type','Unit','Unit',this)">Unit</div>
+            <div class="cs-dopt" onclick="setDrop('type','Spell','Spell',this)">Spell</div>
+            <div class="cs-dopt" onclick="setDrop('type','Gear','Gear',this)">Gear</div>
+          </div>
+        </div>
+        <div class="cs-drop-wrap" id="dw-rar">
+          <button class="cs-drop-btn" onclick="toggleDrop('dd-rar',this)"><span class="dv-lbl">Rarity</span><span class="dv-val" id="dv-rar">All</span><span class="caret">⌄</span></button>
+          <div class="cs-dropdown" id="dd-rar">
+            <div class="cs-dopt active" onclick="setDrop('rar','','All',this)">All</div>
+            <div class="cs-dopt" onclick="setDrop('rar','Common','Common',this)">Common</div>
+            <div class="cs-dopt" onclick="setDrop('rar','Uncommon','Uncommon',this)">Uncommon</div>
+            <div class="cs-dopt" onclick="setDrop('rar','Rare','Rare',this)">Rare</div>
+            <div class="cs-dopt" onclick="setDrop('rar','Epic','Epic',this)">Epic</div>
+          </div>
+        </div>
+        <!-- artist sort (hidden until artists view) -->
+        <select class="art-sort-sel" id="art-sort" onchange="renderArtists()">
+          <option value="count">Most cards</option>
+          <option value="alpha">A → Z</option>
+          <option value="alpha-desc">Z → A</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- cards bottom: domains + range sliders -->
+    <div class="cs-btm" id="cards-btm">
+      <div class="cs-doms">
+        <button class="dom-btn" data-dom="fury"  onclick="toggleDom(this)" title="Fury"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="currentColor" stroke-width="1.5"/><path d="M10 22L16 8l6 14M12.5 17h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button class="dom-btn" data-dom="chaos" onclick="toggleDom(this)" title="Chaos"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="currentColor" stroke-width="1.5"/><path d="M16 8c-4 0-7 3-7 7s3 7 7 7 7-3 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="22" r="1.5" fill="currentColor"/></svg></button>
+        <button class="dom-btn" data-dom="calm"  onclick="toggleDom(this)" title="Calm"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="currentColor" stroke-width="1.5"/><path d="M9 16h14M9 12h14M9 20h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+        <button class="dom-btn" data-dom="mind"  onclick="toggleDom(this)" title="Mind"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="currentColor" stroke-width="1.5"/><circle cx="16" cy="16" r="5" stroke="currentColor" stroke-width="1.8"/><path d="M16 8v3M16 21v3M8 16h3M21 16h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+        <button class="dom-btn" data-dom="body"  onclick="toggleDom(this)" title="Body"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="currentColor" stroke-width="1.5"/><path d="M16 10v12M12 14l4-4 4 4M12 22l4-4 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button class="dom-btn" data-dom="order" onclick="toggleDom(this)" title="Order"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="currentColor" stroke-width="1.5"/><path d="M16 9l2.5 5 5.5.8-4 3.9.9 5.5L16 21.5l-4.9 2.7.9-5.5-4-3.9 5.5-.8z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
+      </div>
+      <div class="ranges">
+        <div class="rg">
+          <div class="rh"><span class="rl">ENERGY</span><span class="rv" id="rv-energy">Any</span></div>
+          <div class="rt"><div class="rf" id="rf-energy"></div>
+            <input type="range" class="rng" id="rlo-energy" min="0" max="12" value="0" oninput="updateRange('energy')">
+            <input type="range" class="rng" id="rhi-energy" min="0" max="12" value="12" oninput="updateRange('energy')">
+          </div>
+          <div class="rticks"><span>0</span><span>2</span><span>4</span><span>6</span><span>8</span><span>10</span><span>12</span></div>
+        </div>
+        <div class="rg">
+          <div class="rh"><span class="rl">POWER</span><span class="rv" id="rv-power">Any</span></div>
+          <div class="rt"><div class="rf" id="rf-power"></div>
+            <input type="range" class="rng" id="rlo-power" min="0" max="4" value="0" oninput="updateRange('power')">
+            <input type="range" class="rng" id="rhi-power" min="0" max="4" value="4" oninput="updateRange('power')">
+          </div>
+          <div class="rticks"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span></div>
+        </div>
+        <div class="rg">
+          <div class="rh"><span class="rl">MIGHT</span><span class="rv" id="rv-might">Any</span></div>
+          <div class="rt"><div class="rf" id="rf-might"></div>
+            <input type="range" class="rng" id="rlo-might" min="0" max="10" value="0" oninput="updateRange('might')">
+            <input type="range" class="rng" id="rhi-might" min="0" max="10" value="10" oninput="updateRange('might')">
+          </div>
+          <div class="rticks"><span>0</span><span>2</span><span>4</span><span>6</span><span>8</span><span>10</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- artists bottom: domain pills -->
+    <div class="art-btm" id="art-btm">
+      <span class="art-dom-lbl">Domain:</span>
+      <button class="adb" data-dom="fury"  onclick="toggleArtDom(this)">Fury</button>
+      <button class="adb" data-dom="chaos" onclick="toggleArtDom(this)">Chaos</button>
+      <button class="adb" data-dom="calm"  onclick="toggleArtDom(this)">Calm</button>
+      <button class="adb" data-dom="mind"  onclick="toggleArtDom(this)">Mind</button>
+      <button class="adb" data-dom="body"  onclick="toggleArtDom(this)">Body</button>
+      <button class="adb" data-dom="order" onclick="toggleArtDom(this)">Order</button>
+    </div>
+  </div>
+
+  <!-- results bar -->
+  <div class="rbar">
+    <span id="res-count" style="font-size:13px;color:var(--text-muted);"></span>
+    <button class="btn btn-sm" id="reset-btn" onclick="resetAll()">Reset filters</button>
+  </div>
+
+  <div class="cg" id="cg"></div>
+  <div id="artist-grid" style="display:none;"></div>
+</div>
+
+<!-- STATISTICS -->
+<div class="page" id="page-statistics">
+  <div class="ph"><h1>Statistics</h1><p>Collection and meta stats</p></div>
+  <div id="stats-content"></div>
+</div>
+
+<!-- EVENTS -->
+<div class="page" id="page-events">
+  <div class="ph"><h1>Events</h1><p>Upcoming and recent Riftbound tournaments and local events</p></div>
+  <div id="events-content"></div>
+</div>
+
+<!-- PLAY PAGE -->
+<div class="page" id="page-play">
+  <div id="play-lobby">
+    <div class="ph"><h1>⚔ Play</h1><p>Challenge a friend to a Riftbound match — no accounts needed</p></div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;margin-bottom:2rem;">
+      <!-- Host -->
+      <div class="dc" style="cursor:default;">
+        <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:600;margin-bottom:6px;">🏠 Host a game</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;">Create a room and share your Game ID with a friend.</div>
+        <div class="field" style="margin-bottom:8px;">
+          <label>Select deck</label>
+          <select id="host-deck-sel" style="width:100%;background:var(--bg);"><option value="">— choose a deck —</option></select>
+        </div>
+        <div class="field" style="margin-bottom:8px;">
+          <label>Your name</label>
+          <input type="text" id="host-name" placeholder="Player 1" style="padding-left:12px;">
+        </div>
+        <button class="btn btn-p" style="width:100%;" onclick="hostGame()">Create Room</button>
+        <div id="host-status" style="margin-top:10px;font-size:13px;color:var(--text-muted);min-height:20px;"></div>
+        <div id="host-id-box" style="display:none;margin-top:10px;">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Your Game ID</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <code id="host-game-id" style="flex:1;background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-family:monospace;font-size:15px;color:var(--accent);letter-spacing:0.1em;"></code>
+            <button class="btn btn-sm btn-g" onclick="copyGameId()">Copy</button>
+          </div>
+          <div style="margin-top:8px;font-size:12px;color:var(--text-muted);" id="host-wait-msg">Waiting for opponent to connect…</div>
+        </div>
+      </div>
+      <!-- Join -->
+      <div class="dc" style="cursor:default;">
+        <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:600;margin-bottom:6px;">🔗 Join a game</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;">Enter the Game ID your opponent shared with you.</div>
+        <div class="field" style="margin-bottom:8px;">
+          <label>Select deck</label>
+          <select id="join-deck-sel" style="width:100%;background:var(--bg);"><option value="">— choose a deck —</option></select>
+        </div>
+        <div class="field" style="margin-bottom:8px;">
+          <label>Your name</label>
+          <input type="text" id="join-name" placeholder="Player 2" style="padding-left:12px;">
+        </div>
+        <div class="field" style="margin-bottom:8px;">
+          <label>Game ID</label>
+          <input type="text" id="join-game-id" placeholder="e.g. RIFT-A1B2" style="padding-left:12px;font-family:monospace;letter-spacing:0.08em;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <button class="btn btn-p" style="width:100%;" onclick="joinGame()">Join Room</button>
+        <div id="join-status" style="margin-top:10px;font-size:13px;color:var(--text-muted);min-height:20px;"></div>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="dc" style="cursor:default;">
+      <div class="slbl" style="margin-bottom:12px;">How to play</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;font-size:13px;color:var(--text-muted);">
+        <div><span style="color:var(--accent);font-weight:600;">1. Build a deck</span><br>Go to Decks and create one. Any deck with cards works.</div>
+        <div><span style="color:var(--accent);font-weight:600;">2. Host or join</span><br>One player hosts and shares their Game ID. The other enters it to join.</div>
+        <div><span style="color:var(--accent);font-weight:600;">3. Play</span><br>Drag cards, draw, manage life, tap/untap — fully real-time with your opponent.</div>
+        <div><span style="color:var(--accent);font-weight:600;">4. Chat</span><br>Built-in game chat so you can discuss plays and rulings mid-game.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME BOARD (hidden until match starts) -->
+  <div id="play-board" style="display:none;">
+    <!-- Top bar -->
+    <div id="board-topbar">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span id="board-title" style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;"></span>
+        <span id="board-turn-badge"></span>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm btn-g" onclick="endTurn()" id="end-turn-btn">End Turn</button>
+          <button class="btn btn-sm" onclick="concede()">Concede</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span id="board-phase-indicator"></span>
+        <button class="btn btn-sm" onclick="toggleChat()">💬 Chat</button>
+      </div>
+    </div>
+
+    <!-- Main board area -->
+    <div id="board-main">
+      <!-- Opponent side -->
+      <div id="opp-area" class="player-area opp">
+        <div class="pa-info">
+          <span id="opp-name-label" class="player-name"></span>
+          <div class="life-row">
+            <button class="life-btn" onclick="adjustLife('opp',-1)">−</button>
+            <span id="opp-life" class="life-count">20</span>
+            <button class="life-btn" onclick="adjustLife('opp',1)">+</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);" id="opp-counts"></div>
+        </div>
+        <div id="opp-hand-area" class="hand-zone opp-hand">
+          <div class="zone-lbl">Hand (<span id="opp-hand-count">0</span>)</div>
+          <div id="opp-hand" class="card-row"></div>
+        </div>
+      </div>
+
+      <!-- Battle zone -->
+      <div id="battle-zone" class="zone" ondragover="event.preventDefault()" ondrop="dropToZone(event,'battle')">
+        <div class="zone-lbl">Battle Field</div>
+        <div id="battle-cards" class="card-row flexible"></div>
+      </div>
+
+      <!-- Support zone -->
+      <div id="support-zone" class="zone" ondragover="event.preventDefault()" ondrop="dropToZone(event,'support')">
+        <div class="zone-lbl">Support</div>
+        <div id="support-cards" class="card-row flexible"></div>
+      </div>
+
+      <!-- My side -->
+      <div id="my-area" class="player-area mine">
+        <div class="pa-info">
+          <span id="my-name-label" class="player-name"></span>
+          <div class="life-row">
+            <button class="life-btn" onclick="adjustLife('me',-1)">−</button>
+            <span id="my-life" class="life-count">20</span>
+            <button class="life-btn" onclick="adjustLife('me',1)">+</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);" id="my-counts"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <div class="mini-zone" id="my-deck-zone" onclick="drawCard()" title="Click to draw">
+            <div class="zone-lbl">Deck</div>
+            <div id="my-deck-count" class="mini-count">0</div>
+          </div>
+          <div class="mini-zone" id="my-disc-zone" onclick="viewDiscard()" title="View discard">
+            <div class="zone-lbl">Discard</div>
+            <div id="my-disc-count" class="mini-count">0</div>
+          </div>
+          <div class="mini-zone" id="my-runes-zone">
+            <div class="zone-lbl">Runes</div>
+            <div id="my-rune-count" class="mini-count">0</div>
+          </div>
+        </div>
+        <div class="hand-zone my-hand">
+          <div class="zone-lbl">Hand (<span id="my-hand-count">0</span>) — drag cards to field or click to play</div>
+          <div id="my-hand" class="card-row hand-cards"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat panel -->
+    <div id="chat-panel" style="display:none;">
+      <div id="chat-msgs"></div>
+      <div style="display:flex;gap:6px;padding:8px;">
+        <input type="text" id="chat-input" placeholder="Message…" style="flex:1;padding-left:12px;" onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="btn btn-sm btn-g" onclick="sendChat()">Send</button>
+      </div>
+    </div>
+
+    <!-- Card detail tooltip -->
+    <div id="card-detail-overlay" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="auth-mo" id="auth-modal">
+  <div class="auth-box">
+    <div class="auth-logo">Rift<em>Library</em></div>
+    <div class="auth-subtitle" id="auth-subtitle">Sign in to save decks to the cloud</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="auth-tab-login"    onclick="switchAuthTab('login')">Log in</button>
+      <button class="auth-tab"        id="auth-tab-register" onclick="switchAuthTab('register')">Sign up</button>
+    </div>
+
+    <div class="auth-error"   id="auth-error"></div>
+    <div class="auth-success" id="auth-success"></div>
+
+    <!-- OAuth buttons -->
+    <button class="oauth-btn" onclick="oauthLogin('google')">
+      <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Continue with Google
+    </button>
+    <button class="oauth-btn" onclick="oauthLogin('facebook')">
+      <svg viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+      Continue with Facebook
+    </button>
+
+    <div class="auth-divider"><span>or</span></div>
+
+    <!-- Login form -->
+    <div id="auth-form-login">
+      <div class="auth-field">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="auth-field">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+               onkeydown="if(event.key==='Enter')submitLogin()">
+      </div>
+      <button class="auth-submit" onclick="submitLogin()">Log in</button>
+      <div class="auth-switch">Don't have an account? <a onclick="switchAuthTab('register')">Sign up</a></div>
+    </div>
+
+    <!-- Register form -->
+    <div id="auth-form-register" style="display:none;">
+      <div class="auth-field">
+        <label>Username</label>
+        <input type="text" id="reg-username" placeholder="riftmaster99" autocomplete="username">
+      </div>
+      <div class="auth-field">
+        <label>Email</label>
+        <input type="email" id="reg-email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="auth-field">
+        <label>Password</label>
+        <input type="password" id="reg-password" placeholder="Min 8 characters" autocomplete="new-password"
+               onkeydown="if(event.key==='Enter')submitRegister()">
+      </div>
+      <button class="auth-submit" onclick="submitRegister()">Create account</button>
+      <div class="auth-switch">Already have an account? <a onclick="switchAuthTab('login')">Log in</a></div>
+    </div>
+
+    <button onclick="closeAuthModal()" style="position:absolute;top:14px;right:16px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;">×</button>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="mo" id="modal">
+  <div class="mbox">
+    <h3>Create new deck</h3>
+    <div class="field"><label>Deck name</label><input type="text" id="mn" placeholder="e.g. Aggressive Jinx Rush"></div>
+    <div class="field"><label>Legend</label><select id="mleg" onchange="autoD()"><option>Jinx</option><option>Viktor</option><option>Ahri</option><option>Darius</option><option>Lee Sin</option><option>Volibear</option><option>Miss Fortune</option><option>Kai'Sa</option></select></div>
+    <div class="field"><label>Format</label><select id="mfmt"><option>Constructed</option><option>Draft</option><option>Sealed</option></select></div>
+    <div class="field"><label>Domains (auto-set by legend)</label>
+      <div class="dg2">
+        <button class="dtog fury"  onclick="togD(this)">Fury</button>
+        <button class="dtog chaos" onclick="togD(this)">Chaos</button>
+        <button class="dtog calm"  onclick="togD(this)">Calm</button>
+        <button class="dtog mind"  onclick="togD(this)">Mind</button>
+        <button class="dtog body"  onclick="togD(this)">Body</button>
+        <button class="dtog order" onclick="togD(this)">Order</button>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-p" onclick="createDeck()">Create deck</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="riftlibrary.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" onerror="console.warn('PeerJS failed to load — Play tab will not work offline.')"></script>
+<script src="riftlibrary-play.js"></script>
+</body>
+</html>
