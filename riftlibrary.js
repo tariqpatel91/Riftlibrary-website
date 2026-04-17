@@ -82,7 +82,10 @@ function mapCard(c){
     set:set.set_id||'',
     setLabel:set.label||'',
     txt:txt.plain||'',
+    flavour:txt.flavour||'',
     artist:med.artist||'Unknown',
+    imageUrl:med.image_url||'',
+    tags:c.tags||[],
     riftboundId:c.riftbound_id||''
   };
 }
@@ -647,16 +650,57 @@ function renderCards(){
   if(!list.length){g.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);font-size:14px;">No cards match your filters. <button class="btn btn-sm" onclick="resetFilters()" style="margin-left:8px;">Reset</button></div>`;return;}
   g.innerHTML=list.map(c=>{
     const domPills=c.doms.map(d=>`<span class="pill ${d}">${d[0].toUpperCase()+d.slice(1)}</span>`).join('');
-    return`<div class="ct">
+    const safeId=c.id.replace(/'/g,"\\'");
+    return`<div class="ct ct-img" onclick="openCardModal('${safeId}')">
+      ${c.imageUrl
+        ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
+        :`<div class="ct-img-wrap no-img"><div class="ct-img-placeholder" style="background:var(--surface3);display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`
+      }
       ${c.cost!==null?`<div class="cost">${c.cost}</div>`:''}
       <div class="ct-name">${c.name}</div>
       <div class="ct-sub">${domPills}<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>
-      <div class="ct-txt">${c.txt}</div>
-      ${c.might!==null?`<div class="ct-might">⚔ ${c.might} Might</div>`:''}
-      ${c.artist&&c.artist!=='Unknown'?`<div style="font-size:10px;color:var(--text-muted);margin-top:6px;">✦ ${c.artist}</div>`:''}
     </div>`;
   }).join('');
 }
+
+/* ── CARD MODAL ──────────────────────────────────── */
+function openCardModal(cardId){
+  const c=CARDS.find(x=>x.id===cardId);if(!c)return;
+  const domPills=c.doms.map(d=>`<span class="pill ${d}">${d[0].toUpperCase()+d.slice(1)}</span>`).join('');
+  const stats=[
+    c.cost!==null?`<div class="cm-stat"><span class="cm-stat-lbl">Energy</span><span class="cm-stat-val">⚡ ${c.cost}</span></div>`:'',
+    c.might!==null?`<div class="cm-stat"><span class="cm-stat-lbl">Might</span><span class="cm-stat-val">⚔ ${c.might}</span></div>`:'',
+    c.power!==null?`<div class="cm-stat"><span class="cm-stat-lbl">Power</span><span class="cm-stat-val">💪 ${c.power}</span></div>`:'',
+  ].filter(Boolean).join('');
+  const deckDeck=myDecks.find(d=>d.id===activeDeckId);
+  const inDeck=deckDeck?(deckDeck.cards||[]).find(x=>x.id===c.id):null;
+
+  document.getElementById('card-modal-body').innerHTML=`
+    <div class="cm-layout">
+      <div class="cm-img-col">
+        ${c.imageUrl
+          ?`<img src="${c.imageUrl}" alt="${c.name}" class="cm-img">`
+          :`<div class="cm-img cm-img-empty"><span style="color:var(--text-muted);">No image</span></div>`}
+      </div>
+      <div class="cm-info-col">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;">
+          <div>
+            <div class="cm-name">${c.name}</div>
+            <div class="cm-meta">${c.supertype||c.type}${c.rarity?' · '+c.rarity:''}${c.setLabel?' · '+c.setLabel:''}</div>
+          </div>
+          <button onclick="closeCardModal()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;flex-shrink:0;">×</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">${domPills}</div>
+        ${stats?`<div class="cm-stats">${stats}</div>`:''}
+        ${c.txt?`<div class="cm-txt">${c.txt}</div>`:''}
+        ${c.flavour?`<div class="cm-flavour">"${c.flavour}"</div>`:''}
+        ${c.tags&&c.tags.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">${c.tags.map(t=>`<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface3);color:var(--text-muted);border:1px solid var(--border);">${t}</span>`).join('')}</div>`:''}
+        ${c.artist&&c.artist!=='Unknown'?`<div style="font-size:11px;color:var(--text-muted);margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">✦ Art by ${c.artist}</div>`:''}
+      </div>
+    </div>`;
+  document.getElementById('card-modal').classList.add('open');
+}
+function closeCardModal(){document.getElementById('card-modal').classList.remove('open');}
 
 /* ── ARTISTS ─────────────────────────────────────── */
 function toggleArtDom(btn){

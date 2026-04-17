@@ -64,6 +64,7 @@
             <div class="cs-dopt active" onclick="setDrop('set','','All',this)">All</div>
             <div class="cs-dopt" onclick="setDrop('set','OGN','Origins',this)">Origins</div>
             <div class="cs-dopt" onclick="setDrop('set','SFD','Spiritforged',this)">Spiritforged</div>
+            <div class="cs-dopt" onclick="setDrop('set','UNL','Unleashed',this)">Unleashed</div>
           </div>
         </div>
         <div class="cs-drop-wrap" id="dw-type">
@@ -412,6 +413,13 @@
   </div>
 </div>
 <div class="toast" id="toast"></div>
+
+<!-- CARD DETAIL MODAL -->
+<div class="card-mo" id="card-modal" onclick="if(event.target===this)closeCardModal()">
+  <div class="card-mbox">
+    <div id="card-modal-body"></div>
+  </div>
+</div>
 
 <script src="riftlibrary.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" onerror="console.warn('PeerJS failed to load — Play tab will not work offline.')"></script>
