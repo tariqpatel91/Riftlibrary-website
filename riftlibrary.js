@@ -7,7 +7,7 @@ let activeDDTab='cards';
 let currentUser=null;
 let authToken=null;
 const AF={doms:new Set()};
-const CF={type:'',set:'',rar:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10]};
+const CF={type:'',set:'',rar:'',legend:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10]};
 
 /* storage */
 function loadStorage(){
@@ -582,8 +582,19 @@ document.addEventListener('click',e=>{
     document.querySelectorAll('.cs-drop-btn').forEach(b=>b.classList.remove('open'));
   }
 });
+function setLegend(name,el){
+  CF.type='Legend';CF.legend=name;
+  const label=name.split(' - ')[0];
+  document.getElementById('dv-type').textContent=label;
+  el.closest('.cs-dropdown').querySelectorAll('.cs-dopt').forEach(o=>o.classList.remove('active'));
+  el.classList.add('active');
+  el.closest('.cs-dropdown').classList.remove('open');
+  el.closest('.cs-drop-wrap').querySelector('.cs-drop-btn').classList.remove('open');
+  renderCards();
+}
 function setDrop(key,val,label,el){
   CF[key]=val;
+  if(key==='type')CF.legend='';
   document.getElementById('dv-'+key).textContent=label;
   el.closest('.cs-dropdown').querySelectorAll('.cs-dopt').forEach(o=>o.classList.remove('active'));
   el.classList.add('active');
@@ -612,7 +623,7 @@ function resetAll(){
   if(VIEW==='cards')resetFilters();else resetArtistFilters();
 }
 function resetFilters(){
-  CF.type='';CF.set='';CF.rar='';CF.doms.clear();CF.energy=[0,12];CF.power=[0,4];CF.might=[0,10];
+  CF.type='';CF.set='';CF.rar='';CF.legend='';CF.doms.clear();CF.energy=[0,12];CF.power=[0,4];CF.might=[0,10];
   document.getElementById('cs').value='';
   ['energy','power','might'].forEach(n=>{
     const max=parseInt(document.getElementById('rhi-'+n).max);
@@ -637,6 +648,7 @@ function renderCards(){
       const match=c.supertype===CF.type||c.type===CF.type;
       if(!match)return false;
     }
+    if(CF.legend&&!c.name.startsWith(CF.legend))return false;
     if(CF.rar&&c.rarity!==CF.rar)return false;
     if(CF.set&&c.set!==CF.set)return false;
     if(CF.doms.size>0&&!CF.doms.has(c.dom))return false;
@@ -661,6 +673,36 @@ function renderCards(){
       <div class="ct-sub">${domPills}<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>
     </div>`;
   }).join('');
+}
+
+/* ── CARD TEXT RENDERER ──────────────────────────── */
+const RB_RUNE_URLS={
+  fury: 'https://static0.fextralifeimages.com/file/riftbound/4/46/Fury.png',
+  calm: 'https://static0.fextralifeimages.com/file/riftbound/2/20/Calm.png',
+  mind: 'https://static0.fextralifeimages.com/file/riftbound/e/e5/Mind2.png',
+  body: 'https://static0.fextralifeimages.com/file/riftbound/e/e9/Body.png',
+  chaos:'https://static0.fextralifeimages.com/file/riftbound/8/8f/Chaos.png',
+  order:'https://static0.fextralifeimages.com/file/riftbound/5/58/Order.png',
+};
+const RB_MIGHT_SVG=`<svg class="rb-stat-icon" viewBox="0 0 14 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="2" x2="7" y2="13"/><line x1="4" y1="8" x2="10" y2="8"/><line x1="7" y1="13" x2="7" y2="15"/><polyline points="5,4 7,2 9,4"/></svg>`;
+const RB_EXHAUST_SVG=`<svg class="rb-stat-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="12" x2="10" y2="4"/><path d="M8 2l4 4-1.5 1.5"/><line x1="2" y1="10" x2="4" y2="12"/></svg>`;
+const RB_POWER_SVG=`<svg class="rb-stat-icon" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1l1.8 4.2H13l-3.6 2.6 1.4 4.2L7 9.5l-3.8 2.5 1.4-4.2L1 5.2h4.2z"/></svg>`;
+function renderCardText(txt){
+  if(!txt) return '';
+  return txt
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\n/g,'<br>')
+    .replace(/\[([^\]]+)\]/g,(_,kw)=>`<span class="rb-kw">${kw}</span>`)
+    .replace(/:rb_energy_(\d+):/g,(_,n)=>`<span class="rb-energy">${n}</span>`)
+    .replace(/:rb_rune_(\w+):/g,(_,d)=>{
+      const url=RB_RUNE_URLS[d];
+      return url
+        ?`<img class="rb-rune" src="${url}" alt="${d} rune">`
+        :`<span class="rb-rune-rainbow"></span>`;
+    })
+    .replace(/:rb_might:/g, RB_MIGHT_SVG)
+    .replace(/:rb_power:/g, RB_POWER_SVG)
+    .replace(/:rb_exhaust:/g, RB_EXHAUST_SVG);
 }
 
 /* ── CARD MODAL ──────────────────────────────────── */
@@ -692,7 +734,7 @@ function openCardModal(cardId){
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">${domPills}</div>
         ${stats?`<div class="cm-stats">${stats}</div>`:''}
-        ${c.txt?`<div class="cm-txt">${c.txt}</div>`:''}
+        ${c.txt?`<div class="cm-txt">${renderCardText(c.txt)}</div>`:''}
         ${c.flavour?`<div class="cm-flavour">"${c.flavour}"</div>`:''}
         ${c.tags&&c.tags.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">${c.tags.map(t=>`<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface3);color:var(--text-muted);border:1px solid var(--border);">${t}</span>`).join('')}</div>`:''}
         ${c.artist&&c.artist!=='Unknown'?`<div style="font-size:11px;color:var(--text-muted);margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">✦ Art by ${c.artist}</div>`:''}
@@ -731,10 +773,10 @@ function renderArtists(){
     ${artists.map(([name,cards])=>{
       const am=!q||name.toLowerCase().includes(q);
       const sorted=q&&!am?[...cards].sort((a,b)=>a.name.toLowerCase().includes(q)?-1:1):cards;
-      return`<div class="dc" style="cursor:default;">
+      return`<div class="dc" style="cursor:pointer;transition:border-color 0.15s;" data-artist="${name.replace(/"/g,'&quot;')}" onclick="openArtistModal(this.dataset.artist)" onmouseenter="this.style.borderColor='var(--border-hover)'" onmouseleave="this.style.borderColor=''">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
           <div style="width:44px;height:44px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--accent);flex-shrink:0;">${name[0].toUpperCase()}</div>
-          <div><div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:600;">${name}</div><div style="font-size:12px;color:var(--text-muted);">${cards.length} card${cards.length!==1?'s':''}</div></div>
+          <div><div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:600;">${name}</div><div style="font-size:12px;color:var(--text-muted);">${cards.length} card${cards.length!==1?'s':''} · <span style="color:var(--accent);">View gallery →</span></div></div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
           ${sorted.slice(0,8).map(c=>{const m=q&&c.name.toLowerCase().includes(q);return`<span style="font-size:11px;padding:3px 9px;border-radius:20px;background:${m?'var(--accent-dim)':'var(--surface2)'};color:${m?'var(--accent)':'var(--text-muted)'};border:1px solid ${m?'var(--accent)':'var(--border)'};">${c.name}</span>`;}).join('')}
@@ -745,6 +787,27 @@ function renderArtists(){
     }).join('')}
   </div>`;
 }
+
+/* ── ARTIST MODAL ────────────────────────────────── */
+function openArtistModal(artistName){
+  const cards=CARDS.filter(c=>c.artist===artistName);
+  document.getElementById('artist-modal-name').textContent=artistName;
+  document.getElementById('artist-modal-count').textContent=cards.length+' card'+(cards.length!==1?'s':'');
+  document.getElementById('artist-modal-cards').innerHTML=cards.map(c=>{
+    const safeId=c.id.replace(/'/g,"\\'");
+    return`<div class="ct ct-img" onclick="closeArtistModal();openCardModal('${safeId}')" style="cursor:pointer;">
+      ${c.imageUrl
+        ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
+        :`<div class="ct-img-wrap no-img"><div class="ct-img-placeholder" style="background:var(--surface3);display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`
+      }
+      ${c.cost!==null?`<div class="cost">${c.cost}</div>`:''}
+      <div class="ct-name">${c.name}</div>
+      <div class="ct-sub">${c.doms.map(d=>`<span class="pill ${d}">${d[0].toUpperCase()+d.slice(1)}</span>`).join('')}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('artist-modal').classList.add('open');
+}
+function closeArtistModal(){document.getElementById('artist-modal').classList.remove('open');}
 
 /* ── MODAL ──────────────────────────────────────── */
 function openModal(){document.getElementById('modal').classList.add('open');autoD();}

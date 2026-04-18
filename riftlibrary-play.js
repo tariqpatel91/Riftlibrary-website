@@ -464,7 +464,7 @@ function showCardDetail(card){
       <button onclick="document.getElementById('card-detail-overlay').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;">×</button>
     </div>
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">${card.supertype||card.type||''}${card.rarity?' · '+card.rarity:''}</div>
-    <div style="font-size:12px;color:var(--text-soft);line-height:1.5;margin-bottom:8px;">${card.txt||'No text.'}</div>
+    <div style="font-size:12px;color:var(--text-soft);line-height:1.5;margin-bottom:8px;">${renderCardText(card.txt)||'No text.'}</div>
     <div style="display:flex;gap:12px;font-size:12px;color:var(--text-muted);">
       ${card.cost!==null?`<span>⚡ ${card.cost}</span>`:''}
       ${card.might!==null?`<span>⚔ ${card.might}</span>`:''}
