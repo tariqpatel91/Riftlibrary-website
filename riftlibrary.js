@@ -1,4 +1,12 @@
 const LD={'Jinx':['fury','chaos'],'Viktor':['order','mind'],'Ahri':['calm','mind'],'Darius':['fury','body'],'Lee Sin':['calm','body'],'Volibear':['fury','order'],'Miss Fortune':['chaos','body'],"Kai'Sa":['chaos','mind']};
+function populateLegendDropdowns(){
+  const legends=CARDS.filter(c=>c.type==='Legend'&&!c.name.includes('(')).map(c=>c.name).filter((n,i,a)=>a.indexOf(n)===i).sort();
+  legends.forEach(name=>{if(!LD[name]){const card=CARDS.find(c=>c.type==='Legend'&&c.name===name);if(card&&card.doms.length)LD[name]=card.doms;}});
+  const mleg=document.getElementById('mleg');
+  if(mleg){const v=mleg.value;mleg.innerHTML=legends.map(n=>`<option${n===v?' selected':''}>${n}</option>`).join('');}
+  const dsl=document.getElementById('dsl');
+  if(dsl){const v=dsl.value;dsl.innerHTML='<option value="">All legends</option>'+legends.map(n=>`<option${n===v?' selected':''}>${n}</option>`).join('');}
+}
 let CARDS=[], cardsLoaded=false;
 let myDecks=[], nextId=1;
 let VIEW='cards';
@@ -45,6 +53,7 @@ async function fetchAllCards(){
     }
     CARDS=items.map(mapCard).filter(Boolean);
     cardsLoaded=true;
+    populateLegendDropdowns();
     renderCards();
     if(activeDeckId&&activeDDTab==='edit'){renderEditSearch();renderEditPreview();}
     if(activeDeckId&&activeDDTab==='sideboard'){
@@ -214,10 +223,7 @@ function renderDeckDetail(){
         <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Results
       </button>
-      <button class="dd-tab${activeDDTab==='sideboard'?' active':''}" onclick="switchDDTab('sideboard')">
-        <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="14" rx="1.5" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="1" width="6" height="14" rx="1.5" stroke="currentColor" stroke-width="1.4"/></svg>
-        Sideboard
-      </button>
+      <div class="dd-deck-badge"><span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">— / 40 cards</span></div>
     </div>
 
     <!-- PANEL: CARDS -->
@@ -268,10 +274,6 @@ function renderDeckDetail(){
       </div>
     </div>
 
-    <!-- PANEL: SIDEBOARD -->
-    <div class="dd-panel${activeDDTab==='sideboard'?' active':''}" id="ddp-sideboard">
-      ${buildSideboardPanel(d)}
-    </div>
   `;
 
   if(activeDDTab==='edit'){
@@ -428,17 +430,14 @@ function adjustSB(deckId,cardId,delta){
     if(entry.cnt===0) d.sideboard=d.sideboard.filter(c=>c.id!==cardId);
   }
   persist();
-  const panel=document.getElementById('ddp-sideboard');
-  if(panel) panel.innerHTML=buildSideboardPanel(d);
-  setTimeout(function(){renderSBSearch(deckId);},10);
+  renderEditPreview();
 }
 
 function clearSideboard(deckId){
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   if(!confirm('Clear sideboard?'))return;
   d.sideboard=[];persist();
-  const panel=document.getElementById('ddp-sideboard');
-  if(panel) panel.innerHTML=buildSideboardPanel(d);
+  renderEditPreview();
 }
 
 function saveSBNotes(deckId){
@@ -475,12 +474,7 @@ function addToSB(deckId,cardId,cardName,cardType){
   if(existing){if(existing.cnt>=3){toast('Max 3 copies');return;}existing.cnt++;}
   else d.sideboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
   persist();
-  const panel=document.getElementById('ddp-sideboard');
-  if(panel) panel.innerHTML=buildSideboardPanel(d);
-  setTimeout(function(){
-    var inp=document.getElementById('sb-search');
-    if(inp){inp.value='';renderSBSearch(deckId);}
-  },10);
+  renderEditPreview();
   toast(cardName+' added to sideboard');
 }
 
@@ -500,6 +494,8 @@ function renderEditSearch(){
   }
 
   let source=CARDS;
+  const deckDoms=d.domains||[];
+  if(deckDoms.length){source=source.filter(c=>c.type==='Gear'||(c.type==='Legend'&&c.name===d.legend)||c.doms.length===0||c.doms.some(dom=>deckDoms.includes(dom)));}
   if(q) source=source.filter(c=>c.name.toLowerCase().includes(q)||c.txt.toLowerCase().includes(q));
   if(EF.type) source=source.filter(c=>c.type===EF.type);
   if(EF.dom) source=source.filter(c=>c.doms.includes(EF.dom));
@@ -523,7 +519,8 @@ function renderEditSearch(){
   html+='</div>';
 
   html+='<div class="edit-dom-filter">';
-  DOMS.forEach(dom=>{
+  const filterDoms=deckDoms.length?deckDoms:DOMS;
+  filterDoms.forEach(dom=>{
     const cap=dom[0].toUpperCase()+dom.slice(1);
     html+=`<button class="edit-dom-pill ${dom}${EF.dom===dom?' on':''}" onclick="setEditDom('${dom}')">${cap}</button>`;
   });
@@ -587,15 +584,12 @@ function renderEditPreview(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const right=document.getElementById('edit-right');if(!right)return;
   const cards=d.cards||[];
-  const total=cards.reduce((a,c)=>a+c.cnt,0);
-
   const alpha=(a,b)=>a.n.localeCompare(b.n);
   const legendCards=cards.filter(c=>c.t==='Legend').sort(alpha);
-  const gearCards=cards.filter(c=>c.t==='Gear').sort(alpha);
-  const mainCards=cards.filter(c=>c.t!=='Legend'&&c.t!=='Gear');
-  const legendTotal=legendCards.reduce((a,c)=>a+c.cnt,0);
-  const gearTotal=gearCards.reduce((a,c)=>a+c.cnt,0);
-  const mainTotal=mainCards.reduce((a,c)=>a+c.cnt,0);
+  const champCards=cards.filter(c=>c.t==='Champion').sort(alpha);
+  const nonLegendCards=cards.filter(c=>c.t!=='Legend');
+  const total=nonLegendCards.reduce((a,c)=>a+c.cnt,0);
+  const deckCards=cards.filter(c=>c.t!=='Legend'&&c.t!=='Champion');
 
   function cardItem(c,cls){
     const full=CARDS.find(x=>x.id===c.id);
@@ -610,39 +604,53 @@ function renderEditPreview(){
     h+=`<div class="deck-card-actions">`;
     h+=`<div class="dca-btn" onclick="openCardModal('${si}')"><span>🔍</span> Zoom</div>`;
     h+=`<div class="dca-btn dca-danger" onclick="editDeckCard('${si}','${sn}','${st}',-1)"><span>✕</span> Remove</div>`;
-    h+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="editDeckCard('${si}','${sn}','${st}',1)"><span>＋</span> Add 1 copy</div>`;
-    h+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${st}')"><span>→</span> Add to sideboard</div>`;
+    if(c.t!=='Legend') h+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="editDeckCard('${si}','${sn}','${st}',1)"><span>＋</span> Add 1 copy</div>`;
+    if(c.t!=='Legend') h+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${st}')"><span>→</span> Add to sideboard</div>`;
     h+=`</div>`;
     if(c.cnt>1) h+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
     h+='</div>';
     return h;
   }
 
-  function heroRow(label,icon,list,listTotal){
-    let h=`<div class="deck-section"><div class="deck-section-hdr">${icon} ${label} <span class="ds-count">(${listTotal})</span></div>`;
-    h+='<div class="deck-card-row">';
-    if(!list.length) h+='<div style="font-size:12px;color:var(--text-muted);">None — add from the left panel</div>';
-    else list.forEach(c=>{ h+=cardItem(c,'deck-card-hero'); });
-    h+='</div></div>';
-    return h;
-  }
+  const badge=document.getElementById('deck-count-badge');
+  if(badge) badge.textContent=`${total} / 40 cards`;
 
   let html='';
-  html+=`<div class="deck-total-hdr"><span class="dt-label">Deck</span><span class="dt-count">${total} / 40 cards</span></div>`;
 
-  html+=heroRow('Legend','🦸',legendCards,legendTotal);
-  html+=heroRow('Gear','⚔️',gearCards,gearTotal);
+  // Hero row: Legend (half) + Champion (half)
+  const champTotal=champCards.reduce((a,c)=>a+c.cnt,0);
+  html+='<div class="deck-hero-row">';
+  html+='<div class="deck-hero-half">';
+  html+='<div class="deck-section-hdr">🦸 Legend</div>';
+  html+='<div class="deck-hero-cards">';
+  if(!legendCards.length) html+='<div class="deck-hero-empty">None — add from left panel</div>';
+  else legendCards.forEach(c=>{ html+=cardItem(c,'deck-card-legend'); });
+  html+='</div></div>';
+  html+='<div class="deck-hero-half">';
+  html+=`<div class="deck-section-hdr">⚔️ Champion <span class="ds-count">(${champTotal})</span></div>`;
+  html+='<div class="deck-hero-cards">';
+  if(!champCards.length) html+='<div class="deck-hero-empty">None — add from left panel</div>';
+  else champCards.forEach(c=>{ html+=cardItem(c,'deck-card-hero'); });
+  html+='</div></div>';
+  html+='</div>';
 
-  html+='<div class="deck-section">';
-  html+=`<div class="deck-section-hdr">📚 Deck <span class="ds-count">(${mainTotal} / 40)</span></div>`;
-  if(!mainCards.length){
+  // Deck cards by type (Unit → Spell → Gear → other)
+  const TYPE_ORDER=['Unit','Spell','Gear'];
+  function typeSort(a,b){
+    const ai=TYPE_ORDER.indexOf(a);const bi=TYPE_ORDER.indexOf(b);
+    const av=ai<0?99:ai;const bv=bi<0?99:bi;
+    return av!==bv?av-bv:a.localeCompare(b);
+  }
+  if(!deckCards.length){
     html+='<div style="font-size:12px;color:var(--text-muted);padding:4px 0;">No cards yet — click cards on the left to add</div>';
   } else {
-    const sorted=mainCards.slice().sort((a,b)=>a.t.localeCompare(b.t)||a.n.localeCompare(b.n));
+    const sorted=deckCards.slice().sort((a,b)=>typeSort(a.t,b.t)||a.n.localeCompare(b.n));
     const byType={};
-    sorted.forEach(c=>{if(!byType[c.t])byType[c.t]=[];byType[c.t].push(c);});
+    const typeOrder=[];
+    sorted.forEach(c=>{if(!byType[c.t]){byType[c.t]=[];typeOrder.push(c.t);}byType[c.t].push(c);});
     html+='<div class="deck-all-types">';
-    Object.entries(byType).forEach(([type,uniqueCards])=>{
+    typeOrder.forEach(type=>{
+      const uniqueCards=byType[type];
       const typeTotal=uniqueCards.reduce((a,c)=>a+c.cnt,0);
       html+=`<div class="deck-type-block"><div class="deck-type-lbl">${type} (${typeTotal})</div>`;
       for(let start=0;start<uniqueCards.length;start+=6){
@@ -651,6 +659,52 @@ function renderEditPreview(){
         chunk.forEach(c=>{
           html+='<div class="deck-col-stack">';
           for(let i=0;i<c.cnt;i++) html+=cardItem(c,'deck-card-main');
+          html+='</div>';
+        });
+        html+='</div>';
+      }
+      html+='</div>';
+    });
+    html+='</div>';
+  }
+
+  // Sideboard section — card image grid like main deck
+  const sb=d.sideboard||[];
+  const sbTotal=sb.reduce((a,c)=>a+c.cnt,0);
+  const clearBtn=sb.length?`<button class="btn btn-sm btn-d" style="padding:2px 8px;font-size:11px;margin-left:auto;" onclick="clearSideboard(${d.id})">Clear</button>`:'';
+  html+=`<div class="deck-section deck-sb-section"><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">📋 Sideboard <span class="ds-count">(${sbTotal}/15)</span>${clearBtn}</div>`;
+  if(!sb.length){
+    html+='<div style="font-size:12px;color:var(--text-muted);">None — hover a card and use "Add to sideboard"</div>';
+  } else {
+    const sbSorted=sb.slice().sort((a,b)=>typeSort(a.t,b.t)||a.n.localeCompare(b.n));
+    const sbByType={};const sbTypeOrder=[];
+    sbSorted.forEach(c=>{if(!sbByType[c.t]){sbByType[c.t]=[];sbTypeOrder.push(c.t);}sbByType[c.t].push(c);});
+    html+='<div class="deck-all-types">';
+    sbTypeOrder.forEach(type=>{
+      const uniqueCards=sbByType[type];
+      const typeTotal=uniqueCards.reduce((a,c)=>a+c.cnt,0);
+      html+=`<div class="deck-type-block"><div class="deck-type-lbl">${type} (${typeTotal})</div>`;
+      for(let start=0;start<uniqueCards.length;start+=6){
+        const chunk=uniqueCards.slice(start,start+6);
+        html+='<div class="deck-type-cols">';
+        chunk.forEach(c=>{
+          const full=CARDS.find(x=>x.id===c.id);
+          const img=full?full.imageUrl:'';
+          const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+          const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+          const st=(c.t||'').replace(/'/g,"\\'");
+          html+='<div class="deck-col-stack">';
+          for(let i=0;i<c.cnt;i++){
+            html+=`<div class="deck-card-item deck-card-main" title="${c.n}">`;
+            if(img) html+=`<img src="${img}" alt="" loading="lazy">`;
+            else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
+            html+=`<div class="deck-card-actions">`;
+            html+=`<div class="dca-btn" onclick="openCardModal('${si}')"><span>🔍</span> Zoom</div>`;
+            html+=`<div class="dca-btn dca-danger" onclick="adjustSB(${d.id},'${si}',-1)"><span>✕</span> Remove</div>`;
+            html+=`</div>`;
+            if(c.cnt>1&&i===0) html+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
+            html+='</div>';
+          }
           html+='</div>';
         });
         html+='</div>';
@@ -1000,7 +1054,10 @@ function createDeck(){
   const format=document.getElementById('mfmt').value;
   const domains=[...document.querySelectorAll('.dtog.sel')].map(e=>e.classList[1]);
   if(!name){document.getElementById('mn').focus();return;}
-  const deck={id:nextId++,name,legend,domains:domains.length?domains:LD[legend]||[],format,wins:0,losses:0,desc:'',cards:[]};
+  const initCards=[];
+  const legendCard=CARDS.find(c=>c.type==='Legend'&&c.name===legend);
+  if(legendCard) initCards.push({id:legendCard.id,n:legendCard.name,t:legendCard.type,cnt:1});
+  const deck={id:nextId++,name,legend,domains:domains.length?domains:LD[legend]||[],format,wins:0,losses:0,desc:'',cards:initCards};
   myDecks.unshift(deck);persist();closeModal();document.getElementById('mn').value='';renderDecks();toast('Deck created!');
   if(currentUser) setTimeout(function(){ saveToCloud(deck.id); }, 100);
 }

@@ -96,6 +96,7 @@
           <option value="alpha">A → Z</option>
           <option value="alpha-desc">Z → A</option>
         </select>
+        <button class="btn btn-sm" id="reset-btn" onclick="resetAll()" style="margin-left:auto;">Reset filters</button>
       </div>
     </div>
 
@@ -156,7 +157,6 @@
       <input type="checkbox" id="show-all-versions" onchange="toggleShowAllVersions(this.checked)">
       Show all versions
     </label>
-    <button class="btn btn-sm" id="reset-btn" onclick="resetAll()">Reset filters</button>
   </div>
 
   <div class="cg" id="cg"></div>
@@ -401,7 +401,8 @@
   <div class="mbox">
     <h3>Create new deck</h3>
     <div class="field"><label>Deck name</label><input type="text" id="mn" placeholder="e.g. Aggressive Jinx Rush"></div>
-    <div class="field"><label>Legend</label><select id="mleg" onchange="autoD()"><option>Jinx</option><option>Viktor</option><option>Ahri</option><option>Darius</option><option>Lee Sin</option><option>Volibear</option><option>Miss Fortune</option><option>Kai'Sa</option></select></div>
+    <div class="field"><label>Legend</label><select id="mleg" onchange="autoD()"><option>Jinx</option><option>Viktor</option><option>Ahri</option><option>Darius</option><option>Lee Sin</option><option>Volibear</option><option>Miss Fortune</option><option>Kai'Sa</option></select>
+    <!-- options populated dynamically by populateLegendDropdowns() after cards load --></div>
     <div class="field"><label>Format</label><select id="mfmt"><option>Constructed</option><option>Draft</option><option>Sealed</option></select></div>
     <div class="field"><label>Domains (auto-set by legend)</label>
       <div class="dg2">
