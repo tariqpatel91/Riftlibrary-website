@@ -17,6 +17,7 @@ let authToken=null;
 const AF={doms:new Set()};
 const CF={type:'',set:'',rar:'',legend:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false};
 const EF={type:'',dom:'',page:1,showAllVersions:false};
+function getEditPer(){const h=window.innerHeight;if(h>=1080)return 36;if(h>=900)return 30;if(h>=720)return 24;if(h>=600)return 18;return 12;}
 const EDIT_PER=24;
 
 /* storage */
@@ -201,7 +202,7 @@ function renderDeckDetail(){
     <!-- DECK HEADER: title left, hero zones center, deck count right -->
     <div class="deck-header">
       <div class="deck-header-left">
-        <div class="dtitle">${d.name}</div>
+        <div class="dtitle" id="deck-title-display" onclick="startEditDeckTitle(${d.id})" title="Click to edit">${d.name}<span class="dtitle-edit-icon">✎</span></div>
         <div class="dmeta">
           <span>${d.legend}</span><span>·</span>
           <div class="dr" style="margin:0;">${pills(d.domains)}</div>
@@ -555,9 +556,10 @@ function renderEditSearch(){
   source=source.slice().sort((a,b)=>a.name.localeCompare(b.name));
 
   const total=source.length;
-  const pages=Math.max(1,Math.ceil(total/EDIT_PER));
+  const perPage=getEditPer();
+  const pages=Math.max(1,Math.ceil(total/perPage));
   if(EF.page>pages) EF.page=pages;
-  const slice=source.slice((EF.page-1)*EDIT_PER,EF.page*EDIT_PER);
+  const slice=source.slice((EF.page-1)*perPage,EF.page*perPage);
 
   const TYPES=['','Champion','Unit','Spell','Gear','Rune'];
   const TYPE_LABELS={'':'All','Champion':'Champion','Unit':'Unit','Spell':'Spell','Gear':'Gear','Rune':'Rune'};
@@ -723,53 +725,47 @@ function renderEditPreview(){
   const badge=document.getElementById('deck-count-badge');
   if(badge) badge.textContent=`${total} / 40 cards`;
 
-  let html='';
-
-  // Hero zone bar (compact thumbnails in tab row)
-  const zoneChamp=d.champion||null;
+  // Clear header hero bar (rendered inline in right panel)
   const heroBar=document.getElementById('hero-zone-bar');
-  if(heroBar){
-    let hb='';
-    // Legend slot
-    hb+='<div class="hzb-slot">';
-    hb+='<div class="hzb-label">Legend</div>';
-    if(legendCards.length){
-      const lc=legendCards[0];
-      const lf=CARDS.find(x=>x.id===lc.id);
-      const li=lf?lf.imageUrl:'';
+  if(heroBar) heroBar.innerHTML='';
+  const zoneChamp=d.champion||null;
+
+  function buildHeroSection(){
+    let h='<div class="deck-hero-row">';
+    // Legend half
+    h+='<div class="deck-hero-half"><div class="deck-section-hdr">🦸 Legend</div><div class="deck-hero-cards">';
+    if(!legendCards.length){
+      h+='<div class="deck-hero-empty">None — add from left panel</div>';
+    } else {
+      const lc=legendCards[0];const lf=CARDS.find(x=>x.id===lc.id);const li=lf?lf.imageUrl:'';
       const lsi=lc.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const lsn=lc.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const lst=lc.t.replace(/'/g,"\\'");
-      hb+=`<div class="hzb-card deck-card-item" title="${lc.n}" draggable="true" ondragstart="editDeckDragStart('${lsi}','${lsn}','${lst}')">`;
-      if(li) hb+=`<img src="${li}" alt="" loading="lazy">`;
-      else hb+=`<div class="deck-card-no-img"><div class="dcni-name">${lc.n}</div></div>`;
-      hb+=`<div class="deck-card-actions"><div class="dca-btn" onclick="openCardModal('${lsi}')"><span>🔍</span> Zoom</div><div class="dca-btn dca-danger" onclick="editDeckCard('${lsi}','${lsn}','${lst}',-1)"><span>✕</span> Remove</div></div>`;
-      hb+='</div>';
-    } else {
-      hb+='<div class="hzb-empty">None</div>';
+      h+=`<div class="deck-card-item deck-card-legend" title="${lc.n}" draggable="true" ondragstart="editDeckDragStart('${lsi}','${lsn}','${lst}')">`;
+      if(li) h+=`<img src="${li}" alt="" loading="lazy">`;
+      else h+=`<div class="deck-card-no-img"><div class="dcni-name">${lc.n}</div></div>`;
+      h+=`<div class="deck-card-actions"><div class="dca-btn" onclick="openCardModal('${lsi}')"><span>🔍</span> Zoom</div><div class="dca-btn dca-danger" onclick="editDeckCard('${lsi}','${lsn}','${lst}',-1)"><span>✕</span> Remove</div></div></div>`;
     }
-    hb+='</div>';
-    // Champion slot
-    hb+='<div class="hzb-slot">';
-    hb+='<div class="hzb-label">Champion</div>';
-    hb+=`<div class="hzb-card deck-card-item drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,'champion')" title="${zoneChamp?zoneChamp.n:'Drop champion here'}">`;
+    h+='</div></div>';
+    // Champion half
+    h+='<div class="deck-hero-half"><div class="deck-section-hdr">⚔️ Champion</div>';
+    h+=`<div class="deck-card-item deck-card-legend drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,'champion')" title="${zoneChamp?zoneChamp.n:'Drag champion here'}">`;
     if(zoneChamp){
-      const zf=CARDS.find(x=>x.id===zoneChamp.id);
-      const zi=zf?zf.imageUrl:'';
+      const zf=CARDS.find(x=>x.id===zoneChamp.id);const zi=zf?zf.imageUrl:'';
       const zsi=zoneChamp.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const zsn=zoneChamp.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      hb+=`<div class="hzb-inner" draggable="true" ondragstart="editDeckDragStart('${zsi}','${zsn}','Champion')">`;
-      if(zi) hb+=`<img src="${zi}" alt="" loading="lazy">`;
-      else hb+=`<div class="deck-card-no-img"><div class="dcni-name">${zoneChamp.n}</div></div>`;
-      hb+=`<div class="deck-card-actions"><div class="dca-btn" onclick="openCardModal('${zsi}')"><span>🔍</span> Zoom</div><div class="dca-btn dca-danger" onclick="removeChampionZone()"><span>✕</span> Remove</div></div>`;
-      hb+='</div>';
+      h+=`<div class="hzb-inner" draggable="true" ondragstart="editDeckDragStart('${zsi}','${zsn}','Champion')">`;
+      if(zi) h+=`<img src="${zi}" alt="" loading="lazy">`;
+      else h+=`<div class="deck-card-no-img"><div class="dcni-name">${zoneChamp.n}</div></div>`;
+      h+=`<div class="deck-card-actions"><div class="dca-btn" onclick="openCardModal('${zsi}')"><span>🔍</span> Zoom</div><div class="dca-btn dca-danger" onclick="removeChampionZone()"><span>✕</span> Remove</div></div></div>`;
     } else {
-      hb+='<div class="hzb-empty-drop">Drag champion here</div>';
+      h+='<div class="hzb-empty-drop">Drag champion here</div>';
     }
-    hb+='</div>';
-    hb+='</div>';
-    heroBar.innerHTML=hb;
+    h+='</div></div></div>';
+    return h;
   }
+
+  let html=buildHeroSection();
 
   // Deck cards by type (Unit → Spell → Gear → other)
   const TYPE_ORDER=['Unit','Spell','Gear'];
@@ -1010,6 +1006,29 @@ function removeChampionZone(){
   d.champion=null;persist();renderEditSearch();renderEditPreview();
 }
 
+function startEditDeckTitle(deckId){
+  const el=document.getElementById('deck-title-display');if(!el)return;
+  const d=myDecks.find(x=>x.id===deckId);if(!d)return;
+  const inp=document.createElement('input');
+  inp.type='text';inp.value=d.name;inp.className='dtitle-input';
+  inp.onblur=()=>saveDeckTitle(deckId,inp.value);
+  inp.onkeydown=e=>{if(e.key==='Enter')inp.blur();if(e.key==='Escape'){inp.value=d.name;inp.blur();}};
+  el.replaceWith(inp);inp.focus();inp.select();
+}
+function saveDeckTitle(deckId,val){
+  const d=myDecks.find(x=>x.id===deckId);if(!d)return;
+  const name=val.trim()||d.name;
+  d.name=name;persist();
+  const inp=document.querySelector('.dtitle-input');
+  if(inp){
+    const el=document.createElement('div');
+    el.className='dtitle';el.id='deck-title-display';el.title='Click to edit';
+    el.innerHTML=`${name}<span class="dtitle-edit-icon">✎</span>`;
+    el.onclick=()=>startEditDeckTitle(deckId);
+    inp.replaceWith(el);
+  }
+  if(currentUser) saveToCloud(deckId);
+}
 function closeDeckDetail(){document.getElementById('dl').style.display='';document.getElementById('dd').style.display='none';activeDeckId=null;activeDDTab='cards';renderDecks();}
 function delDeck(id){
   if(!confirm('Delete this deck?'))return;
@@ -1357,6 +1376,9 @@ function renderStatistics(){
 loadStorage();
 ['energy','power','might'].forEach(n=>{document.getElementById('rf-'+n).style.cssText='left:0%;width:100%;';});
 fetchAllCards();
+
+let _resizeTimer;
+window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=setTimeout(()=>{if(activeDeckId&&activeDDTab==='edit')renderEditSearch();},150);});
 
 /* ═══════════════════════════════════════════════════════════════
    AUTH + CLOUD SYNC ENGINE
