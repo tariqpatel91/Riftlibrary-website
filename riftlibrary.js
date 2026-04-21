@@ -16,7 +16,7 @@ let currentUser=null;
 let authToken=null;
 const AF={doms:new Set()};
 const CF={type:'',set:'',rar:'',legend:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false};
-const EF={type:'',dom:'',page:1};
+const EF={type:'',dom:'',page:1,showAllVersions:false};
 const EDIT_PER=24;
 
 /* storage */
@@ -198,11 +198,22 @@ function renderDeckDetail(){
   const totalCards=(d.cards||[]).reduce((a,c)=>a+c.cnt,0);
 
   document.getElementById('ddc').innerHTML=`
-    <div class="dtitle">${d.name}</div>
-    <div class="dmeta">
-      <span>${d.legend}</span><span>·</span>
-      <div class="dr" style="margin:0;">${pills(d.domains)}</div>
-      <span>·</span><span>${d.format}</span>
+    <!-- DECK HEADER: title left, hero zones center, deck count right -->
+    <div class="deck-header">
+      <div class="deck-header-left">
+        <div class="dtitle">${d.name}</div>
+        <div class="dmeta">
+          <span>${d.legend}</span><span>·</span>
+          <div class="dr" style="margin:0;">${pills(d.domains)}</div>
+          <span>·</span><span>${d.format}</span>
+        </div>
+      </div>
+      <div class="deck-header-center">
+        <div class="hero-zone-bar" id="hero-zone-bar"></div>
+      </div>
+      <div class="deck-header-right">
+        <span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">— / 40 cards</span>
+      </div>
     </div>
 
     <!-- TABS -->
@@ -223,7 +234,6 @@ function renderDeckDetail(){
         <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Results
       </button>
-      <div class="dd-deck-badge"><span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">— / 40 cards</span></div>
     </div>
 
     <!-- PANEL: CARDS -->
@@ -283,7 +293,7 @@ function renderDeckDetail(){
 }
 
 function switchDDTab(tab){
-  if(tab!=='edit'){EF.type='';EF.dom='';EF.page=1;}
+  if(tab!=='edit'){EF.type='';EF.dom='';EF.page=1;EF.showAllVersions=false;const hzb=document.getElementById('hero-zone-bar');if(hzb)hzb.innerHTML='';}
   activeDDTab=tab;
   renderDeckDetail();
   if(tab==='edit'){setTimeout(()=>{renderEditSearch();renderEditPreview();},10);}
@@ -426,11 +436,33 @@ function adjustSB(deckId,cardId,delta){
   if(!d.sideboard) d.sideboard=[];
   const entry=d.sideboard.find(c=>c.id===cardId);
   if(entry){
+    if(delta>0&&entry.cnt>=3){toast('Max 3 copies');return;}
+    if(delta>0){const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);if(sbTotal>=15){toast('Sideboard is full (15 cards max)');return;}}
     entry.cnt=Math.max(0,entry.cnt+delta);
     if(entry.cnt===0) d.sideboard=d.sideboard.filter(c=>c.id!==cardId);
   }
   persist();
-  renderEditPreview();
+  renderEditSearch();renderEditPreview();
+}
+
+function addRune(cardId,cardName){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  if(!d.runes) d.runes=[];
+  if(d.runes.length>=12){toast('Max 12 runes per deck');return;}
+  const full=CARDS.find(x=>x.id===cardId);
+  const deckDoms=d.domains||[];
+  if(full&&full.doms.length&&deckDoms.length&&!full.doms.some(dom=>deckDoms.includes(dom))){
+    toast('Rune domain must match your deck');return;
+  }
+  d.runes.push({id:cardId,n:cardName});
+  persist();renderEditSearch();renderEditPreview();
+  toast(cardName+' added to runes');
+}
+function removeRune(cardId){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const idx=(d.runes||[]).findIndex(r=>r.id===cardId);
+  if(idx>=0) d.runes.splice(idx,1);
+  persist();renderEditSearch();renderEditPreview();
 }
 
 function clearSideboard(deckId){
@@ -468,14 +500,19 @@ function renderSBSearch(deckId){
 function addToSB(deckId,cardId,cardName,cardType){
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   if(!d.sideboard) d.sideboard=[];
-  const total=d.sideboard.reduce((a,c)=>a+c.cnt,0);
-  if(total>=15){toast('Sideboard is full (15 cards max)');return;}
+  const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
+  if(sbTotal>=15){toast('Sideboard is full (15 cards max)');return;}
+  const deckIdx=(d.cards||[]).findIndex(c=>c.id===cardId);
+  if(deckIdx<0){toast('Card not found in main deck');return;}
+  d.cards[deckIdx].cnt--;
+  if(d.cards[deckIdx].cnt<=0) d.cards.splice(deckIdx,1);
   const existing=d.sideboard.find(c=>c.id===cardId);
   if(existing){if(existing.cnt>=3){toast('Max 3 copies');return;}existing.cnt++;}
   else d.sideboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
   persist();
+  renderEditSearch();
   renderEditPreview();
-  toast(cardName+' added to sideboard');
+  toast(cardName+' moved to sideboard');
 }
 
 function renderEditSearch(){
@@ -493,12 +530,28 @@ function renderEditSearch(){
     return;
   }
 
-  let source=CARDS;
+  let source=CARDS.filter(c=>c.type!=='Legend');
   const deckDoms=d.domains||[];
-  if(deckDoms.length){source=source.filter(c=>c.type==='Gear'||(c.type==='Legend'&&c.name===d.legend)||c.doms.length===0||c.doms.some(dom=>deckDoms.includes(dom)));}
+  if(deckDoms.length){source=source.filter(c=>c.type==='Rune'||c.type==='Gear'||c.doms.length===0||c.doms.some(dom=>deckDoms.includes(dom)));}
+  // Rune tab: only show runes matching deck domains
+  if(EF.type==='Rune'&&deckDoms.length){source=source.filter(c=>c.type==='Rune'&&(c.doms.length===0||c.doms.some(dom=>deckDoms.includes(dom))));}
   if(q) source=source.filter(c=>c.name.toLowerCase().includes(q)||c.txt.toLowerCase().includes(q));
-  if(EF.type) source=source.filter(c=>c.type===EF.type);
+  if(EF.type==='Champion') source=source.filter(c=>(c.supertype||'').toLowerCase().includes('champion')&&c.type!=='Legend');
+  else if(EF.type) source=source.filter(c=>c.type===EF.type||c.supertype===EF.type);
   if(EF.dom) source=source.filter(c=>c.doms.includes(EF.dom));
+  if(!EF.showAllVersions){
+    const RR={Legendary:5,Epic:4,Rare:3,Uncommon:2,Common:1,Showcase:0,Promo:0};
+    const seen=new Map();
+    source.forEach(c=>{
+      // For champions: strip variant suffix ("Annie - Fiery" → "Annie") so all forms collapse to one
+      // For others: strip only trailing parenthetical "(Alternate Art)" style suffixes
+      let key=c.name.replace(/\s*\([^)]*\)\s*$/,'').toLowerCase().trim();
+      if(EF.type==='Champion'||(c.supertype||'').toLowerCase().includes('champion')) key=key.replace(/\s*[-–]\s*.+$/,'').trim();
+      const ex=seen.get(key);
+      if(!ex||(RR[c.rarity]??1)>(RR[ex.rarity]??1)) seen.set(key,c);
+    });
+    source=[...seen.values()];
+  }
   source=source.slice().sort((a,b)=>a.name.localeCompare(b.name));
 
   const total=source.length;
@@ -506,8 +559,8 @@ function renderEditSearch(){
   if(EF.page>pages) EF.page=pages;
   const slice=source.slice((EF.page-1)*EDIT_PER,EF.page*EDIT_PER);
 
-  const TYPES=['','Champion','Unit','Spell','Gear','Legend'];
-  const TYPE_LABELS={'':'All','Champion':'Champion','Unit':'Unit','Spell':'Spell','Gear':'Gear','Legend':'Legend'};
+  const TYPES=['','Champion','Unit','Spell','Gear','Rune'];
+  const TYPE_LABELS={'':'All','Champion':'Champion','Unit':'Unit','Spell':'Spell','Gear':'Gear','Rune':'Rune'};
   const DOMS=['fury','chaos','calm','mind','body','order'];
 
   let html='';
@@ -531,7 +584,8 @@ function renderEditSearch(){
     +'<span class="edit-si">⌕</span>'
     +`<input type="text" id="edit-search-inp" placeholder="Search cards…" oninput="renderEditSearch()" value="${qEsc}">`
     +(savedVal?'<button class="edit-search-clear" onclick="document.getElementById(\'edit-search-inp\').value=\'\';EF.page=1;renderEditSearch()">×</button>':'')
-    +'</div>';
+    +'</div>'
+    +`<label class="edit-all-versions-label"><input type="checkbox"${EF.showAllVersions?' checked':''} onchange="setEditShowAll(this.checked)"> Show all versions</label>`;
 
   html+='<div class="edit-card-grid">';
   if(!slice.length){
@@ -541,9 +595,14 @@ function renderEditSearch(){
       const entry=(d.cards||[]).find(x=>x.id===c.id);
       const cnt=entry?entry.cnt:0;
       const sn=c.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      const st=c.type.replace(/'/g,"\\'");
+      const isChamp=(c.supertype||'').toLowerCase().includes('champion');
+      const effType=isChamp?'Champion':c.type;
+      const at=c.type.replace(/'/g,"\\'");
+      const st=effType.replace(/'/g,"\\'");
+      const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const domPills=c.doms.map(dm=>`<span class="pill ${dm}">${dm[0].toUpperCase()+dm.slice(1)}</span>`).join('');
-      html+=`<div class="ct ct-img" onclick="editDeckCard('${c.id}','${sn}','${st}',1)" title="${c.name}">`;
+      const clickFn=c.type==='Rune'?`addRune('${c.id}','${sn}')`:(`editDeckCard('${c.id}','${sn}','${at}',1)`);
+      html+=`<div class="ct ct-img" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" onclick="${clickFn}" title="${c.name}">`;
       html+= c.imageUrl
         ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
         :`<div class="ct-img-wrap no-img"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`;
@@ -567,6 +626,9 @@ function renderEditSearch(){
   }
 
   left.innerHTML=html;
+  left.ondragover=e=>{e.preventDefault();left.classList.add('drag-over');};
+  left.ondragleave=e=>{if(!e.relatedTarget||!left.contains(e.relatedTarget))left.classList.remove('drag-over');};
+  left.ondrop=e=>{e.preventDefault();left.classList.remove('drag-over');if(_DRAG&&_DRAG.src==='deck'){if(_DRAG.t==='Champion')removeChampionZone();else editDeckCard(_DRAG.id,_DRAG.n,_DRAG.t,-1);}_DRAG=null;};
   if(wasFocused){const inp=document.getElementById('edit-search-inp');if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}}
 }
 
@@ -579,17 +641,63 @@ function buildPageNums(cur,total){
 function setEditType(t){EF.type=t;EF.page=1;renderEditSearch();}
 function setEditDom(d){EF.dom=EF.dom===d?'':d;EF.page=1;renderEditSearch();}
 function setEditPage(p){EF.page=p;renderEditSearch();}
+function setEditShowAll(v){EF.showAllVersions=v;EF.page=1;renderEditSearch();}
+
+/* ── DRAG AND DROP ───────────────────────────────── */
+function editLibDragStart(id,name,type){_DRAG={src:'library',id,n:name,t:type};}
+function editDeckDragStart(id,name,type){_DRAG={src:'deck',id,n:name,t:type};}
+function editZoneDragOver(e){e.preventDefault();e.currentTarget.classList.add('drag-over');}
+function editZoneDragLeave(e){if(!e.relatedTarget||!e.currentTarget.contains(e.relatedTarget))e.currentTarget.classList.remove('drag-over');}
+function editZoneDrop(e,zone){
+  e.preventDefault();e.currentTarget.classList.remove('drag-over');
+  if(!_DRAG)return;
+  if(zone==='champion'){
+    const d=myDecks.find(x=>x.id===activeDeckId);if(!d){_DRAG=null;return;}
+    const full=CARDS.find(x=>x.id===_DRAG.id);
+    const isChamp=_DRAG.t==='Champion'||(full&&(full.supertype||'').toLowerCase().includes('champion'));
+    if(!isChamp){toast('Only Champion cards can go in the Champion zone');_DRAG=null;return;}
+    // Enforce: card name must include the legend name
+    const legendBase=(d.legend||'').split(/\s*[-–]\s*/)[0].toLowerCase().trim();
+    if(legendBase&&!_DRAG.n.toLowerCase().includes(legendBase)){
+      toast(`Champion zone only accepts ${d.legend} champions`);_DRAG=null;return;
+    }
+    if(d.champion){toast('Champion zone already has a card — remove it first');_DRAG=null;return;}
+    if(_DRAG.src==='library'){
+      // From library: add to zone (counts toward max 3)
+      const zoneCnt=0;
+      const deckEntry=(d.cards||[]).find(c=>c.id===_DRAG.id);
+      const sbCnt=((d.sideboard||[]).find(c=>c.id===_DRAG.id)||{cnt:0}).cnt;
+      if(zoneCnt+(deckEntry?deckEntry.cnt:0)+sbCnt>=3){toast('Max 3 copies total across all zones');_DRAG=null;return;}
+      d.champion={id:_DRAG.id,n:_DRAG.n};
+    } else if(_DRAG.src==='deck'){
+      // From main deck: move 1 copy out of deck into zone
+      const idx=(d.cards||[]).findIndex(c=>c.id===_DRAG.id);
+      if(idx<0){_DRAG=null;return;}
+      d.cards[idx].cnt--;
+      if(d.cards[idx].cnt<=0) d.cards.splice(idx,1);
+      d.champion={id:_DRAG.id,n:_DRAG.n};
+    }
+    persist();renderEditSearch();renderEditPreview();
+  } else if(zone==='deck'){
+    if(_DRAG.src==='library') editDeckCard(_DRAG.id,_DRAG.n,_DRAG.t,1);
+  }
+  _DRAG=null;
+}
 
 function renderEditPreview(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const right=document.getElementById('edit-right');if(!right)return;
+  // Migrate old t:'Champion' entries in d.cards → d.champion
+  if(!d.champion){
+    const old=(d.cards||[]).find(c=>c.t==='Champion');
+    if(old){d.champion={id:old.id,n:old.n};d.cards=d.cards.filter(c=>c.t!=='Champion');persist();}
+  }
   const cards=d.cards||[];
   const alpha=(a,b)=>a.n.localeCompare(b.n);
   const legendCards=cards.filter(c=>c.t==='Legend').sort(alpha);
-  const champCards=cards.filter(c=>c.t==='Champion').sort(alpha);
+  const deckCards=cards.filter(c=>c.t!=='Legend');
   const nonLegendCards=cards.filter(c=>c.t!=='Legend');
   const total=nonLegendCards.reduce((a,c)=>a+c.cnt,0);
-  const deckCards=cards.filter(c=>c.t!=='Legend'&&c.t!=='Champion');
 
   function cardItem(c,cls){
     const full=CARDS.find(x=>x.id===c.id);
@@ -598,7 +706,7 @@ function renderEditPreview(){
     const st=c.t.replace(/'/g,"\\'");
     const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const canAdd=c.cnt<3;
-    let h=`<div class="deck-card-item ${cls}" title="${c.n}">`;
+    let h=`<div class="deck-card-item ${cls}" title="${c.n}" draggable="true" ondragstart="editDeckDragStart('${si}','${sn}','${st}')">`;
     if(img) h+=`<img src="${img}" alt="" loading="lazy">`;
     else h+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
     h+=`<div class="deck-card-actions">`;
@@ -617,22 +725,51 @@ function renderEditPreview(){
 
   let html='';
 
-  // Hero row: Legend (half) + Champion (half)
-  const champTotal=champCards.reduce((a,c)=>a+c.cnt,0);
-  html+='<div class="deck-hero-row">';
-  html+='<div class="deck-hero-half">';
-  html+='<div class="deck-section-hdr">🦸 Legend</div>';
-  html+='<div class="deck-hero-cards">';
-  if(!legendCards.length) html+='<div class="deck-hero-empty">None — add from left panel</div>';
-  else legendCards.forEach(c=>{ html+=cardItem(c,'deck-card-legend'); });
-  html+='</div></div>';
-  html+='<div class="deck-hero-half">';
-  html+=`<div class="deck-section-hdr">⚔️ Champion <span class="ds-count">(${champTotal})</span></div>`;
-  html+='<div class="deck-hero-cards">';
-  if(!champCards.length) html+='<div class="deck-hero-empty">None — add from left panel</div>';
-  else champCards.forEach(c=>{ html+=cardItem(c,'deck-card-hero'); });
-  html+='</div></div>';
-  html+='</div>';
+  // Hero zone bar (compact thumbnails in tab row)
+  const zoneChamp=d.champion||null;
+  const heroBar=document.getElementById('hero-zone-bar');
+  if(heroBar){
+    let hb='';
+    // Legend slot
+    hb+='<div class="hzb-slot">';
+    hb+='<div class="hzb-label">Legend</div>';
+    if(legendCards.length){
+      const lc=legendCards[0];
+      const lf=CARDS.find(x=>x.id===lc.id);
+      const li=lf?lf.imageUrl:'';
+      const lsi=lc.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const lsn=lc.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const lst=lc.t.replace(/'/g,"\\'");
+      hb+=`<div class="hzb-card deck-card-item" title="${lc.n}" draggable="true" ondragstart="editDeckDragStart('${lsi}','${lsn}','${lst}')">`;
+      if(li) hb+=`<img src="${li}" alt="" loading="lazy">`;
+      else hb+=`<div class="deck-card-no-img"><div class="dcni-name">${lc.n}</div></div>`;
+      hb+=`<div class="deck-card-actions"><div class="dca-btn" onclick="openCardModal('${lsi}')"><span>🔍</span> Zoom</div><div class="dca-btn dca-danger" onclick="editDeckCard('${lsi}','${lsn}','${lst}',-1)"><span>✕</span> Remove</div></div>`;
+      hb+='</div>';
+    } else {
+      hb+='<div class="hzb-empty">None</div>';
+    }
+    hb+='</div>';
+    // Champion slot
+    hb+='<div class="hzb-slot">';
+    hb+='<div class="hzb-label">Champion</div>';
+    hb+=`<div class="hzb-card deck-card-item drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,'champion')" title="${zoneChamp?zoneChamp.n:'Drop champion here'}">`;
+    if(zoneChamp){
+      const zf=CARDS.find(x=>x.id===zoneChamp.id);
+      const zi=zf?zf.imageUrl:'';
+      const zsi=zoneChamp.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const zsn=zoneChamp.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      hb+=`<div class="hzb-inner" draggable="true" ondragstart="editDeckDragStart('${zsi}','${zsn}','Champion')">`;
+      if(zi) hb+=`<img src="${zi}" alt="" loading="lazy">`;
+      else hb+=`<div class="deck-card-no-img"><div class="dcni-name">${zoneChamp.n}</div></div>`;
+      hb+=`<div class="deck-card-actions"><div class="dca-btn" onclick="openCardModal('${zsi}')"><span>🔍</span> Zoom</div><div class="dca-btn dca-danger" onclick="removeChampionZone()"><span>✕</span> Remove</div></div>`;
+      hb+='</div>';
+    } else {
+      hb+='<div class="hzb-empty-drop">Drag champion here</div>';
+    }
+    hb+='</div>';
+    hb+='</div>';
+    heroBar.innerHTML=hb;
+  }
 
   // Deck cards by type (Unit → Spell → Gear → other)
   const TYPE_ORDER=['Unit','Spell','Gear'];
@@ -648,7 +785,7 @@ function renderEditPreview(){
     const byType={};
     const typeOrder=[];
     sorted.forEach(c=>{if(!byType[c.t]){byType[c.t]=[];typeOrder.push(c.t);}byType[c.t].push(c);});
-    html+='<div class="deck-all-types">';
+    html+='<div class="deck-all-types drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,\'deck\')">';
     typeOrder.forEach(type=>{
       const uniqueCards=byType[type];
       const typeTotal=uniqueCards.reduce((a,c)=>a+c.cnt,0);
@@ -667,6 +804,55 @@ function renderEditPreview(){
     });
     html+='</div>';
   }
+
+  // Rune section
+  const runes=d.runes||[];
+  const runeMax=12;
+  html+=`<div class="deck-section deck-rune-section"><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">🔮 Runes <span class="ds-count">(${runes.length}/${runeMax})</span></div>`;
+  if(!runes.length){
+    html+='<div style="font-size:12px;color:var(--text-muted);">None — select the Rune tab on the left and click a rune to add</div>';
+  } else {
+    // Group runes by domain, then by card id
+    const domainOrder=[];const byDomain={};
+    runes.forEach(r=>{
+      const rf=CARDS.find(x=>x.id===r.id);
+      const dom=(rf&&rf.doms&&rf.doms.length)?rf.doms[0]:'other';
+      if(!byDomain[dom]){byDomain[dom]=[];domainOrder.push(dom);}
+      const existing=byDomain[dom].find(g=>g.id===r.id);
+      if(existing) existing.cnt++;
+      else byDomain[dom].push({id:r.id,n:r.n,cnt:1,img:rf?rf.imageUrl:''});
+    });
+    domainOrder.sort((a,b)=>a.localeCompare(b));
+    html+='<div class="rune-domains-row">';
+    domainOrder.forEach(dom=>{
+      const groups=byDomain[dom];
+      const domTotal=groups.reduce((a,g)=>a+g.cnt,0);
+      const domCap=dom[0].toUpperCase()+dom.slice(1);
+      html+=`<div class="rune-domain-block">`;
+      html+=`<div class="rune-domain-lbl ${dom}">${domCap} <span class="ds-count">(${domTotal})</span></div>`;
+      html+='<div class="rune-domain-row">';
+      groups.forEach(r=>{
+        const rsi=r.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        const rsn=r.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        html+='<div class="rune-h-stack">';
+        for(let i=0;i<r.cnt;i++){
+          html+=`<div class="deck-card-item rune-h-card${i===0?' rune-first':''}" title="${r.n}" style="z-index:${r.cnt-i};">`;
+          if(r.img) html+=`<img src="${r.img}" alt="" loading="lazy">`;
+          else html+=`<div class="deck-card-no-img"><div class="dcni-name">${r.n}</div></div>`;
+          if(i===0) html+=`<div class="deck-card-cnt-badge">×${r.cnt}</div>`;
+          html+=`<div class="deck-card-actions">`;
+          html+=`<div class="dca-btn" onclick="openCardModal('${rsi}')"><span>🔍</span> Zoom</div>`;
+          html+=`<div class="dca-btn" onclick="addRune('${rsi}','${rsn}')"><span>＋</span> Add 1 copy</div>`;
+          html+=`<div class="dca-btn dca-danger" onclick="removeRune('${rsi}')"><span>✕</span> Remove 1</div>`;
+          html+=`</div></div>`;
+        }
+        html+='</div>';
+      });
+      html+='</div></div>';
+    });
+    html+='</div>';
+  }
+  html+='</div>';
 
   // Sideboard section — card image grid like main deck
   const sb=d.sideboard||[];
@@ -700,6 +886,7 @@ function renderEditPreview(){
             else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
             html+=`<div class="deck-card-actions">`;
             html+=`<div class="dca-btn" onclick="openCardModal('${si}')"><span>🔍</span> Zoom</div>`;
+            html+=`<div class="dca-btn" onclick="adjustSB(${d.id},'${si}',1)"><span>＋</span> Add 1 copy</div>`;
             html+=`<div class="dca-btn dca-danger" onclick="adjustSB(${d.id},'${si}',-1)"><span>✕</span> Remove</div>`;
             html+=`</div>`;
             if(c.cnt>1&&i===0) html+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
@@ -722,8 +909,13 @@ function editDeckCard(cardId,cardName,cardType,delta){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   if(!d.cards) d.cards=[];
   const idx=d.cards.findIndex(c=>c.id===cardId);
+  if(delta>0){
+    const sbCnt=((d.sideboard||[]).find(c=>c.id===cardId)||{cnt:0}).cnt;
+    const deckCnt=idx>=0?d.cards[idx].cnt:0;
+    const zoneCnt=(d.champion&&d.champion.id===cardId)?1:0;
+    if(deckCnt+sbCnt+zoneCnt>=3){toast('Max 3 copies total across all zones');return;}
+  }
   if(idx>=0){
-    if(delta>0&&d.cards[idx].cnt>=3){toast('Max 3 copies per card');return;}
     d.cards[idx].cnt=Math.max(0,d.cards[idx].cnt+delta);
     if(d.cards[idx].cnt===0) d.cards.splice(idx,1);
   } else if(delta>0){
@@ -736,6 +928,7 @@ function editDeckCard(cardId,cardName,cardType,delta){
 
 /* ── DECK CARD CONTEXT MENU ──────────────────────── */
 let _DCM=null;
+let _DRAG=null;
 function showDeckCardMenu(e,cardId,cardName,cardType){
   e.stopPropagation();
   closeDeckCardMenu();
@@ -774,7 +967,48 @@ function closeDeckCardMenu(){
 function dcmZoom(){if(_DCM)openCardModal(_DCM.id);closeDeckCardMenu();}
 function dcmRemove(){if(_DCM)editDeckCard(_DCM.id,_DCM.n,_DCM.t,-1);closeDeckCardMenu();}
 function dcmAdd(){if(_DCM)editDeckCard(_DCM.id,_DCM.n,_DCM.t,1);closeDeckCardMenu();}
-function dcmSideboard(){if(_DCM)addToSB(activeDeckId,_DCM.id,_DCM.n,_DCM.t);closeDeckCardMenu();}
+function dcmSideboard(){
+  if(!_DCM) return;
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  if(!d.sideboard) d.sideboard=[];
+  const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
+  if(sbTotal>=15){toast('Sideboard is full (15 cards max)');closeDeckCardMenu();return;}
+  const deckIdx=(d.cards||[]).findIndex(c=>c.id===_DCM.id);
+  if(deckIdx<0){closeDeckCardMenu();return;}
+  d.cards[deckIdx].cnt--;
+  if(d.cards[deckIdx].cnt<=0) d.cards.splice(deckIdx,1);
+  const sbEntry=d.sideboard.find(c=>c.id===_DCM.id);
+  if(sbEntry) sbEntry.cnt++;
+  else d.sideboard.push({id:_DCM.id,n:_DCM.n,t:_DCM.t,cnt:1});
+  persist();
+  renderEditSearch();
+  renderEditPreview();
+  const panel=document.getElementById('ddp-sideboard');
+  if(panel) panel.innerHTML=buildSideboardPanel(d);
+  toast(_DCM.n+' moved to sideboard');
+  closeDeckCardMenu();
+}
+
+function editChampionCard(cardId,cardName,actualType){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  if(!d.cards) d.cards=[];
+  const zoneCnt=(d.champion&&d.champion.id===cardId)?1:0;
+  const deckEntry=d.cards.find(c=>c.id===cardId);
+  const sbCnt=((d.sideboard||[]).find(c=>c.id===cardId)||{cnt:0}).cnt;
+  const total=zoneCnt+(deckEntry?deckEntry.cnt:0)+sbCnt;
+  if(total>=3){toast('Max 3 copies total across all zones');return;}
+  if(!d.champion){
+    d.champion={id:cardId,n:cardName};
+  } else {
+    if(deckEntry){deckEntry.cnt++;}
+    else{d.cards.push({id:cardId,n:cardName,t:actualType||'Unit',cnt:1});}
+  }
+  persist();renderEditSearch();renderEditPreview();
+}
+function removeChampionZone(){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  d.champion=null;persist();renderEditSearch();renderEditPreview();
+}
 
 function closeDeckDetail(){document.getElementById('dl').style.display='';document.getElementById('dd').style.display='none';activeDeckId=null;activeDDTab='cards';renderDecks();}
 function delDeck(id){

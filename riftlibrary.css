@@ -116,8 +116,12 @@ select option{background:#1e1e2a;}
 .es h3{font-family:'Syne',sans-serif;font-size:18px;color:var(--text-soft);margin-bottom:8px;font-weight:600;}
 .bb{display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-muted);font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;margin-bottom:1.5rem;padding:0;}
 .bb:hover{color:var(--text);}
-.dtitle{font-family:'Syne',sans-serif;font-size:26px;font-weight:700;letter-spacing:-0.03em;margin-bottom:8px;}
-.dmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--text-muted);margin-bottom:1.5rem;}
+.deck-header{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:24px;margin-bottom:0;padding-bottom:0;}
+.deck-header-left{display:flex;flex-direction:column;justify-content:flex-end;}
+.deck-header-center{display:flex;justify-content:center;}
+.deck-header-right{display:flex;align-items:center;gap:10px;justify-content:flex-end;padding-bottom:8px;}
+.dtitle{font-family:'Syne',sans-serif;font-size:26px;font-weight:700;letter-spacing:-0.03em;margin-bottom:6px;}
+.dmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--text-muted);margin-bottom:0;}
 .sr{display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap:10px;margin-bottom:1.75rem;}
 .sb{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;text-align:center;}
 .sv{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;}
@@ -232,6 +236,8 @@ select option{background:#1e1e2a;}
 .rbar #res-count{flex:1;}
 .show-all-versions-label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;white-space:nowrap;user-select:none;}
 .show-all-versions-label input{accent-color:var(--accent);width:14px;height:14px;cursor:pointer;}
+.edit-all-versions-label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;user-select:none;padding:2px 0 4px;}
+.edit-all-versions-label input{accent-color:var(--accent);width:13px;height:13px;cursor:pointer;}
 .spinner{display:flex;align-items:center;justify-content:center;padding:4rem;gap:12px;color:var(--text-muted);font-size:14px;}
 .spin{width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp 0.7s linear infinite;flex-shrink:0;}
 @keyframes sp{to{transform:rotate(360deg);}}
@@ -299,9 +305,19 @@ select option{background:#1e1e2a;}
 .opp-hand{opacity:0.7;}
 
 /* ── DECK DETAIL TABS ───────────────────────────── */
-.dd-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem;overflow-x:auto;position:sticky;top:54px;z-index:20;background:var(--bg);scrollbar-width:none;}
+.dd-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem;overflow-x:auto;position:sticky;top:54px;z-index:20;background:var(--bg);scrollbar-width:none;margin-top:0;}
 .dd-tabs::-webkit-scrollbar{display:none;}
-.dd-deck-badge{display:flex;align-items:center;gap:10px;margin-left:auto;padding:0 16px;flex-shrink:0;}
+.hero-zone-bar{display:flex;align-items:flex-end;justify-content:center;gap:24px;padding:8px 0 0;}.hero-zone-bar:empty{display:none;}
+.hzb-slot{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.hzb-label{font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;}
+.hzb-card{position:relative;width:130px;aspect-ratio:2.5/3.5;border-radius:8px;overflow:hidden;background:var(--surface2);border:1px solid var(--border);}
+.hzb-card img{width:100%;height:100%;object-fit:cover;display:block;}
+.hzb-card.drop-zone{border:2px dashed var(--border);transition:border-color 0.15s,background 0.15s;}
+.hzb-card.drag-over{border-color:var(--accent);background:var(--accent-dim);}
+.hzb-inner{position:relative;width:100%;height:100%;}
+.hzb-inner img{width:100%;height:100%;object-fit:cover;display:block;}
+.hzb-empty{font-size:11px;color:var(--text-muted);text-align:center;line-height:1.5;padding:8px 6px;}
+.hzb-empty-drop{font-size:11px;color:var(--text-muted);text-align:center;line-height:1.5;padding:8px 6px;width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
 .dd-tab{display:flex;align-items:center;gap:6px;padding:9px 16px;font-size:13px;font-family:'DM Sans',sans-serif;border:none;background:transparent;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:color 0.15s;white-space:nowrap;margin-bottom:-1px;}
 .dd-tab svg{width:14px;height:14px;flex-shrink:0;opacity:0.7;}
 .dd-tab:hover{color:var(--text-soft);}
@@ -311,7 +327,7 @@ select option{background:#1e1e2a;}
 .dd-panel.active{display:block;}
 
 /* edit tab */
-.edit-grid{display:grid;grid-template-columns:460px 1fr;gap:1.5rem;height:calc(100vh - 290px);}
+.edit-grid{display:grid;grid-template-columns:460px 1fr;gap:1.5rem;height:calc(100vh - 420px);}
 @media(max-width:900px){.edit-grid{grid-template-columns:1fr;height:auto;}}
 .edit-left{display:flex;flex-direction:column;gap:8px;height:100%;overflow:hidden;}
 .edit-right{height:100%;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding-right:2px;scrollbar-width:none;}
@@ -364,11 +380,29 @@ select option{background:#1e1e2a;}
 .deck-hero-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
 .deck-hero-half{display:flex;flex-direction:column;gap:8px;}
 .deck-hero-cards{display:flex;flex-wrap:wrap;gap:10px;}
-.deck-hero-empty{font-size:12px;color:var(--text-muted);}
+.champ-drop-zone{min-height:120px;align-content:flex-start;}
+.deck-hero-empty{font-size:12px;color:var(--text-muted);display:flex;align-items:center;width:100%;}
 .deck-card-legend{width:100%;max-width:200px;aspect-ratio:2.5/3.5;}
 .deck-card-hero{width:120px;aspect-ratio:2.5/3.5;}
 .deck-card-main{width:115px;aspect-ratio:2.5/3.5;}
 .deck-sb-section{border-top:1px solid var(--border);padding-top:12px;margin-top:4px;}
+.deck-rune-section{border-top:1px solid var(--border);padding-top:12px;margin-top:4px;}
+.rune-domains-row{display:flex;flex-direction:row;flex-wrap:wrap;gap:24px;align-items:flex-start;}
+.rune-domain-block{display:flex;flex-direction:column;gap:6px;}
+.rune-domain-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;padding:2px 6px;border-radius:4px;display:inline-block;}
+.rune-domain-lbl.calm{color:var(--calm);background:rgba(50,170,200,0.1);}
+.rune-domain-lbl.mind{color:var(--mind);background:rgba(100,100,220,0.1);}
+.rune-domain-lbl.fury{color:var(--fury);background:rgba(220,80,50,0.1);}
+.rune-domain-lbl.chaos{color:var(--chaos);background:rgba(150,50,200,0.1);}
+.rune-domain-lbl.body{color:var(--body);background:rgba(80,160,80,0.1);}
+.rune-domain-lbl.order{color:var(--order);background:rgba(200,160,50,0.1);}
+.rune-domain-lbl.other{color:var(--text-muted);background:var(--surface2);}
+.rune-domain-row{display:flex;flex-direction:row;flex-wrap:wrap;gap:16px;align-items:flex-start;}
+.rune-h-stack{display:flex;flex-direction:row;position:relative;}
+.rune-h-card{width:90px;flex-shrink:0;margin-left:-50px;position:relative;}
+.rune-h-card.rune-first{margin-left:0;}
+.rune-h-card:hover{z-index:20!important;margin-left:-40px;}
+.rune-h-card:hover~.rune-h-card{margin-left:-44px;}
 /* vertical stacking columns for deck section */
 .deck-all-types{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;}
 .deck-type-block{display:flex;flex-direction:column;gap:6px;}
@@ -386,6 +420,11 @@ select option{background:#1e1e2a;}
 .dca-danger{color:#f87171;}
 .dca-danger:hover{background:rgba(248,113,113,0.25);}
 .dca-disabled{opacity:0.35;cursor:not-allowed;pointer-events:none;}
+.drop-zone{transition:background 0.15s,border-color 0.15s;border-radius:8px;border:2px dashed transparent;}
+.drop-zone.drag-over{background:var(--accent-dim);border-color:var(--accent);}
+.edit-left.drag-over{background:rgba(248,113,113,0.07);outline:2px dashed #f87171;outline-offset:-4px;}
+[draggable=true]{cursor:grab;}
+[draggable=true]:active{cursor:grabbing;}
 .deck-card-cnt-badge{position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.72);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:1px 5px;pointer-events:none;}
 .deck-card-no-img{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:4px;text-align:center;}
 .dcni-name{font-size:8px;color:var(--text-soft);line-height:1.2;}
