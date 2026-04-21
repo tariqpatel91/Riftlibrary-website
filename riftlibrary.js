@@ -533,7 +533,7 @@ function renderEditSearch(){
 
   let source=CARDS.filter(c=>c.type!=='Legend');
   const deckDoms=d.domains||[];
-  if(deckDoms.length){source=source.filter(c=>c.type==='Rune'||c.doms.length===0||c.doms.some(dom=>deckDoms.includes(dom)));}
+  if(deckDoms.length){source=source.filter(c=>c.type==='Rune'||c.type==='Battlefield'||c.doms.length===0||c.doms.some(dom=>deckDoms.includes(dom)));}
   // Rune tab: only show runes matching deck domains
   if(EF.type==='Rune'&&deckDoms.length){source=source.filter(c=>c.type==='Rune'&&(c.doms.length===0||c.doms.some(dom=>deckDoms.includes(dom))));}
   if(q) source=source.filter(c=>c.name.toLowerCase().includes(q)||c.txt.toLowerCase().includes(q));
@@ -561,8 +561,8 @@ function renderEditSearch(){
   if(EF.page>pages) EF.page=pages;
   const slice=source.slice((EF.page-1)*perPage,EF.page*perPage);
 
-  const TYPES=['','Champion','Unit','Spell','Gear','Rune'];
-  const TYPE_LABELS={'':'All','Champion':'Champion','Unit':'Unit','Spell':'Spell','Gear':'Gear','Rune':'Rune'};
+  const TYPES=['','Champion','Unit','Spell','Gear','Rune','Battlefield'];
+  const TYPE_LABELS={'':'All','Champion':'Champion','Unit':'Unit','Spell':'Spell','Gear':'Gear','Rune':'Rune','Battlefield':'Battlefield'};
   const DOMS=['fury','chaos','calm','mind','body','order'];
 
   let html='';
@@ -603,14 +603,21 @@ function renderEditSearch(){
       const st=effType.replace(/'/g,"\\'");
       const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const domPills=c.doms.map(dm=>`<span class="pill ${dm}">${dm[0].toUpperCase()+dm.slice(1)}</span>`).join('');
-      const clickFn=c.type==='Rune'?`addRune('${c.id}','${sn}')`:(`editDeckCard('${c.id}','${sn}','${at}',1)`);
-      html+=`<div class="ct ct-img" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" onclick="${clickFn}" title="${c.name}">`;
+      const isRune=c.type==='Rune';
+      const addFn=isRune?`addRune('${si}','${sn}')`:`editDeckCard('${si}','${sn}','${at}',1)`;
+      const canAdd=cnt<3;
+      html+=`<div class="ct ct-img lib-card" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" title="${c.name}">`;
       html+= c.imageUrl
         ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
         :`<div class="ct-img-wrap no-img"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`;
       if(cnt>0) html+=`<div class="edit-card-thumb-cnt">×${cnt}</div>`;
       html+=`<div class="ct-name">${c.name}</div>`;
       html+=`<div class="ct-sub">${domPills}<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>`;
+      html+=`<div class="deck-card-actions">`;
+      html+=`<div class="dca-btn" onclick="openCardModal('${si}')"><span>🔍</span> Zoom</div>`;
+      html+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="${addFn}"><span>＋</span> Add to deck</div>`;
+      if(!isRune) html+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Add to sideboard</div>`;
+      html+=`</div>`;
       html+='</div>';
     });
   }
