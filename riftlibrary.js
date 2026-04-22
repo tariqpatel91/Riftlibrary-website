@@ -1497,7 +1497,7 @@ window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=se
 /* ── CARD HOVER ZOOM ─────────────────────────────── */
 (function(){
   const preview=document.getElementById('card-hover-preview');
-  let _hoverTimeout=null;
+  let _hoverTimeout=null,_activeCard=null;
   function pos(e){
     const pw=380;
     let x=e.clientX+18,y=e.clientY-160;
@@ -1505,9 +1505,11 @@ window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=se
     y=Math.max(10,Math.min(y,window.innerHeight-380));
     preview.style.left=x+'px';preview.style.top=y+'px';
   }
-  document.addEventListener('mouseover',function(e){
-    const card=e.target.closest('[data-hover-img]');
-    if(!card||!card.dataset.hoverImg){preview.style.display='none';return;}
+  function inTopThird(e,card){
+    const r=card.getBoundingClientRect();
+    return e.clientY<=r.top+r.height/3;
+  }
+  function triggerPreview(card,e){
     clearTimeout(_hoverTimeout);
     _hoverTimeout=setTimeout(()=>{
       const bf=card.dataset.hoverBf==='1';
@@ -1516,13 +1518,26 @@ window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=se
       preview.style.aspectRatio=bf?'3.5/2.5':'2.5/3.5';
       pos(e);
     },120);
+  }
+  document.addEventListener('mouseover',function(e){
+    const card=e.target.closest('[data-hover-img]');
+    if(!card||!card.dataset.hoverImg){clearTimeout(_hoverTimeout);preview.style.display='none';_activeCard=null;return;}
+    if(card!==_activeCard){clearTimeout(_hoverTimeout);preview.style.display='none';_activeCard=card;}
+    if(inTopThird(e,card)) triggerPreview(card,e);
   });
   document.addEventListener('mousemove',function(e){
-    if(preview.style.display!=='none') pos(e);
+    if(!_activeCard){if(preview.style.display!=='none') pos(e);return;}
+    if(inTopThird(e,_activeCard)){
+      if(preview.style.display==='none') triggerPreview(_activeCard,e);
+      else pos(e);
+    } else {
+      clearTimeout(_hoverTimeout);
+      preview.style.display='none';
+    }
   });
   document.addEventListener('mouseout',function(e){
     const card=e.target.closest('[data-hover-img]');
-    if(card&&!card.contains(e.relatedTarget)){clearTimeout(_hoverTimeout);preview.style.display='none';}
+    if(card&&!card.contains(e.relatedTarget)){clearTimeout(_hoverTimeout);preview.style.display='none';_activeCard=null;}
   });
 })();
 
