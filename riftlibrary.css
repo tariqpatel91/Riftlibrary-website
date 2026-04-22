@@ -353,7 +353,7 @@ select option{background:#1e1e2a;}
 .dd-panel.active{display:block;}
 
 /* edit tab */
-.edit-grid{display:grid;grid-template-columns:460px 1fr;gap:1.5rem;align-items:start;}
+.edit-grid{display:grid;grid-template-columns:560px 1fr;gap:1.5rem;align-items:start;}
 @media(max-width:900px){.edit-grid{grid-template-columns:1fr;}}
 .edit-left{display:flex;flex-direction:column;gap:8px;}
 .edit-right{display:flex;flex-direction:column;gap:14px;}
@@ -374,7 +374,7 @@ select option{background:#1e1e2a;}
 .edit-si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;pointer-events:none;}
 .edit-search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;padding:0 2px;line-height:1;}
 .edit-search-clear:hover{color:var(--text);}
-.edit-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;padding:4px;align-content:start;}
+.edit-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding:4px;align-content:start;}
 .edit-card-thumb{display:flex;flex-direction:column;cursor:pointer;border-radius:10px;overflow:hidden;background:var(--surface2);border:2px solid var(--border);transition:border-color 0.15s,box-shadow 0.15s;}
 .edit-card-thumb:hover{border-color:var(--accent);box-shadow:0 6px 20px rgba(0,0,0,0.5);}
 .edit-card-thumb-img{width:100%;overflow:hidden;flex-shrink:0;}
@@ -440,8 +440,8 @@ select option{background:#1e1e2a;}
 .deck-type-block{display:flex;flex-direction:column;gap:8px;width:100%;}
 .deck-type-lbl{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;font-weight:700;text-align:center;}
 .deck-type-auto-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;}
-.deck-col-stack{display:flex;flex-direction:column;width:110px;flex-shrink:0;}
-.deck-col-stack .deck-card-item{margin-bottom:-105px;}
+.deck-col-stack{display:flex;flex-direction:column;width:130px;flex-shrink:0;}
+.deck-col-stack .deck-card-item{margin-bottom:-124px;}
 .deck-col-stack .deck-card-item:last-child{margin-bottom:0;}
 .deck-col-stack .deck-card-item:hover{z-index:20;position:relative;}
 .deck-card-actions{position:absolute;inset:0;background:rgba(0,0,0,0.86);display:flex;flex-direction:column;justify-content:center;gap:3px;padding:5px;opacity:0;transition:opacity 0.15s;z-index:10;}

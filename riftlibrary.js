@@ -597,9 +597,9 @@ function renderEditSearch(){
 
   let source=CARDS.filter(c=>c.type!=='Legend');
   const deckDoms=d.domains||[];
-  if(deckDoms.length){source=source.filter(c=>c.type==='Rune'||c.type==='Battlefield'||c.doms.length===0||c.doms.some(dom=>deckDoms.includes(dom)));}
+  if(deckDoms.length){source=source.filter(c=>c.type==='Rune'||c.type==='Battlefield'||c.doms.length===0||c.doms.every(dom=>deckDoms.includes(dom)));}
   // Rune tab: only show runes matching deck domains
-  if(EF.type==='Rune'&&deckDoms.length){source=source.filter(c=>c.type==='Rune'&&(c.doms.length===0||c.doms.some(dom=>deckDoms.includes(dom))));}
+  if(EF.type==='Rune'&&deckDoms.length){source=source.filter(c=>c.type==='Rune'&&(c.doms.length===0||c.doms.every(dom=>deckDoms.includes(dom))));}
   if(q) source=source.filter(c=>c.name.toLowerCase().includes(q)||c.txt.toLowerCase().includes(q));
   if(EF.type==='Champion') source=source.filter(c=>(c.supertype||'').toLowerCase().includes('champion')&&c.type!=='Legend');
   else if(EF.type) source=source.filter(c=>c.type===EF.type||c.supertype===EF.type);
