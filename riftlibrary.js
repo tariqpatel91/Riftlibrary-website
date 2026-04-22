@@ -33,6 +33,8 @@ function wr(d){return d.wins+d.losses>0?Math.round(d.wins/(d.wins+d.losses)*100)
 function wrc(w){return w>=55?'wg':w>=45?'wm':'wb';}
 function pills(doms){return(doms||[]).map(d=>`<span class="pill ${d.toLowerCase()}">${d[0].toUpperCase()+d.slice(1).toLowerCase()}</span>`).join('');}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400);}
+let _bannerTimer=null;
+function showAddBanner(msg){const b=document.getElementById('add-banner');if(!b)return;b.textContent=msg;b.style.opacity='1';b.style.transform='translateY(0)';clearTimeout(_bannerTimer);_bannerTimer=setTimeout(()=>{b.style.opacity='0';b.style.transform='translateY(-100%)';},1000);}
 
 /* ── RIFTCODEX FETCH ────────────────────────────── */
 async function fetchAllCards(){
@@ -213,14 +215,14 @@ function buildDeckCurves(d){
     return data.map((v,i)=>{
       const h=v>0?Math.max(3,Math.round(v/maxV*H)):2;
       const op=v>0?1:0.18;
-      return`<div class="mc-col"><div class="mc-bar" style="height:${h}px;background:${color};opacity:${op};"></div><div class="mc-lbl">${labels[i]}</div></div>`;
+      const tip=v>0?`${v} card${v===1?'':'s'}`:'0 cards';
+      return`<div class="mc-col"><div class="mc-bar" style="height:${h}px;background:${color};opacity:${op};" title="${tip}"></div><div class="mc-lbl">${labels[i]}</div></div>`;
     }).join('');
   }
   const eLabels=['0','1','2','3','4','5','6','7','8+'];
   const pLabels=['0','1','2','3','4'];
   return`<div class="deck-curves">
     <div class="curve-stats-row">
-      <div class="curve-stat"><div class="curve-sv">${total}</div><div class="curve-sl">Cards</div></div>
       <div class="curve-stat"><div class="curve-sv">${avgE}</div><div class="curve-sl">Avg Energy</div></div>
       <div class="curve-stat"><div class="curve-sv">${avgP}</div><div class="curve-sl">Avg Power</div></div>
     </div>
@@ -252,9 +254,11 @@ function renderDeckDetail(){
           <span>·</span><span>${d.format}</span>
         </div>
       </div>
-      <div class="deck-header-right">
+      <div class="deck-header-center">
         <div id="deck-curves-panel">${buildDeckCurves(d)}</div>
-        <div class="dd-deck-badge"><span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">— / 40 cards</span></div>
+      </div>
+      <div class="deck-header-right">
+        <span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">— / 40 cards</span>
       </div>
     </div>
     <div class="hero-zone-bar" id="hero-zone-bar" style="display:none;"></div>
@@ -568,6 +572,7 @@ function addDirectToSB(deckId,cardId,cardName,cardType){
   const existing=d.sideboard.find(c=>c.id===cardId);
   if(existing){if(existing.cnt>=3){toast('Max 3 copies');return;}existing.cnt++;}
   else d.sideboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
+  showAddBanner('Added 1 copy to sideboard');
   persist();renderEditSearch();renderEditPreview();
   toast(cardName+' added to sideboard');
 }
@@ -663,19 +668,20 @@ function renderEditSearch(){
       const isBF=c.type==='Battlefield';
       const addFn=isRune?`addRune('${si}','${sn}')`:isBF?`addBattlefield(-1,'${si}','${sn}')`:`editDeckCard('${si}','${sn}','${at}',1)`;
       const canAdd=isBF?true:cnt<3;
-      html+=`<div class="ct ct-img lib-card${isBF?' bf-lib-card':''}" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" title="${c.name}" onclick="${canAdd?addFn:''}" data-hover-img="${c.imageUrl||''}"${isBF?' data-hover-bf="1"':''}>`;
+      html+=`<div class="ct ct-img lib-card${isBF?' bf-lib-card':''}" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" title="${c.name}" onclick="${canAdd?addFn:''}">`;
       html+= c.imageUrl
         ?`<div class="ct-img-wrap${isBF?' bf-img-wrap':''}"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
         :`<div class="ct-img-wrap${isBF?' bf-img-wrap':''} no-img"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`;
       if(cnt>0) html+=`<div class="edit-card-thumb-cnt">×${cnt}</div>`;
       html+=`<div class="ct-name">${c.name}</div>`;
       html+=`<div class="ct-sub">${domPills}<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>`;
+      html+=`<div class="deck-card-actions lib-card-overlay">`;
+      html+=`<div class="dca-btn" onclick="event.stopPropagation();openCardModal('${si}')"><span>🔍</span> Zoom</div>`;
       if(!isRune&&!isBF){
-        html+=`<div class="deck-card-actions lib-card-overlay">`;
         html+=`<div class="lib-add-deck-hint">＋ Add to deck</div>`;
         html+=`<div class="dca-btn lib-sb-btn" onclick="event.stopPropagation();addDirectToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Sideboard</div>`;
-        html+=`</div>`;
       }
+      html+=`</div>`;
       html+='</div>';
     });
   }
@@ -1003,6 +1009,7 @@ function editDeckCard(cardId,cardName,cardType,delta){
   } else if(delta>0){
     d.cards.push({id:cardId,n:cardName,t:cardType,cnt:1});
   }
+  if(delta>0) showAddBanner('Added 1 copy to deck');
   persist();
   renderEditSearch();
   renderEditPreview();
