@@ -13,7 +13,7 @@ let VIEW='cards';
 let activeDeckId=null;
 let activeDDTab='cards';
 let currentUser=null;
-let cardsTabView='text';
+let cardsTabView='visual';
 let authToken=null;
 const AF={doms:new Set()};
 const CF={type:'',set:'',rar:'',legend:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false};
@@ -299,8 +299,7 @@ function renderDeckDetail(){
         <button class="cvt-btn${cardsTabView==='visual'?' on':''}" onclick="setCardsView('visual')">⊞ Visual</button>
       </div>
       <div id="cards-text-view" style="${cardsTabView==='text'?'':'display:none'}">
-        <div class="slbl">Decklist</div>
-        <div class="clg">${(d.cards||[]).map(c=>`<div class="ci"><div><div class="cin">${c.n}</div><div class="cit">${c.t}</div></div><span class="cic">×${c.cnt}</span></div>`).join('')||'<p style="color:var(--text-muted);font-size:13px;grid-column:1/-1;">No cards yet — use the Edit tab.</p>'}</div>
+        ${buildCardsListView(d)}
       </div>
       <div id="cards-visual-view" style="${cardsTabView==='visual'?'':'display:none'}"></div>
       <button class="btn btn-d" style="margin-top:1rem;" onclick="delDeck(${d.id});closeDeckDetail()">Delete deck</button>
@@ -347,6 +346,90 @@ function renderDeckDetail(){
     renderEditSearch();
     renderEditPreview();
   }
+  if(activeDDTab==='cards'&&cardsTabView==='visual'){
+    setTimeout(()=>renderEditPreview(document.getElementById('cards-visual-view')),10);
+  }
+}
+
+function buildCardsListView(d){
+  const cards=d.cards||[];
+  const legendCards=cards.filter(c=>c.t==='Legend');
+  const bfCards=(d.battlefields||[]).filter(Boolean);
+  const runes=d.runes||[];
+  const champion=d.champion||null;
+  const mainDeck=cards.filter(c=>c.t!=='Legend');
+  const sb=d.sideboard||[];
+  const TYPE_ORDER=['Unit','Spell','Gear'];
+  function tsort(a,b){const ai=TYPE_ORDER.indexOf(a.t),bi=TYPE_ORDER.indexOf(b.t);return(ai<0?99:ai)-(bi<0?99:bi)||a.n.localeCompare(b.n);}
+  const sortedMain=mainDeck.slice().sort(tsort);
+  const totalMain=mainDeck.reduce((a,c)=>a+c.cnt,0);
+
+  function thumb(url){
+    return url?`<img class="dl-thumb" src="${url}" alt="" loading="lazy">`:`<div class="dl-thumb dl-no-thumb"></div>`;
+  }
+  function statBubble(val,cls){
+    return val!=null?`<span class="dl-bubble ${cls}">${val}</span>`:'';
+  }
+  function cardRow(id,name,cnt,isChamp){
+    const full=CARDS.find(x=>x.id===id);
+    const img=full?full.imageUrl:'';
+    const chBadge=isChamp?`<span class="dl-champ-badge">CHOSEN CHAMPION</span>`:'';
+    const cost=full&&full.cost!=null?statBubble(full.cost,'dl-cost-bubble'):'';
+    const power=full&&full.power!=null?statBubble(full.power,'dl-pow-bubble'):'';
+    return `<div class="dl-row">`
+      +`<span class="dl-cnt">×${cnt}</span>`
+      +thumb(img)
+      +`<span class="dl-name">${name}</span>`
+      +chBadge
+      +`<span class="dl-bubbles">${cost}${power}</span>`
+      +`</div>`;
+  }
+  function section(title,tally,body){
+    const t=tally!=null?`<span class="dl-tally">${tally}</span>`:'';
+    return `<div class="dl-section"><div class="dl-hdr">${title}${t}</div>${body}</div>`;
+  }
+  function twoCol(rows){
+    const half=Math.ceil(rows.length/2);
+    return `<div class="dl-2col"><div class="dl-col">${rows.slice(0,half).join('')}</div><div class="dl-col">${rows.slice(half).join('')}</div></div>`;
+  }
+
+  // LEGEND
+  const legBody=legendCards.length
+    ?legendCards.map(c=>cardRow(c.id,c.n,c.cnt,false)).join('')
+    :`<div class="dl-empty">None</div>`;
+
+  // BATTLEFIELDS
+  const bfBody=bfCards.length
+    ?bfCards.map(b=>cardRow(b.id,b.n,1,false)).join('')
+    :`<div class="dl-empty">None</div>`;
+
+  // MAIN DECK — champion first, then sorted deck
+  const mainRows=[];
+  if(champion) mainRows.push(cardRow(champion.id,champion.n,1,true));
+  sortedMain.forEach(c=>mainRows.push(cardRow(c.id,c.n,c.cnt,false)));
+  const mainBody=mainRows.length?twoCol(mainRows):`<div class="dl-empty">No cards yet — use the Edit tab.</div>`;
+
+  // RUNES — grouped by unique card
+  let runeBody='<div class="dl-empty">None</div>';
+  if(runes.length){
+    const rg={};
+    runes.forEach(r=>{if(!rg[r.id]){rg[r.id]={id:r.id,n:r.n,cnt:0};}rg[r.id].cnt++;});
+    runeBody=Object.values(rg).map(r=>cardRow(r.id,r.n,r.cnt,false)).join('');
+  }
+
+  // SIDEBOARD
+  const sbTotal=sb.reduce((a,c)=>a+c.cnt,0);
+  const sbBody=sb.length
+    ?twoCol(sb.slice().sort((a,b)=>a.n.localeCompare(b.n)).map(c=>cardRow(c.id,c.n,c.cnt,false)))
+    :`<div class="dl-empty">None</div>`;
+
+  return `<div class="deck-list-view">`
+    +section('LEGEND',null,legBody)
+    +section('BATTLEFIELDS',`${bfCards.length}/3`,bfBody)
+    +section('MAIN DECK',`${totalMain}/40`,mainBody)
+    +section('RUNES',`${runes.length}/12`,runeBody)
+    +section('SIDEBOARD',`${sbTotal}/15`,sbBody)
+    +`</div>`;
 }
 
 function switchDDTab(tab){
