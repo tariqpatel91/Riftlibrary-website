@@ -955,35 +955,25 @@ function renderEditPreview(){
   if(!sb.length){
     html+='<div style="font-size:12px;color:var(--text-muted);">None — hover a card and use "Add to sideboard"</div>';
   } else {
-    const sbSorted=sb.slice().sort((a,b)=>typeSort(a.t,b.t)||a.n.localeCompare(b.n));
-    const sbByType={};const sbTypeOrder=[];
-    sbSorted.forEach(c=>{if(!sbByType[c.t]){sbByType[c.t]=[];sbTypeOrder.push(c.t);}sbByType[c.t].push(c);});
-    html+='<div class="deck-all-types">';
-    sbTypeOrder.forEach(type=>{
-      const uniqueCards=sbByType[type];
-      const typeTotal=uniqueCards.reduce((a,c)=>a+c.cnt,0);
-      html+=`<div class="deck-type-block"><div class="deck-type-lbl">${type} (${typeTotal})</div>`;
-      html+='<div class="deck-type-auto-grid">';
-      uniqueCards.forEach(c=>{
-        const full=CARDS.find(x=>x.id===c.id);
-        const img=full?full.imageUrl:'';
-        const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-        const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-        html+='<div class="deck-col-stack">';
-        for(let i=0;i<c.cnt;i++){
-          html+=`<div class="deck-card-item deck-card-main" title="${c.n}" data-hover-img="${img||''}">`;
-          if(img) html+=`<img src="${img}" alt="" loading="lazy">`;
-          else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
-          html+=`<div class="deck-card-actions">`;
-          html+=`<div class="dca-btn" onclick="adjustSB(${d.id},'${si}',1)"><span>＋</span> Add 1 copy</div>`;
-          html+=`<div class="dca-btn dca-danger" onclick="adjustSB(${d.id},'${si}',-1)"><span>✕</span> Remove</div>`;
-          html+=`</div>`;
-          if(c.cnt>1&&i===0) html+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
-          html+='</div>';
-        }
+    const sbSorted=sb.slice().sort((a,b)=>a.n.localeCompare(b.n));
+    html+='<div class="deck-type-auto-grid">';
+    sbSorted.forEach(c=>{
+      const full=CARDS.find(x=>x.id===c.id);
+      const img=full?full.imageUrl:'';
+      const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      html+='<div class="deck-col-stack">';
+      for(let i=0;i<c.cnt;i++){
+        html+=`<div class="deck-card-item deck-card-main" title="${c.n}" data-hover-img="${img||''}">`;
+        if(img) html+=`<img src="${img}" alt="" loading="lazy">`;
+        else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
+        html+=`<div class="deck-card-actions">`;
+        html+=`<div class="dca-btn" onclick="adjustSB(${d.id},'${si}',1)"><span>＋</span> Add 1 copy</div>`;
+        html+=`<div class="dca-btn dca-danger" onclick="adjustSB(${d.id},'${si}',-1)"><span>✕</span> Remove</div>`;
+        html+=`</div>`;
+        if(c.cnt>1&&i===0) html+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
         html+='</div>';
-      });
-      html+='</div>';
+      }
       html+='</div>';
     });
     html+='</div>';
