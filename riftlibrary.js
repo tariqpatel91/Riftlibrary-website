@@ -370,17 +370,15 @@ function buildCardsListView(d){
   function statBubble(val,cls){
     return val!=null?`<span class="dl-bubble ${cls}">${val}</span>`:'';
   }
-  function cardRow(id,name,cnt,isChamp){
+  function cardRow(id,name,cnt){
     const full=CARDS.find(x=>x.id===id);
     const img=full?full.imageUrl:'';
-    const chBadge=isChamp?`<span class="dl-champ-badge">CHOSEN CHAMPION</span>`:'';
     const cost=full&&full.cost!=null?statBubble(full.cost,'dl-cost-bubble'):'';
     const power=full&&full.power!=null?statBubble(full.power,'dl-pow-bubble'):'';
     return `<div class="dl-row">`
       +`<span class="dl-cnt">×${cnt}</span>`
       +thumb(img)
       +`<span class="dl-name">${name}</span>`
-      +chBadge
       +`<span class="dl-bubbles">${cost}${power}</span>`
       +`</div>`;
   }
@@ -395,18 +393,21 @@ function buildCardsListView(d){
 
   // LEGEND
   const legBody=legendCards.length
-    ?legendCards.map(c=>cardRow(c.id,c.n,c.cnt,false)).join('')
+    ?legendCards.map(c=>cardRow(c.id,c.n,c.cnt)).join('')
+    :`<div class="dl-empty">None</div>`;
+
+  // CHAMPION
+  const champBody=champion
+    ?cardRow(champion.id,champion.n,1)
     :`<div class="dl-empty">None</div>`;
 
   // BATTLEFIELDS
   const bfBody=bfCards.length
-    ?bfCards.map(b=>cardRow(b.id,b.n,1,false)).join('')
+    ?bfCards.map(b=>cardRow(b.id,b.n,1)).join('')
     :`<div class="dl-empty">None</div>`;
 
-  // MAIN DECK — champion first, then sorted deck
-  const mainRows=[];
-  if(champion) mainRows.push(cardRow(champion.id,champion.n,1,true));
-  sortedMain.forEach(c=>mainRows.push(cardRow(c.id,c.n,c.cnt,false)));
+  // MAIN DECK — sorted deck only (champion has its own section)
+  const mainRows=sortedMain.map(c=>cardRow(c.id,c.n,c.cnt));
   const mainBody=mainRows.length?twoCol(mainRows):`<div class="dl-empty">No cards yet — use the Edit tab.</div>`;
 
   // RUNES — grouped by unique card
@@ -414,17 +415,18 @@ function buildCardsListView(d){
   if(runes.length){
     const rg={};
     runes.forEach(r=>{if(!rg[r.id]){rg[r.id]={id:r.id,n:r.n,cnt:0};}rg[r.id].cnt++;});
-    runeBody=Object.values(rg).map(r=>cardRow(r.id,r.n,r.cnt,false)).join('');
+    runeBody=Object.values(rg).map(r=>cardRow(r.id,r.n,r.cnt)).join('');
   }
 
   // SIDEBOARD
   const sbTotal=sb.reduce((a,c)=>a+c.cnt,0);
   const sbBody=sb.length
-    ?twoCol(sb.slice().sort((a,b)=>a.n.localeCompare(b.n)).map(c=>cardRow(c.id,c.n,c.cnt,false)))
+    ?twoCol(sb.slice().sort((a,b)=>a.n.localeCompare(b.n)).map(c=>cardRow(c.id,c.n,c.cnt)))
     :`<div class="dl-empty">None</div>`;
 
   return `<div class="deck-list-view">`
     +section('LEGEND',null,legBody)
+    +section('CHAMPION',null,champBody)
     +section('BATTLEFIELDS',`${bfCards.length}/3`,bfBody)
     +section('MAIN DECK',`${totalMain}/40`,mainBody)
     +section('RUNES',`${runes.length}/12`,runeBody)
