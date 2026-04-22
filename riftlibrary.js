@@ -628,7 +628,12 @@ function renderEditSearch(){
       if(cnt>0) html+=`<div class="edit-card-thumb-cnt">×${cnt}</div>`;
       html+=`<div class="ct-name">${c.name}</div>`;
       html+=`<div class="ct-sub">${domPills}<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>`;
-      if(!isRune&&!isBF){html+=`<div class="deck-card-actions" onclick="event.stopPropagation()">`;html+=`<div class="dca-btn" onclick="addDirectToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Add to sideboard</div>`;html+=`</div>`;}
+      if(!isRune&&!isBF){
+        html+=`<div class="deck-card-actions lib-card-overlay">`;
+        html+=`<div class="lib-add-deck-hint">＋ Add to deck</div>`;
+        html+=`<div class="dca-btn lib-sb-btn" onclick="event.stopPropagation();addDirectToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Sideboard</div>`;
+        html+=`</div>`;
+      }
       html+='</div>';
     });
   }
@@ -751,9 +756,7 @@ function renderEditPreview(){
   if(!d.battlefields) d.battlefields=[null,null,null];
 
   function buildHeroSection(){
-    let h='<div class="deck-hero-section">';
-    // Row 1: Legend + Champion side by side
-    h+='<div class="deck-hero-top">';
+    let h='<div class="deck-hero-row">';
     // Legend
     h+='<div class="deck-hero-half"><div class="deck-section-hdr">🦸 Legend</div><div class="deck-hero-cards">';
     if(!legendCards.length){
@@ -769,29 +772,13 @@ function renderEditPreview(){
       h+=`<div class="deck-card-actions"><div class="dca-btn dca-danger" onclick="editDeckCard('${lsi}','${lsn}','${lst}',-1)"><span>✕</span> Remove</div></div></div>`;
     }
     h+='</div></div>';
-    // Champion
-    h+='<div class="deck-hero-half"><div class="deck-section-hdr">⚔️ Champion</div>';
-    h+=`<div class="deck-card-item deck-card-legend drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,'champion')" title="${zoneChamp?zoneChamp.n:'Drag champion here'}">`;
-    if(zoneChamp){
-      const zf=CARDS.find(x=>x.id===zoneChamp.id);const zi=zf?zf.imageUrl:'';
-      const zsi=zoneChamp.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      const zsn=zoneChamp.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      h+=`<div class="hzb-inner" draggable="true" ondragstart="editDeckDragStart('${zsi}','${zsn}','Champion')" data-hover-img="${zi||''}">`;
-      if(zi) h+=`<img src="${zi}" alt="" loading="lazy">`;
-      else h+=`<div class="deck-card-no-img"><div class="dcni-name">${zoneChamp.n}</div></div>`;
-      h+=`<div class="deck-card-actions"><div class="dca-btn dca-danger" onclick="removeChampionZone()"><span>✕</span> Remove</div></div></div>`;
-    } else {
-      h+='<div class="hzb-empty-drop">Drag champion here</div>';
-    }
-    h+='</div></div>';
-    h+='</div>'; // end deck-hero-top
-    // Row 2: 3 Battlefield zones — full width
-    h+='<div class="deck-bf-row">';
+    // Battlefield zones inline between Legend and Champion
     for(let i=0;i<3;i++){
       const bfc=d.battlefields[i];
       const bff=bfc?CARDS.find(x=>x.id===bfc.id):null;
       const bfi=bff?bff.imageUrl:'';
-      h+=`<div class="deck-bf-slot"><div class="deck-section-hdr" style="font-size:11px;">🌍 Battlefield ${i+1}</div>`;
+      h+='<div class="deck-hero-bf-slot">';
+      h+=`<div class="deck-section-hdr" style="font-size:11px;">🌍 Battlefield ${i+1}</div>`;
       if(bfc){
         const bsi=bfc.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
         const bsn=bfc.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
@@ -808,8 +795,21 @@ function renderEditPreview(){
       }
       h+='</div>';
     }
-    h+='</div>'; // end deck-bf-row
-    h+='</div>'; // end deck-hero-section
+    // Champion
+    h+='<div class="deck-hero-half"><div class="deck-section-hdr">⚔️ Champion</div>';
+    h+=`<div class="deck-card-item deck-card-legend drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,'champion')" title="${zoneChamp?zoneChamp.n:'Drag champion here'}">`;
+    if(zoneChamp){
+      const zf=CARDS.find(x=>x.id===zoneChamp.id);const zi=zf?zf.imageUrl:'';
+      const zsi=zoneChamp.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const zsn=zoneChamp.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      h+=`<div class="hzb-inner" draggable="true" ondragstart="editDeckDragStart('${zsi}','${zsn}','Champion')" data-hover-img="${zi||''}">`;
+      if(zi) h+=`<img src="${zi}" alt="" loading="lazy">`;
+      else h+=`<div class="deck-card-no-img"><div class="dcni-name">${zoneChamp.n}</div></div>`;
+      h+=`<div class="deck-card-actions"><div class="dca-btn dca-danger" onclick="removeChampionZone()"><span>✕</span> Remove</div></div></div>`;
+    } else {
+      h+='<div class="hzb-empty-drop">Drag champion here</div>';
+    }
+    h+='</div></div></div>';
     return h;
   }
 
@@ -1455,8 +1455,8 @@ window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=se
   const preview=document.getElementById('card-hover-preview');
   let _hoverTimeout=null;
   function pos(e){
-    const pw=260;
-    let x=e.clientX+18,y=e.clientY-120;
+    const pw=380;
+    let x=e.clientX+18,y=e.clientY-160;
     if(x+pw>window.innerWidth-12) x=e.clientX-pw-18;
     y=Math.max(10,Math.min(y,window.innerHeight-380));
     preview.style.left=x+'px';preview.style.top=y+'px';
