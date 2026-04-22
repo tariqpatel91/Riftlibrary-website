@@ -17,7 +17,7 @@ let authToken=null;
 const AF={doms:new Set()};
 const CF={type:'',set:'',rar:'',legend:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false};
 const EF={type:'',dom:'',page:1,showAllVersions:false};
-function getEditPer(){const h=window.innerHeight;if(h>=1080)return 36;if(h>=900)return 30;if(h>=720)return 24;if(h>=600)return 18;return 12;}
+function getEditPer(){return 18;}
 const EDIT_PER=24;
 
 /* storage */
@@ -621,17 +621,14 @@ function renderEditSearch(){
       const isBF=c.type==='Battlefield';
       const addFn=isRune?`addRune('${si}','${sn}')`:isBF?`addBattlefield(-1,'${si}','${sn}')`:`editDeckCard('${si}','${sn}','${at}',1)`;
       const canAdd=isBF?true:cnt<3;
-      html+=`<div class="ct ct-img lib-card${isBF?' bf-lib-card':''}" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" title="${c.name}" onclick="${canAdd?addFn:''}">`;
+      html+=`<div class="ct ct-img lib-card${isBF?' bf-lib-card':''}" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" title="${c.name}" onclick="${canAdd?addFn:''}" data-hover-img="${c.imageUrl||''}"${isBF?' data-hover-bf="1"':''}>`;
       html+= c.imageUrl
         ?`<div class="ct-img-wrap${isBF?' bf-img-wrap':''}"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
         :`<div class="ct-img-wrap${isBF?' bf-img-wrap':''} no-img"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`;
       if(cnt>0) html+=`<div class="edit-card-thumb-cnt">×${cnt}</div>`;
       html+=`<div class="ct-name">${c.name}</div>`;
       html+=`<div class="ct-sub">${domPills}<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>`;
-      html+=`<div class="deck-card-actions" onclick="event.stopPropagation()">`;
-      html+=`<div class="dca-btn" onclick="openCardModal('${si}')"><span>🔍</span> Zoom</div>`;
-      if(!isRune&&!isBF) html+=`<div class="dca-btn" onclick="addDirectToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Add to sideboard</div>`;
-      html+=`</div>`;
+      if(!isRune&&!isBF){html+=`<div class="deck-card-actions" onclick="event.stopPropagation()">`;html+=`<div class="dca-btn" onclick="addDirectToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Add to sideboard</div>`;html+=`</div>`;}
       html+='</div>';
     });
   }
@@ -730,11 +727,10 @@ function renderEditPreview(){
     const st=c.t.replace(/'/g,"\\'");
     const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const canAdd=c.cnt<3;
-    let h=`<div class="deck-card-item ${cls}" title="${c.n}" draggable="true" ondragstart="editDeckDragStart('${si}','${sn}','${st}')">`;
+    let h=`<div class="deck-card-item ${cls}" title="${c.n}" draggable="true" ondragstart="editDeckDragStart('${si}','${sn}','${st}')" data-hover-img="${img||''}">`;
     if(img) h+=`<img src="${img}" alt="" loading="lazy">`;
     else h+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
     h+=`<div class="deck-card-actions">`;
-    h+=`<div class="dca-btn" onclick="openCardModal('${si}')"><span>🔍</span> Zoom</div>`;
     h+=`<div class="dca-btn dca-danger" onclick="editDeckCard('${si}','${sn}','${st}',-1)"><span>✕</span> Remove</div>`;
     if(c.t!=='Legend') h+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="editDeckCard('${si}','${sn}','${st}',1)"><span>＋</span> Add 1 copy</div>`;
     if(c.t!=='Legend') h+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${st}')"><span>→</span> Add to sideboard</div>`;
@@ -765,10 +761,10 @@ function renderEditPreview(){
       const lsi=lc.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const lsn=lc.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const lst=lc.t.replace(/'/g,"\\'");
-      h+=`<div class="deck-card-item deck-card-legend" title="${lc.n}" draggable="true" ondragstart="editDeckDragStart('${lsi}','${lsn}','${lst}')">`;
+      h+=`<div class="deck-card-item deck-card-legend" title="${lc.n}" draggable="true" ondragstart="editDeckDragStart('${lsi}','${lsn}','${lst}')" data-hover-img="${li||''}">`;
       if(li) h+=`<img src="${li}" alt="" loading="lazy">`;
       else h+=`<div class="deck-card-no-img"><div class="dcni-name">${lc.n}</div></div>`;
-      h+=`<div class="deck-card-actions"><div class="dca-btn" onclick="openCardModal('${lsi}')"><span>🔍</span> Zoom</div><div class="dca-btn dca-danger" onclick="editDeckCard('${lsi}','${lsn}','${lst}',-1)"><span>✕</span> Remove</div></div></div>`;
+      h+=`<div class="deck-card-actions"><div class="dca-btn dca-danger" onclick="editDeckCard('${lsi}','${lsn}','${lst}',-1)"><span>✕</span> Remove</div></div></div>`;
     }
     h+='</div></div>';
     // Battlefield zones (inline between legend and champion)
@@ -781,11 +777,11 @@ function renderEditPreview(){
       if(bfc){
         const bsi=bfc.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
         const bsn=bfc.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-        h+=`<div class="bf-zone bf-zone-filled" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="bfZoneDrop(event,${i})">`;
+        h+=`<div class="bf-zone bf-zone-filled" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="bfZoneDrop(event,${i})" data-hover-img="${bfi||''}" data-hover-bf="1">`;
         h+=`<div class="bf-zone-inner" draggable="true" ondragstart="editDeckDragStart('${bsi}','${bsn}','Battlefield')">`;
         if(bfi) h+=`<img src="${bfi}" alt="" loading="lazy" class="bf-zone-img">`;
         else h+=`<div class="deck-card-no-img"><div class="dcni-name">${bfc.n}</div></div>`;
-        h+=`<div class="deck-card-actions"><div class="dca-btn" onclick="openCardModal('${bsi}')"><span>🔍</span> Zoom</div><div class="dca-btn dca-danger" onclick="removeBattlefield(${i})"><span>✕</span> Remove</div></div>`;
+        h+=`<div class="deck-card-actions"><div class="dca-btn dca-danger" onclick="removeBattlefield(${i})"><span>✕</span> Remove</div></div>`;
         h+=`</div></div>`;
       } else {
         h+=`<div class="bf-zone bf-zone-empty drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="bfZoneDrop(event,${i})">`;
@@ -801,10 +797,10 @@ function renderEditPreview(){
       const zf=CARDS.find(x=>x.id===zoneChamp.id);const zi=zf?zf.imageUrl:'';
       const zsi=zoneChamp.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const zsn=zoneChamp.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      h+=`<div class="hzb-inner" draggable="true" ondragstart="editDeckDragStart('${zsi}','${zsn}','Champion')">`;
+      h+=`<div class="hzb-inner" draggable="true" ondragstart="editDeckDragStart('${zsi}','${zsn}','Champion')" data-hover-img="${zi||''}">`;
       if(zi) h+=`<img src="${zi}" alt="" loading="lazy">`;
       else h+=`<div class="deck-card-no-img"><div class="dcni-name">${zoneChamp.n}</div></div>`;
-      h+=`<div class="deck-card-actions"><div class="dca-btn" onclick="openCardModal('${zsi}')"><span>🔍</span> Zoom</div><div class="dca-btn dca-danger" onclick="removeChampionZone()"><span>✕</span> Remove</div></div></div>`;
+      h+=`<div class="deck-card-actions"><div class="dca-btn dca-danger" onclick="removeChampionZone()"><span>✕</span> Remove</div></div></div>`;
     } else {
       h+='<div class="hzb-empty-drop">Drag champion here</div>';
     }
@@ -879,12 +875,11 @@ function renderEditPreview(){
         const rsn=r.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
         html+='<div class="rune-h-stack">';
         for(let i=0;i<r.cnt;i++){
-          html+=`<div class="deck-card-item rune-h-card${i===0?' rune-first':''}" title="${r.n}" style="z-index:${r.cnt-i};">`;
+          html+=`<div class="deck-card-item rune-h-card${i===0?' rune-first':''}" title="${r.n}" style="z-index:${r.cnt-i};" data-hover-img="${r.img||''}">`;
           if(r.img) html+=`<img src="${r.img}" alt="" loading="lazy">`;
           else html+=`<div class="deck-card-no-img"><div class="dcni-name">${r.n}</div></div>`;
           if(i===0) html+=`<div class="deck-card-cnt-badge">×${r.cnt}</div>`;
           html+=`<div class="deck-card-actions">`;
-          html+=`<div class="dca-btn" onclick="openCardModal('${rsi}')"><span>🔍</span> Zoom</div>`;
           html+=`<div class="dca-btn" onclick="addRune('${rsi}','${rsn}')"><span>＋</span> Add 1 copy</div>`;
           html+=`<div class="dca-btn dca-danger" onclick="removeRune('${rsi}')"><span>✕</span> Remove 1</div>`;
           html+=`</div></div>`;
@@ -924,11 +919,10 @@ function renderEditPreview(){
           const st=(c.t||'').replace(/'/g,"\\'");
           html+='<div class="deck-col-stack">';
           for(let i=0;i<c.cnt;i++){
-            html+=`<div class="deck-card-item deck-card-main" title="${c.n}">`;
+            html+=`<div class="deck-card-item deck-card-main" title="${c.n}" data-hover-img="${img||''}">`;
             if(img) html+=`<img src="${img}" alt="" loading="lazy">`;
             else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
             html+=`<div class="deck-card-actions">`;
-            html+=`<div class="dca-btn" onclick="openCardModal('${si}')"><span>🔍</span> Zoom</div>`;
             html+=`<div class="dca-btn" onclick="adjustSB(${d.id},'${si}',1)"><span>＋</span> Add 1 copy</div>`;
             html+=`<div class="dca-btn dca-danger" onclick="adjustSB(${d.id},'${si}',-1)"><span>✕</span> Remove</div>`;
             html+=`</div>`;
@@ -1457,6 +1451,38 @@ fetchAllCards();
 
 let _resizeTimer;
 window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=setTimeout(()=>{if(activeDeckId&&activeDDTab==='edit')renderEditSearch();},150);});
+
+/* ── CARD HOVER ZOOM ─────────────────────────────── */
+(function(){
+  const preview=document.getElementById('card-hover-preview');
+  let _hoverTimeout=null;
+  function pos(e){
+    const pw=260;
+    let x=e.clientX+18,y=e.clientY-120;
+    if(x+pw>window.innerWidth-12) x=e.clientX-pw-18;
+    y=Math.max(10,Math.min(y,window.innerHeight-380));
+    preview.style.left=x+'px';preview.style.top=y+'px';
+  }
+  document.addEventListener('mouseover',function(e){
+    const card=e.target.closest('[data-hover-img]');
+    if(!card||!card.dataset.hoverImg){preview.style.display='none';return;}
+    clearTimeout(_hoverTimeout);
+    _hoverTimeout=setTimeout(()=>{
+      const bf=card.dataset.hoverBf==='1';
+      preview.innerHTML=`<img src="${card.dataset.hoverImg}" alt="" style="width:100%;height:100%;object-fit:${bf?'cover':'contain'};display:block;">`;
+      preview.style.display='block';
+      preview.style.aspectRatio=bf?'3.5/2.5':'2.5/3.5';
+      pos(e);
+    },120);
+  });
+  document.addEventListener('mousemove',function(e){
+    if(preview.style.display!=='none') pos(e);
+  });
+  document.addEventListener('mouseout',function(e){
+    const card=e.target.closest('[data-hover-img]');
+    if(card&&!card.contains(e.relatedTarget)){clearTimeout(_hoverTimeout);preview.style.display='none';}
+  });
+})();
 
 /* ═══════════════════════════════════════════════════════════════
    AUTH + CLOUD SYNC ENGINE

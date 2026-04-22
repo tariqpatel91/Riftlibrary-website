@@ -155,6 +155,8 @@ select option{background:#1e1e2a;}
 .mf{display:flex;gap:8px;justify-content:flex-end;margin-top:1.5rem;}
 .toast{position:fixed;bottom:2rem;right:2rem;background:var(--surface2);border:1px solid var(--accent);border-radius:10px;padding:11px 18px;font-size:13px;color:var(--text);z-index:300;transform:translateY(16px);opacity:0;transition:all 0.25s;pointer-events:none;}
 .toast.show{transform:translateY(0);opacity:1;}
+.card-hover-preview{display:none;position:fixed;z-index:500;width:260px;border-radius:14px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.85),0 0 0 1px rgba(255,255,255,0.08);pointer-events:none;background:var(--surface2);}
+@media(max-width:600px){nav{padding:0 1rem;}.page{padding:1.25rem 1rem;}}
 @media(max-width:600px){nav{padding:0 1rem;}.page{padding:1.25rem 1rem;}}
 
 /* ── CARD SEARCH UI ─────────────────────────────── */
@@ -383,7 +385,7 @@ select option{background:#1e1e2a;}
 .deck-card-item img{width:100%;height:100%;object-fit:contain;display:block;}
 .deck-hero-row{display:flex;gap:12px;align-items:flex-start;flex-wrap:nowrap;}
 .deck-hero-half{display:flex;flex-direction:column;gap:8px;flex:0 0 auto;width:150px;}
-.deck-hero-bf-slot{display:flex;flex-direction:column;gap:6px;flex:1;min-width:100px;max-width:200px;}
+.deck-hero-bf-slot{display:flex;flex-direction:column;gap:6px;flex:1;min-width:120px;max-width:220px;}
 .deck-hero-cards{display:flex;flex-wrap:wrap;gap:10px;}
 .champ-drop-zone{min-height:120px;align-content:flex-start;}
 .deck-hero-empty{font-size:12px;color:var(--text-muted);display:flex;align-items:center;width:100%;}
