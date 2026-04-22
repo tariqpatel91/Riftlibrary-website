@@ -72,8 +72,6 @@ select option{background:#1e1e2a;}
 .ct-img-wrap img{width:100%;height:100%;object-fit:contain;display:block;}
 .ct-img-wrap.bf-img-wrap{aspect-ratio:3.5/2.5;}
 .ct-img-wrap.bf-img-wrap img{position:static;width:100%;height:100%;object-fit:cover;transform:none;}
-/* Picker: rotate portrait card image into landscape slot — ratios are reciprocal so it fits perfectly */
-.lib-card-bf .ct-img-wrap img{position:absolute;top:50%;left:50%;height:140%;width:auto;transform:translate(-50%,-50%) rotate(-90deg);object-fit:unset;}
 .ct-img-wrap.no-img{display:flex;align-items:center;justify-content:center;}
 .ct-img .ct-name{padding:8px 10px 2px;font-size:12px;}
 .ct-img .ct-sub{padding:0 10px 8px;margin:0;}
