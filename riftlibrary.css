@@ -406,7 +406,7 @@ select option{background:#1e1e2a;}
 .deck-card-item{position:relative;cursor:pointer;border-radius:7px;overflow:hidden;background:var(--surface2);transition:transform 0.15s,box-shadow 0.15s;}
 .deck-card-item:hover{box-shadow:0 8px 22px rgba(0,0,0,0.5);z-index:20;}
 .deck-card-item img{width:100%;height:100%;object-fit:contain;display:block;}
-.deck-hero-row{display:flex;gap:12px;align-items:flex-start;flex-wrap:nowrap;}
+.deck-hero-row{display:flex;gap:12px;align-items:flex-start;flex-wrap:nowrap;justify-content:center;}
 .deck-hero-half{display:flex;flex-direction:column;gap:8px;flex:0 0 auto;width:155px;}
 .deck-hero-bf-slot{display:flex;flex-direction:column;gap:6px;flex:1;min-width:110px;max-width:200px;}
 .deck-hero-cards{display:flex;flex-wrap:wrap;gap:10px;}
@@ -440,9 +440,9 @@ select option{background:#1e1e2a;}
 .rune-h-card.rune-first{margin-left:0;}
 .rune-h-card:hover{z-index:20!important;margin-left:-55px;}
 .rune-h-card:hover~.rune-h-card{margin-left:-62px;}
-/* vertical stacking columns for deck section */
-.deck-all-types{display:flex;flex-direction:column;gap:16px;}
-.deck-type-block{display:flex;flex-direction:column;gap:8px;width:100%;}
+/* horizontal 3-col layout: Unit | Spell | Gear */
+.deck-all-types{display:flex;flex-direction:row;align-items:flex-start;gap:20px;}
+.deck-type-block{display:flex;flex-direction:column;gap:8px;flex:1;min-width:0;}
 .deck-type-lbl{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;font-weight:700;text-align:center;}
 .deck-type-auto-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;}
 .deck-col-stack{display:flex;flex-direction:column;width:130px;flex-shrink:0;}
