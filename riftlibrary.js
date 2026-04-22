@@ -499,6 +499,7 @@ function renderSBSearch(deckId){
 }
 
 function addToSB(deckId,cardId,cardName,cardType){
+  if(cardType==='Battlefield'){toast('Battlefield cards go in battlefield zones');return;}
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   if(!d.sideboard) d.sideboard=[];
   const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
@@ -604,19 +605,21 @@ function renderEditSearch(){
       const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const domPills=c.doms.map(dm=>`<span class="pill ${dm}">${dm[0].toUpperCase()+dm.slice(1)}</span>`).join('');
       const isRune=c.type==='Rune';
-      const addFn=isRune?`addRune('${si}','${sn}')`:`editDeckCard('${si}','${sn}','${at}',1)`;
-      const canAdd=cnt<3;
-      html+=`<div class="ct ct-img lib-card" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" title="${c.name}">`;
+      const isBF=c.type==='Battlefield';
+      const addFn=isRune?`addRune('${si}','${sn}')`:isBF?`addBattlefield(-1,'${si}','${sn}')`:`editDeckCard('${si}','${sn}','${at}',1)`;
+      const addLabel=isBF?'Add to battlefield':'Add to deck';
+      const canAdd=isBF?true:cnt<3;
+      html+=`<div class="ct ct-img lib-card${isBF?' bf-lib-card':''}" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" title="${c.name}">`;
       html+= c.imageUrl
-        ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
-        :`<div class="ct-img-wrap no-img"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`;
+        ?`<div class="ct-img-wrap${isBF?' bf-img-wrap':''}"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
+        :`<div class="ct-img-wrap${isBF?' bf-img-wrap':''} no-img"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`;
       if(cnt>0) html+=`<div class="edit-card-thumb-cnt">×${cnt}</div>`;
       html+=`<div class="ct-name">${c.name}</div>`;
       html+=`<div class="ct-sub">${domPills}<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>`;
       html+=`<div class="deck-card-actions">`;
       html+=`<div class="dca-btn" onclick="openCardModal('${si}')"><span>🔍</span> Zoom</div>`;
-      html+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="${addFn}"><span>＋</span> Add to deck</div>`;
-      if(!isRune) html+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Add to sideboard</div>`;
+      html+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="${addFn}"><span>＋</span> ${addLabel}</div>`;
+      if(!isRune&&!isBF) html+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Add to sideboard</div>`;
       html+=`</div>`;
       html+='</div>';
     });
@@ -688,6 +691,7 @@ function editZoneDrop(e,zone){
     }
     persist();renderEditSearch();renderEditPreview();
   } else if(zone==='deck'){
+    if(_DRAG.t==='Battlefield'){toast('Battlefield cards go in battlefield zones');_DRAG=null;return;}
     if(_DRAG.src==='library') editDeckCard(_DRAG.id,_DRAG.n,_DRAG.t,1);
   }
   _DRAG=null;
@@ -773,6 +777,32 @@ function renderEditPreview(){
   }
 
   let html=buildHeroSection();
+
+  // Battlefield zones (3 slots between hero and deck cards)
+  if(!d.battlefields) d.battlefields=[null,null,null];
+  html+='<div class="deck-section deck-bf-section"><div class="deck-section-hdr">🌍 Battlefields</div>';
+  html+='<div class="bf-zones-row">';
+  for(let i=0;i<3;i++){
+    const bfc=d.battlefields[i];
+    const bff=bfc?CARDS.find(x=>x.id===bfc.id):null;
+    const bfi=bff?bff.imageUrl:'';
+    if(bfc){
+      const bsi=bfc.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const bsn=bfc.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      html+=`<div class="bf-zone bf-zone-filled" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="bfZoneDrop(event,${i})">`;
+      html+=`<div class="bf-zone-inner" draggable="true" ondragstart="editDeckDragStart('${bsi}','${bsn}','Battlefield')">`;
+      if(bfi) html+=`<img src="${bfi}" alt="" loading="lazy" class="bf-zone-img">`;
+      else html+=`<div class="deck-card-no-img"><div class="dcni-name">${bfc.n}</div></div>`;
+      html+=`<div class="deck-card-actions"><div class="dca-btn" onclick="openCardModal('${bsi}')"><span>🔍</span> Zoom</div><div class="dca-btn dca-danger" onclick="removeBattlefield(${i})"><span>✕</span> Remove</div></div>`;
+      html+=`</div></div>`;
+    } else {
+      html+=`<div class="bf-zone bf-zone-empty drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="bfZoneDrop(event,${i})">`;
+      html+=`<div class="bf-zone-label">Battlefield ${i+1}</div>`;
+      html+=`<div class="bf-zone-hint">Drag battlefield here</div>`;
+      html+='</div>';
+    }
+  }
+  html+='</div></div>';
 
   // Deck cards by type (Unit → Spell → Gear → other)
   const TYPE_ORDER=['Unit','Spell','Gear'];
@@ -909,6 +939,7 @@ function renderEditPreview(){
 }
 
 function editDeckCard(cardId,cardName,cardType,delta){
+  if(cardType==='Battlefield'){toast('Battlefield cards go in battlefield zones');return;}
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   if(!d.cards) d.cards=[];
   const idx=d.cards.findIndex(c=>c.id===cardId);
@@ -1011,6 +1042,36 @@ function editChampionCard(cardId,cardName,actualType){
 function removeChampionZone(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   d.champion=null;persist();renderEditSearch();renderEditPreview();
+}
+
+function addBattlefield(preferSlot,cardId,cardName){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  if(!d.battlefields) d.battlefields=[null,null,null];
+  // Find free slot; if preferSlot given and free, use it
+  let slot=-1;
+  if(preferSlot>=0&&preferSlot<3&&!d.battlefields[preferSlot]) slot=preferSlot;
+  if(slot<0) slot=d.battlefields.findIndex(s=>s===null);
+  if(slot<0){toast('All 3 battlefield zones are full');return;}
+  d.battlefields[slot]={id:cardId,n:cardName};
+  persist();renderEditSearch();renderEditPreview();
+  toast(cardName+' added to battlefield zone '+(slot+1));
+}
+function removeBattlefield(slotIdx){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  if(!d.battlefields) d.battlefields=[null,null,null];
+  d.battlefields[slotIdx]=null;
+  persist();renderEditSearch();renderEditPreview();
+}
+function bfZoneDrop(e,slotIdx){
+  e.preventDefault();e.currentTarget.classList.remove('drag-over');
+  if(!_DRAG)return;
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d){_DRAG=null;return;}
+  if(_DRAG.t!=='Battlefield'){toast('Only Battlefield cards can go in battlefield zones');_DRAG=null;return;}
+  if(!d.battlefields) d.battlefields=[null,null,null];
+  if(d.battlefields[slotIdx]){toast('Battlefield zone '+( slotIdx+1)+' already has a card — remove it first');_DRAG=null;return;}
+  d.battlefields[slotIdx]={id:_DRAG.id,n:_DRAG.n};
+  persist();renderEditSearch();renderEditPreview();
+  _DRAG=null;
 }
 
 function startEditDeckTitle(deckId){
@@ -1317,7 +1378,7 @@ function createDeck(){
   const initCards=[];
   const legendCard=CARDS.find(c=>c.type==='Legend'&&c.name===legend);
   if(legendCard) initCards.push({id:legendCard.id,n:legendCard.name,t:legendCard.type,cnt:1});
-  const deck={id:nextId++,name,legend,domains:domains.length?domains:LD[legend]||[],format,wins:0,losses:0,desc:'',cards:initCards};
+  const deck={id:nextId++,name,legend,domains:domains.length?domains:LD[legend]||[],format,wins:0,losses:0,desc:'',cards:initCards,battlefields:[null,null,null]};
   myDecks.unshift(deck);persist();closeModal();document.getElementById('mn').value='';renderDecks();toast('Deck created!');
   if(currentUser) setTimeout(function(){ saveToCloud(deck.id); }, 100);
 }
