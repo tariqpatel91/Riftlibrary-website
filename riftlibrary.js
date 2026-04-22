@@ -1054,8 +1054,7 @@ function renderEditPreview(targetEl){
   // Sideboard section — card image grid like main deck
   const sb=d.sideboard||[];
   const sbTotal=sb.reduce((a,c)=>a+c.cnt,0);
-  const clearBtn=sb.length?`<button class="btn btn-sm btn-d" style="padding:2px 8px;font-size:11px;margin-left:auto;" onclick="clearSideboard(${d.id})">Clear</button>`:'';
-  html+=`<div class="deck-section deck-sb-section"><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">📋 Sideboard <span class="ds-count">(${sbTotal}/15)</span>${clearBtn}</div>`;
+  html+=`<div class="deck-section deck-sb-section"><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">📋 Sideboard <span class="ds-count">(${sbTotal}/15)</span></div>`;
   if(!sb.length){
     html+='<div style="font-size:12px;color:var(--text-muted);">None — hover a card and use "Add to sideboard"</div>';
   } else {
