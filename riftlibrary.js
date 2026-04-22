@@ -151,11 +151,20 @@ function renderDecks(){
   g.innerHTML=list.map(d=>{
     const totalC=(d.cards||[]).reduce((a,c)=>a+c.cnt,0)||0;
     const w=wr(d);
+    const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
+    const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
+    const dcImg=dcLegFull?dcLegFull.imageUrl:'';
+    const dcAvatar=dcImg
+      ?`<div class="dc-avatar"><img src="${dcImg}" alt="${d.legend}"></div>`
+      :`<div class="dc-avatar dc-avatar-empty"></div>`;
     return `<div class="dc">
       <div class="dt">
-        <div>
-          <div class="dn">${d.name}</div>
-          <div class="dl">${d.legend}</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          ${dcAvatar}
+          <div>
+            <div class="dn">${d.name}</div>
+            <div class="dl">${d.legend}</div>
+          </div>
         </div>
         <span class="ftag">${d.format}</span>
       </div>
@@ -246,22 +255,31 @@ function renderDeckDetail(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const w=wr(d);
   const totalCards=(d.cards||[]).reduce((a,c)=>a+c.cnt,0);
+  const legendEntry=(d.cards||[]).find(c=>c.t==='Legend');
+  const legendFull=legendEntry?CARDS.find(x=>x.id===legendEntry.id):null;
+  const legendImg=legendFull?legendFull.imageUrl:'';
+  const avatarHtml=legendImg
+    ?`<div class="legend-avatar"><img src="${legendImg}" alt="${d.legend}"></div>`
+    :`<div class="legend-avatar legend-avatar-empty">🦸</div>`;
 
   document.getElementById('ddc').innerHTML=`
     <div class="deck-header">
       <div class="deck-header-left">
-        <div class="dtitle" id="deck-title-display" onclick="startEditDeckTitle(${d.id})" title="Click to edit">${d.name}<span class="dtitle-edit-icon">✎</span></div>
-        <div class="dmeta">
-          <span>${d.legend}</span><span>·</span>
-          <div class="dr" style="margin:0;">${pills(d.domains)}</div>
-          <span>·</span><span>${d.format}</span>
+        ${avatarHtml}
+        <div class="deck-header-title-col">
+          <div class="dtitle" id="deck-title-display" onclick="startEditDeckTitle(${d.id})" title="Click to edit">${d.name}<span class="dtitle-edit-icon">✎</span></div>
+          <div class="dmeta">
+            <span>${d.legend}</span><span>·</span>
+            <div class="dr" style="margin:0;">${pills(d.domains)}</div>
+            <span>·</span><span>${d.format}</span>
+          </div>
         </div>
       </div>
-      <div class="deck-header-center">
-        <div id="deck-curves-panel">${buildDeckCurves(d)}</div>
-      </div>
       <div class="deck-header-right">
-        <span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">— / 40 cards</span>
+        <div id="deck-curves-panel">${buildDeckCurves(d)}</div>
+        <div class="deck-header-count">
+          <span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">— / 40 cards</span>
+        </div>
       </div>
     </div>
     <div class="hero-zone-bar" id="hero-zone-bar" style="display:none;"></div>
@@ -295,8 +313,8 @@ function renderDeckDetail(){
         <div class="sb"><div class="sv ${wrc(w)}">${w}%</div><div class="sk">Win rate</div></div>
       </div>
       <div class="cards-view-bar">
-        <button class="cvt-btn${cardsTabView==='text'?' on':''}" onclick="setCardsView('text')">☰ List</button>
         <button class="cvt-btn${cardsTabView==='visual'?' on':''}" onclick="setCardsView('visual')">⊞ Visual</button>
+        <button class="cvt-btn${cardsTabView==='text'?' on':''}" onclick="setCardsView('text')">☰ List</button>
       </div>
       <div id="cards-text-view" style="${cardsTabView==='text'?'':'display:none'}">
         ${buildCardsListView(d)}
