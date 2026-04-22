@@ -517,6 +517,19 @@ function addToSB(deckId,cardId,cardName,cardType){
   toast(cardName+' moved to sideboard');
 }
 
+function addDirectToSB(deckId,cardId,cardName,cardType){
+  if(cardType==='Battlefield'){toast('Battlefield cards go in battlefield zones');return;}
+  const d=myDecks.find(x=>x.id===deckId);if(!d)return;
+  if(!d.sideboard) d.sideboard=[];
+  const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
+  if(sbTotal>=15){toast('Sideboard is full (15 cards max)');return;}
+  const existing=d.sideboard.find(c=>c.id===cardId);
+  if(existing){if(existing.cnt>=3){toast('Max 3 copies');return;}existing.cnt++;}
+  else d.sideboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
+  persist();renderEditSearch();renderEditPreview();
+  toast(cardName+' added to sideboard');
+}
+
 function renderEditSearch(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const left=document.getElementById('edit-left');if(!left)return;
@@ -607,19 +620,17 @@ function renderEditSearch(){
       const isRune=c.type==='Rune';
       const isBF=c.type==='Battlefield';
       const addFn=isRune?`addRune('${si}','${sn}')`:isBF?`addBattlefield(-1,'${si}','${sn}')`:`editDeckCard('${si}','${sn}','${at}',1)`;
-      const addLabel=isBF?'Add to battlefield':'Add to deck';
       const canAdd=isBF?true:cnt<3;
-      html+=`<div class="ct ct-img lib-card${isBF?' bf-lib-card':''}" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" title="${c.name}">`;
+      html+=`<div class="ct ct-img lib-card${isBF?' bf-lib-card':''}" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" title="${c.name}" onclick="${canAdd?addFn:''}">`;
       html+= c.imageUrl
         ?`<div class="ct-img-wrap${isBF?' bf-img-wrap':''}"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
         :`<div class="ct-img-wrap${isBF?' bf-img-wrap':''} no-img"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`;
       if(cnt>0) html+=`<div class="edit-card-thumb-cnt">×${cnt}</div>`;
       html+=`<div class="ct-name">${c.name}</div>`;
       html+=`<div class="ct-sub">${domPills}<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>`;
-      html+=`<div class="deck-card-actions">`;
+      html+=`<div class="deck-card-actions" onclick="event.stopPropagation()">`;
       html+=`<div class="dca-btn" onclick="openCardModal('${si}')"><span>🔍</span> Zoom</div>`;
-      html+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="${addFn}"><span>＋</span> ${addLabel}</div>`;
-      if(!isRune&&!isBF) html+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Add to sideboard</div>`;
+      if(!isRune&&!isBF) html+=`<div class="dca-btn" onclick="addDirectToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Add to sideboard</div>`;
       html+=`</div>`;
       html+='</div>';
     });
@@ -741,9 +752,11 @@ function renderEditPreview(){
   if(heroBar) heroBar.innerHTML='';
   const zoneChamp=d.champion||null;
 
+  if(!d.battlefields) d.battlefields=[null,null,null];
+
   function buildHeroSection(){
     let h='<div class="deck-hero-row">';
-    // Legend half
+    // Legend
     h+='<div class="deck-hero-half"><div class="deck-section-hdr">🦸 Legend</div><div class="deck-hero-cards">';
     if(!legendCards.length){
       h+='<div class="deck-hero-empty">None — add from left panel</div>';
@@ -758,7 +771,30 @@ function renderEditPreview(){
       h+=`<div class="deck-card-actions"><div class="dca-btn" onclick="openCardModal('${lsi}')"><span>🔍</span> Zoom</div><div class="dca-btn dca-danger" onclick="editDeckCard('${lsi}','${lsn}','${lst}',-1)"><span>✕</span> Remove</div></div></div>`;
     }
     h+='</div></div>';
-    // Champion half
+    // Battlefield zones (inline between legend and champion)
+    for(let i=0;i<3;i++){
+      const bfc=d.battlefields[i];
+      const bff=bfc?CARDS.find(x=>x.id===bfc.id):null;
+      const bfi=bff?bff.imageUrl:'';
+      h+='<div class="deck-hero-bf-slot">';
+      h+=`<div class="deck-section-hdr" style="font-size:11px;">🌍 Battlefield ${i+1}</div>`;
+      if(bfc){
+        const bsi=bfc.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        const bsn=bfc.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        h+=`<div class="bf-zone bf-zone-filled" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="bfZoneDrop(event,${i})">`;
+        h+=`<div class="bf-zone-inner" draggable="true" ondragstart="editDeckDragStart('${bsi}','${bsn}','Battlefield')">`;
+        if(bfi) h+=`<img src="${bfi}" alt="" loading="lazy" class="bf-zone-img">`;
+        else h+=`<div class="deck-card-no-img"><div class="dcni-name">${bfc.n}</div></div>`;
+        h+=`<div class="deck-card-actions"><div class="dca-btn" onclick="openCardModal('${bsi}')"><span>🔍</span> Zoom</div><div class="dca-btn dca-danger" onclick="removeBattlefield(${i})"><span>✕</span> Remove</div></div>`;
+        h+=`</div></div>`;
+      } else {
+        h+=`<div class="bf-zone bf-zone-empty drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="bfZoneDrop(event,${i})">`;
+        h+=`<div class="bf-zone-hint">Drag or click</div>`;
+        h+='</div>';
+      }
+      h+='</div>';
+    }
+    // Champion
     h+='<div class="deck-hero-half"><div class="deck-section-hdr">⚔️ Champion</div>';
     h+=`<div class="deck-card-item deck-card-legend drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,'champion')" title="${zoneChamp?zoneChamp.n:'Drag champion here'}">`;
     if(zoneChamp){
@@ -777,32 +813,6 @@ function renderEditPreview(){
   }
 
   let html=buildHeroSection();
-
-  // Battlefield zones (3 slots between hero and deck cards)
-  if(!d.battlefields) d.battlefields=[null,null,null];
-  html+='<div class="deck-section deck-bf-section"><div class="deck-section-hdr">🌍 Battlefields</div>';
-  html+='<div class="bf-zones-row">';
-  for(let i=0;i<3;i++){
-    const bfc=d.battlefields[i];
-    const bff=bfc?CARDS.find(x=>x.id===bfc.id):null;
-    const bfi=bff?bff.imageUrl:'';
-    if(bfc){
-      const bsi=bfc.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      const bsn=bfc.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      html+=`<div class="bf-zone bf-zone-filled" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="bfZoneDrop(event,${i})">`;
-      html+=`<div class="bf-zone-inner" draggable="true" ondragstart="editDeckDragStart('${bsi}','${bsn}','Battlefield')">`;
-      if(bfi) html+=`<img src="${bfi}" alt="" loading="lazy" class="bf-zone-img">`;
-      else html+=`<div class="deck-card-no-img"><div class="dcni-name">${bfc.n}</div></div>`;
-      html+=`<div class="deck-card-actions"><div class="dca-btn" onclick="openCardModal('${bsi}')"><span>🔍</span> Zoom</div><div class="dca-btn dca-danger" onclick="removeBattlefield(${i})"><span>✕</span> Remove</div></div>`;
-      html+=`</div></div>`;
-    } else {
-      html+=`<div class="bf-zone bf-zone-empty drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="bfZoneDrop(event,${i})">`;
-      html+=`<div class="bf-zone-label">Battlefield ${i+1}</div>`;
-      html+=`<div class="bf-zone-hint">Drag battlefield here</div>`;
-      html+='</div>';
-    }
-  }
-  html+='</div></div>';
 
   // Deck cards by type (Unit → Spell → Gear → other)
   const TYPE_ORDER=['Unit','Spell','Gear'];
