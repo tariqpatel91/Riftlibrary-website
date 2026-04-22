@@ -751,7 +751,9 @@ function renderEditPreview(){
   if(!d.battlefields) d.battlefields=[null,null,null];
 
   function buildHeroSection(){
-    let h='<div class="deck-hero-row">';
+    let h='<div class="deck-hero-section">';
+    // Row 1: Legend + Champion side by side
+    h+='<div class="deck-hero-top">';
     // Legend
     h+='<div class="deck-hero-half"><div class="deck-section-hdr">🦸 Legend</div><div class="deck-hero-cards">';
     if(!legendCards.length){
@@ -767,13 +769,29 @@ function renderEditPreview(){
       h+=`<div class="deck-card-actions"><div class="dca-btn dca-danger" onclick="editDeckCard('${lsi}','${lsn}','${lst}',-1)"><span>✕</span> Remove</div></div></div>`;
     }
     h+='</div></div>';
-    // Battlefield zones (inline between legend and champion)
+    // Champion
+    h+='<div class="deck-hero-half"><div class="deck-section-hdr">⚔️ Champion</div>';
+    h+=`<div class="deck-card-item deck-card-legend drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,'champion')" title="${zoneChamp?zoneChamp.n:'Drag champion here'}">`;
+    if(zoneChamp){
+      const zf=CARDS.find(x=>x.id===zoneChamp.id);const zi=zf?zf.imageUrl:'';
+      const zsi=zoneChamp.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const zsn=zoneChamp.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      h+=`<div class="hzb-inner" draggable="true" ondragstart="editDeckDragStart('${zsi}','${zsn}','Champion')" data-hover-img="${zi||''}">`;
+      if(zi) h+=`<img src="${zi}" alt="" loading="lazy">`;
+      else h+=`<div class="deck-card-no-img"><div class="dcni-name">${zoneChamp.n}</div></div>`;
+      h+=`<div class="deck-card-actions"><div class="dca-btn dca-danger" onclick="removeChampionZone()"><span>✕</span> Remove</div></div></div>`;
+    } else {
+      h+='<div class="hzb-empty-drop">Drag champion here</div>';
+    }
+    h+='</div></div>';
+    h+='</div>'; // end deck-hero-top
+    // Row 2: 3 Battlefield zones — full width
+    h+='<div class="deck-bf-row">';
     for(let i=0;i<3;i++){
       const bfc=d.battlefields[i];
       const bff=bfc?CARDS.find(x=>x.id===bfc.id):null;
       const bfi=bff?bff.imageUrl:'';
-      h+='<div class="deck-hero-bf-slot">';
-      h+=`<div class="deck-section-hdr" style="font-size:11px;">🌍 Battlefield ${i+1}</div>`;
+      h+=`<div class="deck-bf-slot"><div class="deck-section-hdr" style="font-size:11px;">🌍 Battlefield ${i+1}</div>`;
       if(bfc){
         const bsi=bfc.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
         const bsn=bfc.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
@@ -790,21 +808,8 @@ function renderEditPreview(){
       }
       h+='</div>';
     }
-    // Champion
-    h+='<div class="deck-hero-half"><div class="deck-section-hdr">⚔️ Champion</div>';
-    h+=`<div class="deck-card-item deck-card-legend drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,'champion')" title="${zoneChamp?zoneChamp.n:'Drag champion here'}">`;
-    if(zoneChamp){
-      const zf=CARDS.find(x=>x.id===zoneChamp.id);const zi=zf?zf.imageUrl:'';
-      const zsi=zoneChamp.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      const zsn=zoneChamp.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      h+=`<div class="hzb-inner" draggable="true" ondragstart="editDeckDragStart('${zsi}','${zsn}','Champion')" data-hover-img="${zi||''}">`;
-      if(zi) h+=`<img src="${zi}" alt="" loading="lazy">`;
-      else h+=`<div class="deck-card-no-img"><div class="dcni-name">${zoneChamp.n}</div></div>`;
-      h+=`<div class="deck-card-actions"><div class="dca-btn dca-danger" onclick="removeChampionZone()"><span>✕</span> Remove</div></div></div>`;
-    } else {
-      h+='<div class="hzb-empty-drop">Drag champion here</div>';
-    }
-    h+='</div></div></div>';
+    h+='</div>'; // end deck-bf-row
+    h+='</div>'; // end deck-hero-section
     return h;
   }
 
@@ -829,16 +834,13 @@ function renderEditPreview(){
       const uniqueCards=byType[type];
       const typeTotal=uniqueCards.reduce((a,c)=>a+c.cnt,0);
       html+=`<div class="deck-type-block"><div class="deck-type-lbl">${type} (${typeTotal})</div>`;
-      for(let start=0;start<uniqueCards.length;start+=6){
-        const chunk=uniqueCards.slice(start,start+6);
-        html+='<div class="deck-type-cols">';
-        chunk.forEach(c=>{
-          html+='<div class="deck-col-stack">';
-          for(let i=0;i<c.cnt;i++) html+=cardItem(c,'deck-card-main');
-          html+='</div>';
-        });
+      html+='<div class="deck-type-auto-grid">';
+      uniqueCards.forEach(c=>{
+        html+='<div class="deck-col-stack">';
+        for(let i=0;i<c.cnt;i++) html+=cardItem(c,'deck-card-main');
         html+='</div>';
-      }
+      });
+      html+='</div>';
       html+='</div>';
     });
     html+='</div>';
@@ -908,31 +910,27 @@ function renderEditPreview(){
       const uniqueCards=sbByType[type];
       const typeTotal=uniqueCards.reduce((a,c)=>a+c.cnt,0);
       html+=`<div class="deck-type-block"><div class="deck-type-lbl">${type} (${typeTotal})</div>`;
-      for(let start=0;start<uniqueCards.length;start+=6){
-        const chunk=uniqueCards.slice(start,start+6);
-        html+='<div class="deck-type-cols">';
-        chunk.forEach(c=>{
-          const full=CARDS.find(x=>x.id===c.id);
-          const img=full?full.imageUrl:'';
-          const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-          const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-          const st=(c.t||'').replace(/'/g,"\\'");
-          html+='<div class="deck-col-stack">';
-          for(let i=0;i<c.cnt;i++){
-            html+=`<div class="deck-card-item deck-card-main" title="${c.n}" data-hover-img="${img||''}">`;
-            if(img) html+=`<img src="${img}" alt="" loading="lazy">`;
-            else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
-            html+=`<div class="deck-card-actions">`;
-            html+=`<div class="dca-btn" onclick="adjustSB(${d.id},'${si}',1)"><span>＋</span> Add 1 copy</div>`;
-            html+=`<div class="dca-btn dca-danger" onclick="adjustSB(${d.id},'${si}',-1)"><span>✕</span> Remove</div>`;
-            html+=`</div>`;
-            if(c.cnt>1&&i===0) html+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
-            html+='</div>';
-          }
+      html+='<div class="deck-type-auto-grid">';
+      uniqueCards.forEach(c=>{
+        const full=CARDS.find(x=>x.id===c.id);
+        const img=full?full.imageUrl:'';
+        const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        html+='<div class="deck-col-stack">';
+        for(let i=0;i<c.cnt;i++){
+          html+=`<div class="deck-card-item deck-card-main" title="${c.n}" data-hover-img="${img||''}">`;
+          if(img) html+=`<img src="${img}" alt="" loading="lazy">`;
+          else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
+          html+=`<div class="deck-card-actions">`;
+          html+=`<div class="dca-btn" onclick="adjustSB(${d.id},'${si}',1)"><span>＋</span> Add 1 copy</div>`;
+          html+=`<div class="dca-btn dca-danger" onclick="adjustSB(${d.id},'${si}',-1)"><span>✕</span> Remove</div>`;
+          html+=`</div>`;
+          if(c.cnt>1&&i===0) html+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
           html+='</div>';
-        });
+        }
         html+='</div>';
-      }
+      });
+      html+='</div>';
       html+='</div>';
     });
     html+='</div>';
