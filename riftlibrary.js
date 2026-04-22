@@ -13,6 +13,7 @@ let VIEW='cards';
 let activeDeckId=null;
 let activeDDTab='cards';
 let currentUser=null;
+let cardsTabView='text';
 let authToken=null;
 const AF={doms:new Set()};
 const CF={type:'',set:'',rar:'',legend:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false};
@@ -293,8 +294,15 @@ function renderDeckDetail(){
         <div class="sb"><div class="sv">${d.losses||0}</div><div class="sk">Losses</div></div>
         <div class="sb"><div class="sv ${wrc(w)}">${w}%</div><div class="sk">Win rate</div></div>
       </div>
-      <div class="slbl">Decklist</div>
-      <div class="clg">${(d.cards||[]).map(c=>`<div class="ci"><div><div class="cin">${c.n}</div><div class="cit">${c.t}</div></div><span class="cic">×${c.cnt}</span></div>`).join('')||'<p style="color:var(--text-muted);font-size:13px;grid-column:1/-1;">No cards yet — use the Edit tab.</p>'}</div>
+      <div class="cards-view-bar">
+        <button class="cvt-btn${cardsTabView==='text'?' on':''}" onclick="setCardsView('text')">☰ List</button>
+        <button class="cvt-btn${cardsTabView==='visual'?' on':''}" onclick="setCardsView('visual')">⊞ Visual</button>
+      </div>
+      <div id="cards-text-view" style="${cardsTabView==='text'?'':'display:none'}">
+        <div class="slbl">Decklist</div>
+        <div class="clg">${(d.cards||[]).map(c=>`<div class="ci"><div><div class="cin">${c.n}</div><div class="cit">${c.t}</div></div><span class="cic">×${c.cnt}</span></div>`).join('')||'<p style="color:var(--text-muted);font-size:13px;grid-column:1/-1;">No cards yet — use the Edit tab.</p>'}</div>
+      </div>
+      <div id="cards-visual-view" style="${cardsTabView==='visual'?'':'display:none'}"></div>
       <button class="btn btn-d" style="margin-top:1rem;" onclick="delDeck(${d.id});closeDeckDetail()">Delete deck</button>
     </div>
 
@@ -346,6 +354,17 @@ function switchDDTab(tab){
   activeDDTab=tab;
   renderDeckDetail();
   if(tab==='edit'){setTimeout(()=>{renderEditSearch();renderEditPreview();},10);}
+  if(tab==='cards'&&cardsTabView==='visual'){setTimeout(()=>{renderEditPreview(document.getElementById('cards-visual-view'));},10);}
+}
+function setCardsView(mode){
+  cardsTabView=mode;
+  const tv=document.getElementById('cards-text-view');
+  const vv=document.getElementById('cards-visual-view');
+  const btns=document.querySelectorAll('.cvt-btn');
+  if(tv) tv.style.display=mode==='text'?'':'none';
+  if(vv) vv.style.display=mode==='visual'?'':'none';
+  btns.forEach(b=>b.classList.toggle('on',b.textContent.trim().startsWith(mode==='text'?'☰':'⊞')));
+  if(mode==='visual'&&vv) renderEditPreview(vv);
 }
 
 /* ── CARDS TAB helpers ───────────────────────────── */
@@ -759,9 +778,9 @@ function editZoneDrop(e,zone){
   _DRAG=null;
 }
 
-function renderEditPreview(){
+function renderEditPreview(targetEl){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
-  const right=document.getElementById('edit-right');if(!right)return;
+  const right=targetEl||document.getElementById('edit-right');if(!right)return;
   // Migrate old t:'Champion' entries in d.cards → d.champion
   if(!d.champion){
     const old=(d.cards||[]).find(c=>c.t==='Champion');

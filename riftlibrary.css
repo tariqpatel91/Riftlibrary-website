@@ -352,6 +352,10 @@ select option{background:#1e1e2a;}
 .dd-tab.active svg{opacity:1;}
 .dd-panel{display:none;}
 .dd-panel.active{display:block;}
+.cards-view-bar{display:flex;gap:6px;margin-bottom:1.25rem;}
+.cvt-btn{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.15s;}
+.cvt-btn:hover:not(.on){background:var(--surface3);color:var(--text);}
+.cvt-btn.on{background:var(--accent);color:#fff;border-color:var(--accent);}
 
 /* edit tab */
 .edit-grid{display:grid;grid-template-columns:560px 1fr;gap:1.5rem;align-items:start;}
