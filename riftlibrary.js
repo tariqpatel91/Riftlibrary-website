@@ -671,10 +671,10 @@ function renderEditSearch(){
       const isBF=c.type==='Battlefield';
       const addFn=isRune?`addRune('${si}','${sn}')`:isBF?`addBattlefield(-1,'${si}','${sn}')`:`editDeckCard('${si}','${sn}','${at}',1)`;
       const canAdd=isBF?true:cnt<3;
-      html+=`<div class="ct ct-img lib-card" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" title="${c.name}" onclick="${canAdd?addFn:''}">`;
+      html+=`<div class="ct ct-img lib-card${isBF?' lib-card-bf':''}" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" title="${c.name}" onclick="${canAdd?addFn:''}">`;
       html+= c.imageUrl
-        ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
-        :`<div class="ct-img-wrap no-img"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`;
+        ?`<div class="ct-img-wrap${isBF?' bf-img-wrap':''}"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
+        :`<div class="ct-img-wrap${isBF?' bf-img-wrap':''} no-img"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`;
       if(cnt>0) html+=`<div class="edit-card-thumb-cnt">×${cnt}</div>`;
       html+=`<div class="ct-name">${c.name}</div>`;
       html+=`<div class="ct-sub">${domPills}<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>`;
