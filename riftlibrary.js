@@ -193,13 +193,56 @@ function openDD(id){
   renderDeckDetail();
 }
 
+function buildDeckCurves(d){
+  if(!cardsLoaded||!CARDS.length) return '<div class="deck-curves-empty">Loading stats…</div>';
+  const cards=(d.cards||[]).filter(c=>c.t!=='Legend');
+  const total=cards.reduce((a,c)=>a+c.cnt,0);
+  const ecurve=new Array(9).fill(0);let eSum=0,eCnt=0;
+  const pcurve=new Array(5).fill(0);let pSum=0,pCnt=0;
+  cards.forEach(c=>{
+    const full=CARDS.find(x=>x.id===c.id);if(!full)return;
+    if(full.cost!=null){const b=Math.min(full.cost,8);ecurve[b]+=c.cnt;eSum+=full.cost*c.cnt;eCnt+=c.cnt;}
+    if(full.power!=null){const b=Math.min(full.power,4);pcurve[b]+=c.cnt;pSum+=full.power*c.cnt;pCnt+=c.cnt;}
+  });
+  const avgE=eCnt>0?(eSum/eCnt).toFixed(1):'—';
+  const avgP=pCnt>0?(pSum/pCnt).toFixed(1):'—';
+  const dom=(d.domains||[])[0]||'order';
+  const domCol=`var(--${dom==='body'?'bodyc':dom})`;
+  function bars(data,labels,color){
+    const maxV=Math.max(1,...data);const H=44;
+    return data.map((v,i)=>{
+      const h=v>0?Math.max(3,Math.round(v/maxV*H)):2;
+      const op=v>0?1:0.18;
+      return`<div class="mc-col"><div class="mc-bar" style="height:${h}px;background:${color};opacity:${op};"></div><div class="mc-lbl">${labels[i]}</div></div>`;
+    }).join('');
+  }
+  const eLabels=['0','1','2','3','4','5','6','7','8+'];
+  const pLabels=['0','1','2','3','4'];
+  return`<div class="deck-curves">
+    <div class="curve-stats-row">
+      <div class="curve-stat"><div class="curve-sv">${total}</div><div class="curve-sl">Cards</div></div>
+      <div class="curve-stat"><div class="curve-sv">${avgE}</div><div class="curve-sl">Avg Energy</div></div>
+      <div class="curve-stat"><div class="curve-sv">${avgP}</div><div class="curve-sl">Avg Power</div></div>
+    </div>
+    <div class="curve-charts-row">
+      <div class="curve-chart-block">
+        <div class="curve-chart-lbl">Energy Curve</div>
+        <div class="mc-wrap">${bars(ecurve,eLabels,'var(--order)')}</div>
+      </div>
+      <div class="curve-chart-block">
+        <div class="curve-chart-lbl">Power Curve</div>
+        <div class="mc-wrap">${bars(pcurve,pLabels,domCol)}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderDeckDetail(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const w=wr(d);
   const totalCards=(d.cards||[]).reduce((a,c)=>a+c.cnt,0);
 
   document.getElementById('ddc').innerHTML=`
-    <!-- DECK HEADER: title left, hero zones center, deck count right -->
     <div class="deck-header">
       <div class="deck-header-left">
         <div class="dtitle" id="deck-title-display" onclick="startEditDeckTitle(${d.id})" title="Click to edit">${d.name}<span class="dtitle-edit-icon">✎</span></div>
@@ -209,13 +252,12 @@ function renderDeckDetail(){
           <span>·</span><span>${d.format}</span>
         </div>
       </div>
-      <div class="deck-header-center">
-        <div class="hero-zone-bar" id="hero-zone-bar"></div>
-      </div>
       <div class="deck-header-right">
-        <span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">— / 40 cards</span>
+        <div id="deck-curves-panel">${buildDeckCurves(d)}</div>
+        <div class="dd-deck-badge"><span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">— / 40 cards</span></div>
       </div>
     </div>
+    <div class="hero-zone-bar" id="hero-zone-bar" style="display:none;"></div>
 
     <!-- TABS -->
     <div class="dd-tabs">
@@ -748,7 +790,11 @@ function renderEditPreview(){
   const badge=document.getElementById('deck-count-badge');
   if(badge) badge.textContent=`${total} / 40 cards`;
 
-  // Clear header hero bar (rendered inline in right panel)
+  // Refresh curves panel live
+  const curvesPanel=document.getElementById('deck-curves-panel');
+  if(curvesPanel) curvesPanel.innerHTML=buildDeckCurves(d);
+
+  // Clear header hero bar (no longer used in header)
   const heroBar=document.getElementById('hero-zone-bar');
   if(heroBar) heroBar.innerHTML='';
   const zoneChamp=d.champion||null;

@@ -119,10 +119,23 @@ select option{background:#1e1e2a;}
 .es h3{font-family:'Syne',sans-serif;font-size:18px;color:var(--text-soft);margin-bottom:8px;font-weight:600;}
 .bb{display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-muted);font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;margin-bottom:1.5rem;padding:0;}
 .bb:hover{color:var(--text);}
-.deck-header{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:24px;margin-bottom:0;padding-bottom:0;}
-.deck-header-left{display:flex;flex-direction:column;justify-content:flex-end;}
-.deck-header-center{display:flex;justify-content:center;}
-.deck-header-right{display:flex;align-items:center;gap:10px;justify-content:flex-end;padding-bottom:8px;}
+.deck-header{display:flex;align-items:flex-end;gap:24px;margin-bottom:0;padding-bottom:0;}
+.deck-header-left{flex:0 0 auto;display:flex;flex-direction:column;justify-content:flex-end;}
+.deck-header-right{flex:1;display:flex;align-items:flex-end;justify-content:flex-end;gap:20px;}
+/* Deck curves */
+.deck-curves{display:flex;flex-direction:column;gap:8px;padding:8px 0;}
+.deck-curves-empty{font-size:11px;color:var(--text-muted);padding:8px;}
+.curve-stats-row{display:flex;gap:20px;align-items:baseline;}
+.curve-stat{display:flex;flex-direction:column;align-items:center;min-width:48px;}
+.curve-sv{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--text);line-height:1;}
+.curve-sl{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-top:2px;}
+.curve-charts-row{display:flex;gap:20px;align-items:flex-end;}
+.curve-chart-block{display:flex;flex-direction:column;gap:4px;}
+.curve-chart-lbl{font-size:9px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;}
+.mc-wrap{display:flex;align-items:flex-end;gap:3px;height:48px;}
+.mc-col{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.mc-bar{width:15px;border-radius:3px 3px 0 0;transition:height 0.25s;}
+.mc-lbl{font-size:8px;color:var(--text-muted);line-height:1;}
 .dtitle{font-family:'Syne',sans-serif;font-size:26px;font-weight:700;letter-spacing:-0.03em;margin-bottom:6px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;}
 .dtitle:hover .dtitle-edit-icon{opacity:1;}
 .dtitle-edit-icon{font-size:16px;color:var(--text-muted);opacity:0;transition:opacity 0.15s;}
