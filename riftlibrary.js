@@ -222,18 +222,20 @@ function buildDeckCurves(d){
   const eLabels=['0','1','2','3','4','5','6','7','8+'];
   const pLabels=['0','1','2','3','4'];
   return`<div class="deck-curves">
-    <div class="curve-stats-row">
-      <div class="curve-stat"><div class="curve-sv">${avgE}</div><div class="curve-sl">Avg Energy</div></div>
-      <div class="curve-stat"><div class="curve-sv">${avgP}</div><div class="curve-sl">Avg Power</div></div>
-    </div>
-    <div class="curve-charts-row">
-      <div class="curve-chart-block">
-        <div class="curve-chart-lbl">Energy Curve</div>
-        <div class="mc-wrap">${bars(ecurve,eLabels,'var(--order)')}</div>
+    <div class="curve-pairs-row">
+      <div class="curve-pair">
+        <div class="curve-stat"><div class="curve-sv">${avgE}</div><div class="curve-sl">Avg Energy</div></div>
+        <div class="curve-chart-block">
+          <div class="curve-chart-lbl">Energy Curve</div>
+          <div class="mc-wrap">${bars(ecurve,eLabels,'var(--order)')}</div>
+        </div>
       </div>
-      <div class="curve-chart-block">
-        <div class="curve-chart-lbl">Power Curve</div>
-        <div class="mc-wrap">${bars(pcurve,pLabels,domCol)}</div>
+      <div class="curve-pair">
+        <div class="curve-stat"><div class="curve-sv">${avgP}</div><div class="curve-sl">Avg Power</div></div>
+        <div class="curve-chart-block">
+          <div class="curve-chart-lbl">Power Curve</div>
+          <div class="mc-wrap">${bars(pcurve,pLabels,domCol)}</div>
+        </div>
       </div>
     </div>
   </div>`;
@@ -565,6 +567,7 @@ function addToSB(deckId,cardId,cardName,cardType){
 
 function addDirectToSB(deckId,cardId,cardName,cardType){
   if(cardType==='Battlefield'){toast('Battlefield cards go in battlefield zones');return;}
+  if(cardType==='Rune'){toast('Rune cards go in rune slots');return;}
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   if(!d.sideboard) d.sideboard=[];
   const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
@@ -668,19 +671,17 @@ function renderEditSearch(){
       const isBF=c.type==='Battlefield';
       const addFn=isRune?`addRune('${si}','${sn}')`:isBF?`addBattlefield(-1,'${si}','${sn}')`:`editDeckCard('${si}','${sn}','${at}',1)`;
       const canAdd=isBF?true:cnt<3;
-      html+=`<div class="ct ct-img lib-card${isBF?' bf-lib-card':''}" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" title="${c.name}" onclick="${canAdd?addFn:''}">`;
+      html+=`<div class="ct ct-img lib-card" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" title="${c.name}" onclick="${canAdd?addFn:''}">`;
       html+= c.imageUrl
-        ?`<div class="ct-img-wrap${isBF?' bf-img-wrap':''}"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
-        :`<div class="ct-img-wrap${isBF?' bf-img-wrap':''} no-img"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`;
+        ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
+        :`<div class="ct-img-wrap no-img"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`;
       if(cnt>0) html+=`<div class="edit-card-thumb-cnt">×${cnt}</div>`;
       html+=`<div class="ct-name">${c.name}</div>`;
       html+=`<div class="ct-sub">${domPills}<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>`;
       html+=`<div class="deck-card-actions lib-card-overlay">`;
       html+=`<div class="dca-btn" onclick="event.stopPropagation();openCardModal('${si}')"><span>🔍</span> Zoom</div>`;
-      if(!isRune&&!isBF){
-        html+=`<div class="lib-add-deck-hint">＋ Add to deck</div>`;
-        html+=`<div class="dca-btn lib-sb-btn" onclick="event.stopPropagation();addDirectToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Sideboard</div>`;
-      }
+      html+=`<div class="lib-add-deck-hint">＋ ${isBF?'Add to BF':isRune?'Add to Runes':'Add to deck'}</div>`;
+      html+=`<div class="dca-btn lib-sb-btn" onclick="event.stopPropagation();addDirectToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Sideboard</div>`;
       html+=`</div>`;
       html+='</div>';
     });

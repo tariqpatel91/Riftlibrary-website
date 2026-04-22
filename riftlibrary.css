@@ -126,12 +126,12 @@ select option{background:#1e1e2a;}
 /* Deck curves */
 .deck-curves{display:flex;flex-direction:column;gap:8px;padding:8px 0;}
 .deck-curves-empty{font-size:11px;color:var(--text-muted);padding:8px;}
-.curve-stats-row{display:flex;gap:20px;align-items:baseline;}
+.curve-pairs-row{display:flex;gap:24px;align-items:flex-end;}
+.curve-pair{display:flex;flex-direction:column;gap:6px;align-items:center;}
 .curve-stat{display:flex;flex-direction:column;align-items:center;min-width:48px;}
 .curve-sv{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--text);line-height:1;}
 .curve-sl{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-top:2px;}
-.curve-charts-row{display:flex;gap:20px;align-items:flex-end;}
-.curve-chart-block{display:flex;flex-direction:column;gap:4px;}
+.curve-chart-block{display:flex;flex-direction:column;gap:4px;align-items:center;}
 .curve-chart-lbl{font-size:9px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;}
 .mc-wrap{display:flex;align-items:flex-end;gap:3px;height:48px;}
 .mc-col{display:flex;flex-direction:column;align-items:center;gap:2px;}
@@ -395,7 +395,7 @@ select option{background:#1e1e2a;}
 .dt-label{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--text);}
 .dt-count{font-size:13px;color:var(--accent);font-weight:600;}
 .deck-section{display:flex;flex-direction:column;gap:8px;}
-.deck-section-hdr{display:flex;align-items:center;gap:6px;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:var(--text-soft);}
+.deck-section-hdr{display:flex;align-items:center;justify-content:center;gap:6px;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:var(--text-soft);}
 .ds-count{color:var(--text-muted);font-weight:400;}
 .deck-card-row{display:flex;flex-wrap:wrap;gap:10px;}
 .deck-card-item{position:relative;cursor:pointer;border-radius:7px;overflow:hidden;background:var(--surface2);transition:transform 0.15s,box-shadow 0.15s;}
@@ -419,8 +419,8 @@ select option{background:#1e1e2a;}
 .bf-zone-img{width:100%;height:100%;object-fit:cover;display:block;}
 .bf-zone-hint{font-size:11px;color:var(--text-muted);}
 .bf-zone-filled .deck-card-actions{border-radius:0;}
-.rune-domains-row{display:flex;flex-direction:row;flex-wrap:wrap;gap:24px;align-items:flex-start;}
-.rune-domain-block{display:flex;flex-direction:column;gap:6px;}
+.rune-domains-row{display:flex;flex-direction:row;flex-wrap:wrap;gap:24px;align-items:flex-start;justify-content:center;}
+.rune-domain-block{display:flex;flex-direction:column;gap:6px;align-items:center;}
 .rune-domain-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;padding:2px 6px;border-radius:4px;display:inline-block;}
 .rune-domain-lbl.calm{color:var(--calm);background:rgba(50,170,200,0.1);}
 .rune-domain-lbl.mind{color:var(--mind);background:rgba(100,100,220,0.1);}
@@ -429,7 +429,7 @@ select option{background:#1e1e2a;}
 .rune-domain-lbl.body{color:var(--body);background:rgba(80,160,80,0.1);}
 .rune-domain-lbl.order{color:var(--order);background:rgba(200,160,50,0.1);}
 .rune-domain-lbl.other{color:var(--text-muted);background:var(--surface2);}
-.rune-domain-row{display:flex;flex-direction:row;flex-wrap:wrap;gap:16px;align-items:flex-start;}
+.rune-domain-row{display:flex;flex-direction:row;flex-wrap:wrap;gap:16px;align-items:flex-start;justify-content:center;}
 .rune-h-stack{display:flex;flex-direction:row;position:relative;}
 .rune-h-card{width:90px;flex-shrink:0;margin-left:-50px;position:relative;}
 .rune-h-card.rune-first{margin-left:0;}
