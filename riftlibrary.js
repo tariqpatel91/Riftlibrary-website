@@ -21,6 +21,254 @@ const EF={type:'',dom:'',page:1,showAllVersions:false};
 function getEditPer(){return 18;}
 const EDIT_PER=24;
 
+/* ── ARTICLES ───────────────────────────────────── */
+let articlesFilter='all';
+let activeArticleId=null;
+
+const SEED_ARTICLES=[
+  {id:1,type:'decktech',title:'Ahri Tempo Dominance — The Best Deck in Origins',summary:'Nine-Tailed Fox leverages her unique draw engine and Mind synergies to dominate the early game and close out before opponents can stabilize. A full sideboard guide is included.',author:'RiftMaster',date:'2026-04-18',legend:'Ahri',tags:['calm','mind'],readTime:8,featured:true,content:'Ahri has long been considered the premier tempo legend in Riftbound Origins. Her passive ability generates card advantage every time a unit attacks, letting you refuel while your opponent depletes their resources.\n\n**Opening Hand**\nYou want at least one 1-cost unit and one removal spell in your opener. Mulligan aggressively for Allay—she provides the early presence and late-game flexibility the deck needs.\n\n**Mid-Game Plan**\nOnce you reach turn 4, your goal is to establish two units on board while keeping a spell in hand as a threat. The Mind package of Block and Crescent Strike gives you enough interaction to protect your board through the critical turns 4-6.\n\n**Closing the Game**\nAhri\'s champion card wins games on its own once active. The moment you flip her, opponents are forced to play reactively. Use your remaining units to threaten lethal over two turns, and your opponent will run out of answers.\n\n**Sideboard Notes**\nBring in Aspiring Engineer against aggressive decks. She blocks early, then generates value if she survives.'},
+  {id:2,type:'article',title:'Understanding Energy Curves in Riftbound',summary:'A deep dive into why energy curves matter more than individual card power, and how to build a curve that actually wins games.',author:'TheoryLab',date:'2026-04-15',legend:null,tags:[],readTime:12,featured:false,content:'Energy efficiency is the single most important concept in competitive Riftbound. A deck that consistently plays on-curve will outperform a deck of individually stronger cards that plays off-curve.\n\n**What is a Curve?**\nYour energy curve is the distribution of energy costs across your 40-card main deck. An ideal curve ensures you have a meaningful play on turns 1 through 5, with enough high-impact plays in the 6+ range to close games.\n\n**The 40-Card Constraint**\nWith only 40 cards, every slot is precious. Aim for roughly: 6-8 one-drops, 8-10 two-drops, 8-10 three-drops, 5-6 four-drops, 3-4 five-drops, 1-2 six-plus.\n\n**Reactive vs Proactive Curves**\nAggressive decks want a lower curve (average 2.4-2.8 energy) while control decks can afford a higher curve (3.2-3.8) because their removal buys time. Know which style your legend supports before slotting cards.'},
+  {id:3,type:'decktech',title:'Viktor Control — Grinding Your Opponent Into Dust',summary:'Viktor\'s augment engine creates inevitability that no opponent can overcome. Learn how to navigate the early game and reach your late-game win conditions.',author:'MidlaneGod',date:'2026-04-10',legend:'Viktor',tags:['order','mind'],readTime:10,featured:false,content:'Viktor is the premier control legend in Riftbound. His augment mechanic generates tokens that grow stronger each turn, creating a late-game that is nearly impossible for opponents to answer.\n\n**Why Viktor Now?**\nThe recent shift toward more spell-heavy decks has created an opening for Viktor. His ability to generate wide board presence while also threatening in the air means aggressive decks struggle to race him.\n\n**Key Cards**\nBlastcrank is your most important unit. It provides early defense and ramps your augment count faster than any other card. Prioritize it in every mulligan.\n\n**Win Conditions**\nViktor decks win in one of two ways: overwhelming the board with augmented units, or grinding the opponent out of resources until they cannot answer your threats. Both lines are valid depending on the matchup.'},
+  {id:4,type:'article',title:'Sideboard Strategy: Reading the Meta',summary:'How to build and use your 15-card sideboard to gain edges in competitive play. Covers common matchups and the cards you should always have available.',author:'CompetitiveCorner',date:'2026-04-08',legend:null,tags:[],readTime:9,featured:false,content:'The sideboard is the most underutilized tool in competitive Riftbound. Most players treat it as an afterthought, but expert players use it to shift their deck\'s strategy between games.\n\n**Identify Your Weak Matchups**\nBefore building your sideboard, identify the two or three matchups your deck struggles with most. Your sideboard should directly address those weaknesses.\n\n**Types of Sideboard Cards**\nHate cards (narrow but powerful against specific strategies), flex cards (useful in many matchups), and plan-B cards (shift your deck\'s overall strategy).\n\n**How Many of Each?**\nA typical sideboard allocation: 4-5 hate cards for your worst matchup, 5-6 flex cards, 3-4 plan-B cards. Avoid spreading too thin across every matchup.'},
+  {id:5,type:'decktech',title:'Jinx Burn — Zero to Lethal in Four Turns',summary:'The most explosive aggressive deck in the format. Jinx punishes slow starts mercilessly. A guide to the fastest kill in Riftbound.',author:'GlassCannonGG',date:'2026-04-05',legend:'Jinx',tags:['fury','chaos'],readTime:6,featured:false,content:'Jinx burn is the format\'s boogeyman. When piloted correctly, this deck ends games by turn 4-5 with frightening regularity.\n\n**The Kill Sequence**\nYour ideal sequence is: T1 one-drop attacker, T2 another one-drop + a combat trick, T3 Jinx\'s Chomper into a removal spell clearing blockers, T4 lethal with direct damage.\n\n**Card Selection**\nEvery card in the deck must either deal damage or protect your damage dealers. There is no room for card draw or late-game value engines.\n\n**Knowing When to Slow Down**\nCounterintuitively, Jinx burn sometimes needs to sandbag attackers to bait removal before committing. Read your opponent\'s mana and play around Crescent Strike if you expect it.'}
+];
+
+function loadArticles(){
+  try{
+    const stored=localStorage.getItem('rl_articles');
+    if(stored) return JSON.parse(stored);
+  }catch(e){}
+  return [];
+}
+function saveArticles(arr){localStorage.setItem('rl_articles',JSON.stringify(arr));}
+function getAllArticles(){
+  const user=loadArticles();
+  return [...SEED_ARTICLES,...user].sort((a,b)=>new Date(b.date)-new Date(a.date));
+}
+
+function renderArticles(){
+  const listEl=document.getElementById('articles-list');
+  const detailEl=document.getElementById('articles-detail');
+  if(!listEl)return;
+  if(activeArticleId!=null){
+    listEl.style.display='none';
+    detailEl.style.display='';
+    renderArticleDetail(activeArticleId);
+    return;
+  }
+  listEl.style.display='';
+  detailEl.style.display='none';
+  const all=getAllArticles();
+  const filtered=articlesFilter==='all'?all:all.filter(a=>a.type===articlesFilter);
+  const featured=filtered.find(a=>a.featured)||filtered[0];
+  const rest=filtered.filter(a=>a!==featured);
+
+  function badgeHtml(type){
+    return type==='decktech'
+      ?'<span class="art-badge art-badge-decktech">⚔ Deck Tech</span>'
+      :'<span class="art-badge art-badge-article">📝 Article</span>';
+  }
+  function metaHtml(a){
+    return `<span>${a.author}</span><span class="art-dot">·</span><span>${fmtDate(a.date)}</span><span class="art-dot">·</span><span>${a.readTime} min read</span>`;
+  }
+  function fmtDate(d){
+    const dt=new Date(d);return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  }
+  function gradientBg(a){
+    const domColors={calm:'rgba(61,214,163,0.25)',mind:'rgba(90,180,245,0.25)',fury:'rgba(255,107,74,0.25)',chaos:'rgba(224,90,173,0.25)',order:'rgba(245,212,66,0.25)',body:'rgba(245,146,42,0.25)'};
+    const tag=(a.tags&&a.tags[0])||'';
+    const c1=domColors[tag]||'rgba(139,127,255,0.25)';
+    const c2=domColors[a.tags&&a.tags[1]]||'rgba(139,127,255,0.08)';
+    return `background:linear-gradient(135deg,${c1} 0%,${c2} 60%,rgba(13,13,18,0.1) 100%);`;
+  }
+
+  let html=`<div class="articles-header">
+    <div class="ph"><h1>Articles & Deck Techs</h1><p>Strategy guides, deck breakdowns and game insights from the community</p></div>
+    <div class="art-top-bar">
+      <div class="art-filter-bar">
+        <button class="art-filter-btn${articlesFilter==='all'?' active':''}" onclick="setArtFilter('all')">All</button>
+        <button class="art-filter-btn${articlesFilter==='article'?' active':''}" onclick="setArtFilter('article')">Articles</button>
+        <button class="art-filter-btn${articlesFilter==='decktech'?' active':''}" onclick="setArtFilter('decktech')">Deck Techs</button>
+      </div>
+      <button class="btn btn-p" onclick="openArticleSubmit()">+ Submit</button>
+    </div>
+  </div>`;
+
+  if(featured){
+    html+=`<div class="art-featured" onclick="openArticle(${featured.id})">
+      <div class="art-featured-img" style="${gradientBg(featured)}">
+        <div class="art-fi-inner">
+          <div class="art-fi-icon">${featured.type==='decktech'?'⚔':'📝'}</div>
+          ${featured.legend?`<div class="art-fi-legend">${featured.legend}</div>`:''}
+        </div>
+      </div>
+      <div class="art-featured-body">
+        <div style="display:flex;gap:8px;align-items:center;">${badgeHtml(featured.type)}<span class="art-featured-tag">Featured</span></div>
+        <div class="art-featured-title">${featured.title}</div>
+        <div class="art-featured-summary">${featured.summary}</div>
+        <div class="art-featured-meta">${metaHtml(featured)}</div>
+      </div>
+    </div>`;
+  }
+
+  if(rest.length){
+    html+=`<div class="art-grid">`;
+    rest.forEach(a=>{
+      html+=`<div class="art-card" onclick="openArticle(${a.id})">
+        <div class="art-card-img" style="${gradientBg(a)}">
+          <div class="art-ci-inner">
+            <div class="art-ci-icon">${a.type==='decktech'?'⚔':'📝'}</div>
+            ${a.legend?`<div class="art-ci-legend">${a.legend}</div>`:''}
+          </div>
+        </div>
+        <div class="art-card-body">
+          <div>${badgeHtml(a.type)}</div>
+          <div class="art-card-title">${a.title}</div>
+          <div class="art-card-summary">${a.summary}</div>
+          <div class="art-card-meta">${metaHtml(a)}</div>
+        </div>
+      </div>`;
+    });
+    html+=`</div>`;
+  } else if(!featured){
+    html+=`<div class="es" style="margin-top:3rem;"><h3>No ${articlesFilter==='all'?'posts':articlesFilter+'s'} yet</h3><p>Be the first to submit one!</p></div>`;
+  }
+
+  listEl.innerHTML=html;
+}
+
+function renderArticleDetail(id){
+  const all=getAllArticles();
+  const a=all.find(x=>x.id===id);
+  const detailEl=document.getElementById('articles-detail');
+  if(!a||!detailEl)return;
+  const domColors={calm:'rgba(61,214,163,0.2)',mind:'rgba(90,180,245,0.2)',fury:'rgba(255,107,74,0.2)',chaos:'rgba(224,90,173,0.2)',order:'rgba(245,212,66,0.2)',body:'rgba(245,146,42,0.2)'};
+  const tag=(a.tags&&a.tags[0])||'';
+  const c1=domColors[tag]||'rgba(139,127,255,0.2)';
+  const typeBadge=a.type==='decktech'
+    ?'<span class="art-badge art-badge-decktech">⚔ Deck Tech</span>'
+    :'<span class="art-badge art-badge-article">📝 Article</span>';
+  const fmtDate=d=>{const dt=new Date(d);return dt.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});};
+  // Simple markdown: **bold**, newlines → paragraphs
+  const bodyHtml=a.content.split('\n\n').map(para=>{
+    let p=para.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+    if(p.startsWith('**')&&p.endsWith('**')) return`<h3 class="art-body-h3">${p.replace(/\*\*/g,'')}</h3>`;
+    if(p.startsWith('<strong>')&&para.indexOf('\n\n')<0&&p.length<80) return`<h3 class="art-body-h3">${p}</h3>`;
+    return`<p class="art-body-p">${p}</p>`;
+  }).join('');
+
+  detailEl.innerHTML=`
+    <button class="bb" onclick="closeArticle()">← Back to articles</button>
+    <div class="art-detail">
+      <div class="art-detail-hero" style="background:linear-gradient(135deg,${c1} 0%,rgba(13,13,18,0) 70%);">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">${typeBadge}</div>
+        <h1 class="art-detail-title">${a.title}</h1>
+        <div class="art-detail-meta">
+          <span class="art-detail-author">${a.author}</span>
+          <span class="art-dot">·</span>
+          <span>${fmtDate(a.date)}</span>
+          <span class="art-dot">·</span>
+          <span>${a.readTime} min read</span>
+          ${a.legend?`<span class="art-dot">·</span><span class="art-detail-legend">${a.legend}</span>`:''}
+        </div>
+        <p class="art-detail-summary">${a.summary}</p>
+      </div>
+      <div class="art-detail-body">${bodyHtml}</div>
+    </div>`;
+}
+
+function openArticle(id){
+  activeArticleId=id;
+  renderArticles();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function closeArticle(){
+  activeArticleId=null;
+  renderArticles();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function setArtFilter(f){
+  articlesFilter=f;
+  activeArticleId=null;
+  renderArticles();
+}
+
+function openArticleSubmit(){
+  const mo=document.getElementById('art-submit-modal');
+  if(mo){mo.classList.add('open');return;}
+  const div=document.createElement('div');
+  div.id='art-submit-modal';
+  div.className='card-mo open';
+  div.innerHTML=`<div class="card-mbox" style="max-width:560px;padding:2rem;" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+      <div class="cm-name">Submit a Post</div>
+      <button onclick="closeArticleSubmit()" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <label class="slbl">Type</label>
+        <select id="as-type" style="width:100%;"><option value="article">Article</option><option value="decktech">Deck Tech</option></select>
+      </div>
+      <div>
+        <label class="slbl">Title</label>
+        <input type="text" id="as-title" placeholder="Enter title…" style="width:100%;padding:9px 12px;">
+      </div>
+      <div>
+        <label class="slbl">Summary (1-2 sentences)</label>
+        <input type="text" id="as-summary" placeholder="Brief description…" style="width:100%;padding:9px 12px;">
+      </div>
+      <div>
+        <label class="slbl">Legend (Deck Techs only — optional)</label>
+        <input type="text" id="as-legend" placeholder="e.g. Ahri" style="width:100%;padding:9px 12px;">
+      </div>
+      <div>
+        <label class="slbl">Domain tags (comma separated, optional)</label>
+        <input type="text" id="as-tags" placeholder="e.g. calm, mind" style="width:100%;padding:9px 12px;">
+      </div>
+      <div>
+        <label class="slbl">Your name</label>
+        <input type="text" id="as-author" placeholder="Display name…" style="width:100%;padding:9px 12px;">
+      </div>
+      <div>
+        <label class="slbl">Content</label>
+        <textarea id="as-content" placeholder="Write your article or deck tech here. Use **bold text** for headers." style="width:100%;min-height:160px;background:var(--bg);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:10px 12px;resize:vertical;outline:none;line-height:1.6;"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
+        <button class="btn" onclick="closeArticleSubmit()">Cancel</button>
+        <button class="btn btn-p" onclick="submitArticle()">Publish</button>
+      </div>
+    </div>
+  </div>`;
+  div.onclick=closeArticleSubmit;
+  document.body.appendChild(div);
+}
+function closeArticleSubmit(){
+  const mo=document.getElementById('art-submit-modal');
+  if(mo)mo.classList.remove('open');
+}
+function submitArticle(){
+  const title=document.getElementById('as-title').value.trim();
+  const summary=document.getElementById('as-summary').value.trim();
+  const content=document.getElementById('as-content').value.trim();
+  const author=document.getElementById('as-author').value.trim()||'Anonymous';
+  if(!title||!summary||!content){toast('Please fill in title, summary and content');return;}
+  const type=document.getElementById('as-type').value;
+  const legend=document.getElementById('as-legend').value.trim();
+  const tagsRaw=document.getElementById('as-tags').value.trim();
+  const tags=tagsRaw?tagsRaw.split(',').map(t=>t.trim().toLowerCase()).filter(Boolean):[];
+  const existing=loadArticles();
+  const allIds=[...SEED_ARTICLES,...existing].map(a=>a.id);
+  const newId=Math.max(0,...allIds)+1;
+  const words=content.split(/\s+/).length;
+  const readTime=Math.max(1,Math.round(words/200));
+  const newArticle={id:newId,type,title,summary,author,date:new Date().toISOString().split('T')[0],legend:legend||null,tags,readTime,featured:false,content};
+  existing.push(newArticle);
+  saveArticles(existing);
+  closeArticleSubmit();
+  renderArticles();
+  toast('Post published!');
+}
+
 /* storage */
 function loadStorage(){
   try{
@@ -133,6 +381,7 @@ function goto(p,el){
   if(p==='statistics')renderStatistics();
   if(p==='events')renderEvents();
   if(p==='play'&&typeof populateDeckSelectors==='function')populateDeckSelectors();
+  if(p==='articles')renderArticles();
 }
 
 /* ── DECKS ──────────────────────────────────────── */
