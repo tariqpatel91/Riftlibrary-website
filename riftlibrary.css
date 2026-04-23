@@ -440,8 +440,10 @@ select option{background:#1e1e2a;}
 .deck-card-legend{width:100%;aspect-ratio:2.5/3.5;}
 .deck-card-hero{width:120px;aspect-ratio:2.5/3.5;}
 .deck-card-main{width:100%;aspect-ratio:2.5/3.5;}
-.deck-sb-section{border-top:1px solid var(--border);padding-top:12px;margin-top:4px;}
-.deck-rune-section{border-top:1px solid var(--border);padding-top:12px;margin-top:4px;}
+.deck-sb-section{border-top:1px solid var(--border);padding-top:12px;margin-top:4px;display:flex;flex-direction:column;align-items:center;}
+.deck-sb-section .deck-all-types{width:100%;}
+.deck-rune-section{border-top:1px solid var(--border);padding-top:12px;margin-top:4px;display:flex;flex-direction:column;align-items:center;}
+.deck-rune-section .rune-domains-row{width:100%;}
 .bf-zone{width:100%;aspect-ratio:3.5/2.5;border-radius:10px;border:2px dashed rgba(139,127,255,0.35);background:var(--surface2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:border-color 0.2s,background 0.2s;position:relative;overflow:hidden;}
 .bf-zone.drag-over{border-color:var(--accent);background:var(--accent-dim);}
 .bf-zone-filled{border-style:solid;border-color:rgba(139,127,255,0.5);padding:0;}
@@ -449,7 +451,10 @@ select option{background:#1e1e2a;}
 .bf-zone-img{width:100%;height:100%;object-fit:cover;display:block;}
 .bf-zone-hint{font-size:11px;color:var(--text-muted);}
 .bf-zone-filled .deck-card-actions{border-radius:0;}
-.rune-domains-row{display:flex;flex-direction:row;flex-wrap:wrap;gap:24px;align-items:flex-start;justify-content:center;}
+.bf-remove-btn{display:block;width:100%;margin-top:4px;padding:4px 0;background:rgba(248,113,113,0.12);border:1px solid #f87171;border-radius:6px;color:#f87171;font-size:11px;font-weight:600;cursor:pointer;text-align:center;transition:background 0.15s;}
+.bf-remove-btn:hover{background:rgba(248,113,113,0.28);}
+.deck-hero-bf-slot{display:flex;flex-direction:column;gap:4px;align-items:center;}
+.rune-domains-row{display:flex;flex-direction:row;flex-wrap:wrap;gap:24px;align-items:flex-start;justify-content:center;width:100%;}
 .rune-domain-block{display:flex;flex-direction:column;gap:6px;align-items:center;}
 .rune-domain-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;padding:2px 6px;border-radius:4px;display:inline-block;}
 .rune-domain-lbl.calm{color:var(--calm);background:rgba(50,170,200,0.1);}
@@ -466,11 +471,11 @@ select option{background:#1e1e2a;}
 .rune-h-card:hover{z-index:20!important;margin-left:-55px;}
 .rune-h-card:hover~.rune-h-card{margin-left:-62px;}
 /* horizontal 3-col layout: Unit | Spell | Gear */
-.deck-all-types{display:flex;flex-direction:row;align-items:flex-start;gap:20px;}
-.deck-type-block{display:flex;flex-direction:column;gap:8px;flex:1;min-width:0;}
-.deck-type-lbl{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;font-weight:700;text-align:center;}
-.deck-type-auto-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;}
-.deck-col-stack{display:flex;flex-direction:column;width:130px;flex-shrink:0;}
+.deck-all-types{display:flex;flex-direction:column;gap:16px;}
+.deck-type-block{display:flex;flex-direction:column;gap:8px;align-items:center;}
+.deck-type-lbl{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;font-weight:700;text-align:center;width:100%;}
+.deck-type-auto-grid{display:flex;flex-wrap:nowrap;gap:6px;justify-content:center;width:100%;min-width:0;}
+.deck-col-stack{display:flex;flex-direction:column;flex:1 1 0;min-width:60px;max-width:130px;}
 .deck-col-stack .deck-card-item{margin-bottom:-124px;}
 .deck-col-stack .deck-card-item:last-child{margin-bottom:0;}
 .deck-col-stack .deck-card-item:hover{z-index:20;position:relative;}
@@ -478,11 +483,11 @@ select option{background:#1e1e2a;}
 #cards-visual-view .deck-hero-row{justify-content:flex-start;width:100%;gap:16px;margin-bottom:28px;}
 #cards-visual-view .deck-hero-half{width:190px;flex:0 0 190px;}
 #cards-visual-view .deck-hero-bf-slot{max-width:none;min-width:130px;}
-#cards-visual-view .deck-all-types{gap:28px;width:100%;}
+#cards-visual-view .deck-all-types{gap:28px;}
 #cards-visual-view .deck-type-block{gap:12px;}
 #cards-visual-view .deck-type-lbl{font-size:13px;margin-bottom:6px;letter-spacing:0.1em;}
 #cards-visual-view .deck-type-auto-grid{gap:14px;}
-#cards-visual-view .deck-col-stack{width:155px;gap:6px;}
+#cards-visual-view .deck-col-stack{max-width:155px;min-width:70px;gap:6px;}
 #cards-visual-view .deck-col-stack .deck-card-item{margin-bottom:-128px;}
 #cards-visual-view .deck-col-stack .deck-card-item:last-child{margin-bottom:0;}
 #cards-visual-view .rune-h-card{width:155px;margin-left:-85px;}

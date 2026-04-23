@@ -288,7 +288,7 @@ function renderDeckDetail(){
     <div class="dd-tabs">
       <button class="dd-tab${activeDDTab==='cards'?' active':''}" onclick="switchDDTab('cards')">
         <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="9" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 5h3M5 8h3M5 11h1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><rect x="6" y="1" width="9" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/></svg>
-        Cards
+        Decklist
       </button>
       <button class="dd-tab${activeDDTab==='edit'?' active':''}" onclick="switchDDTab('edit')">
         <svg viewBox="0 0 16 16" fill="none"><path d="M11 2.5l2.5 2.5-7 7H4V9.5l7-7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.5 4l2.5 2.5" stroke="currentColor" stroke-width="1.2"/></svg>
@@ -961,8 +961,8 @@ function renderEditPreview(targetEl){
         h+=`<div class="bf-zone-inner" draggable="true" ondragstart="editDeckDragStart('${bsi}','${bsn}','Battlefield')">`;
         if(bfi) h+=`<img src="${bfi}" alt="" loading="lazy" class="bf-zone-img">`;
         else h+=`<div class="deck-card-no-img"><div class="dcni-name">${bfc.n}</div></div>`;
-        h+=`<div class="deck-card-actions"><div class="dca-btn dca-danger" onclick="removeBattlefield(${i})"><span>✕</span> Remove</div></div>`;
         h+=`</div></div>`;
+        h+=`<button class="bf-remove-btn" onclick="removeBattlefield(${i})">✕ Remove</button>`;
       } else {
         h+=`<div class="bf-zone bf-zone-empty drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="bfZoneDrop(event,${i})">`;
         h+=`<div class="bf-zone-hint">Drag or click</div>`;
