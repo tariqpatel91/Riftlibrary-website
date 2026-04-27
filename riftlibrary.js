@@ -2127,7 +2127,7 @@ function delDeck(id){
   var cloudId=deck&&deck.cloud_id;
   myDecks=myDecks.filter(function(d){return d.id!==id;});
   persist();renderDecks();toast('Deck deleted');
-  if(currentUser&&cloudId) api('DELETE','/api/decks/'+cloudId).catch(function(){});
+  if(currentUser&&cloudId) _sb.from('decks').delete().eq('id',cloudId).then(({error})=>{ if(error) console.warn('Delete failed',error); });
 }
 
 /* ── CARD FILTERS ────────────────────────────────── */
@@ -3025,49 +3025,26 @@ window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=se
 })();
 
 /* ═══════════════════════════════════════════════════════════════
-   AUTH + CLOUD SYNC ENGINE
+   AUTH + CLOUD SYNC (Supabase)
    ═══════════════════════════════════════════════════════════════ */
 
-const API_BASE = window.location.hostname === 'localhost' || window.location.protocol === 'file:'
-  ? 'http://localhost:3000'
-  : 'https://riftlibrary-api.up.railway.app';
-
-function getToken()  { return authToken || localStorage.getItem('rl_auth_token'); }
-function setToken(t) { authToken = t; if(t) localStorage.setItem('rl_auth_token',t); else localStorage.removeItem('rl_auth_token'); }
-
-async function api(method, path, body) {
-  const headers = { 'Content-Type': 'application/json' };
-  const token = getToken();
-  if (token) headers['Authorization'] = 'Bearer ' + token;
-  const res = await fetch(API_BASE + path, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(data.error || 'Request failed'), { status: res.status, data });
-  return data;
-}
+const SUPABASE_URL  = 'https://rxolycfdleetydbbehep.supabase.co';
+const SUPABASE_ANON = 'PASTE_YOUR_ANON_KEY_HERE';
+const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 async function initAuth() {
-  const hash = window.location.hash;
-  if (hash.includes('auth_token=')) {
-    const token = hash.split('auth_token=')[1].split('&')[0];
-    setToken(token);
-    window.location.hash = '';
-  }
-
-  const token = getToken();
-  if (!token) { renderAuthNav(null); return; }
-
-  try {
-    const user = await api('GET', '/auth/me');
-    currentUser = user;
-    renderAuthNav(user);
+  const { data: { session } } = await _sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    renderAuthNav(currentUser);
     syncCloudDecks();
-  } catch (e) {
-    if (e.status === 401) { setToken(null); renderAuthNav(null); }
+  } else {
+    renderAuthNav(null);
   }
+  _sb.auth.onAuthStateChange((_event, session) => {
+    currentUser = session ? session.user : null;
+    renderAuthNav(currentUser);
+  });
 }
 
 function renderAuthNav(user) {
@@ -3088,16 +3065,18 @@ function renderAuthNav(user) {
     area.appendChild(loginBtn);
     area.appendChild(signupBtn);
   } else {
-    var initials = (user.username || 'U').slice(0,2).toUpperCase();
+    var meta = user.user_metadata || {};
+    var name = meta.username || meta.full_name || user.email.split('@')[0];
+    var initials = name.slice(0,2).toUpperCase();
     var wrap = document.createElement('div');
     wrap.className = 'auth-drop-wrap';
     var pill = document.createElement('div');
     pill.className = 'auth-user-pill';
     pill.onclick = toggleUserDrop;
-    if (user.avatar_url) {
+    if (meta.avatar_url) {
       var img = document.createElement('img');
       img.className = 'auth-avatar';
-      img.src = user.avatar_url;
+      img.src = meta.avatar_url;
       img.alt = '';
       pill.appendChild(img);
     } else {
@@ -3109,7 +3088,7 @@ function renderAuthNav(user) {
     }
     var uname = document.createElement('span');
     uname.className = 'auth-user-name';
-    uname.textContent = user.username;
+    uname.textContent = name;
     pill.appendChild(uname);
     wrap.appendChild(pill);
     var drop = document.createElement('div');
@@ -3176,16 +3155,12 @@ async function submitRegister() {
   const email    = document.getElementById('reg-email').value.trim();
   const password = document.getElementById('reg-password').value;
   if (!username || !email || !password) { showAuthError('All fields required'); return; }
-
   const btn = document.querySelector('#auth-form-register .auth-submit');
   btn.textContent = 'Creating account…'; btn.disabled = true;
   try {
-    const res = await api('POST', '/auth/register', { username, email, password });
-    setToken(res.token);
-    currentUser = res.user;
-    renderAuthNav(res.user);
-    showAuthSuccess('Account created! Welcome, ' + res.user.username + ' 🎉');
-    setTimeout(() => { closeAuthModal(); syncCloudDecks(); }, 1200);
+    const { error } = await _sb.auth.signUp({ email, password, options: { data: { username } } });
+    if (error) throw error;
+    showAuthSuccess('Check your email to confirm your account!');
   } catch (e) {
     showAuthError(e.message || 'Registration failed');
   } finally { btn.textContent = 'Create account'; btn.disabled = false; }
@@ -3195,16 +3170,15 @@ async function submitLogin() {
   const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
   if (!email || !password) { showAuthError('Email and password required'); return; }
-
   const btn = document.querySelector('#auth-form-login .auth-submit');
   btn.textContent = 'Logging in…'; btn.disabled = true;
   try {
-    const res = await api('POST', '/auth/login', { email, password });
-    setToken(res.token);
-    currentUser = res.user;
-    renderAuthNav(res.user);
+    const { data, error } = await _sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    currentUser = data.user;
+    renderAuthNav(data.user);
     closeAuthModal();
-    toast('Welcome back, ' + res.user.username + '!');
+    toast('Welcome back!');
     syncCloudDecks();
   } catch (e) {
     showAuthError(e.message || 'Login failed');
@@ -3212,12 +3186,11 @@ async function submitLogin() {
 }
 
 function oauthLogin(provider) {
-  window.location.href = API_BASE + '/auth/' + provider;
+  _sb.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.href } });
 }
 
 async function logOut() {
-  try { await api('POST', '/auth/logout'); } catch {}
-  setToken(null);
+  await _sb.auth.signOut();
   currentUser = null;
   renderAuthNav(null);
   toast('Logged out');
@@ -3226,67 +3199,72 @@ async function logOut() {
 async function syncCloudDecks() {
   if (!currentUser) return;
   try {
-    const cloudDecks = await api('GET', '/api/decks');
-    const cloudMap = {};
-    cloudDecks.forEach(d => { cloudMap[d.id] = d; });
+    const { data: cloudDecks, error } = await _sb.from('decks').select('*').eq('user_id', currentUser.id);
+    if (error) throw error;
     cloudDecks.forEach(cd => {
-      const localIdx = myDecks.findIndex(d => d.id === cd.id || d.cloud_id === cd.id);
+      const localIdx = myDecks.findIndex(d => d.cloud_id === cd.id);
       const merged = cloudToLocal(cd);
       if (localIdx >= 0) {
-        const localDeck = myDecks[localIdx];
-        if (!localDeck.updated_at || new Date(cd.updated_at) > new Date(localDeck.updated_at)) {
+        if (!myDecks[localIdx].updated_at || new Date(cd.updated_at) > new Date(myDecks[localIdx].updated_at)) {
           myDecks[localIdx] = merged;
         }
       } else {
         myDecks.unshift(merged);
       }
     });
-    const localOnlyDecks = myDecks.filter(d => !d.cloud_id && d.cards && d.cards.length > 0);
+    const localOnlyDecks = myDecks.filter(d => !d.cloud_id);
     for (const local of localOnlyDecks) {
       try {
-        const created = await api('POST', '/api/decks', localToCloud(local));
+        const { data: created, error: e2 } = await _sb.from('decks').insert(localToCloud(local)).select().single();
+        if (e2) throw e2;
         const idx = myDecks.findIndex(d => d.id === local.id);
-        if (idx >= 0) { myDecks[idx].cloud_id = created.id; myDecks[idx].id = created.id; }
+        if (idx >= 0) myDecks[idx].cloud_id = created.id;
       } catch (e) { console.warn('Failed to push local deck:', e); }
     }
     persist();
     if (document.getElementById('page-decks').classList.contains('active')) renderDecks();
     toast('Decks synced ☁');
-  } catch (e) {
-    console.warn('Sync failed:', e);
-    if (e.status === 401) { setToken(null); currentUser = null; renderAuthNav(null); }
-  }
+  } catch (e) { console.warn('Sync failed:', e); }
 }
 
 function cloudToLocal(cd) {
+  const d = cd.data || {};
   return {
-    id:           cd.id,
-    cloud_id:     cd.id,
-    name:         cd.name,
-    legend:       cd.legend,
-    domains:      cd.domains || [],
-    format:       cd.format || 'Constructed',
-    wins:         cd.wins || 0,
-    losses:       cd.losses || 0,
-    desc:         cd.description || '',
-    updated_at:   cd.updated_at,
-    sideboardNotes: cd.sideboard_notes || '',
-    sideboard:    (cd.sideboard || []).map(c => ({ id:c.card_id, n:c.card_name, t:c.card_type, cnt:c.quantity })),
-    results:      [],
-    cards:        (cd.cards || []).map(c => ({ id:c.card_id, n:c.card_name, t:c.card_type, cnt:c.quantity })),
+    id:             cd.id,
+    cloud_id:       cd.id,
+    name:           cd.name,
+    legend:         cd.legend,
+    domains:        d.domains      || [],
+    format:         d.format       || 'Constructed',
+    wins:           cd.wins        || 0,
+    losses:         cd.losses      || 0,
+    desc:           d.desc         || '',
+    updated_at:     cd.updated_at,
+    sideboardNotes: d.sideboardNotes || '',
+    sideboard:      d.sideboard    || [],
+    results:        d.results      || [],
+    cards:          d.cards        || [],
+    battlefields:   d.battlefields || [null, null, null],
   };
 }
 
 function localToCloud(local) {
   return {
-    name:        local.name,
-    legend:      local.legend,
-    domains:     local.domains || [],
-    format:      local.format || 'Constructed',
-    description: local.desc || '',
-    cards:       (local.cards || []).map(c => ({ card_id:c.id, card_name:c.n, card_type:c.t, quantity:c.cnt })),
-    sideboard:   (local.sideboard || []).map(c => ({ card_id:c.id, card_name:c.n, card_type:c.t, quantity:c.cnt })),
-    sideboard_notes: local.sideboardNotes || '',
+    user_id: currentUser.id,
+    name:    local.name,
+    legend:  local.legend,
+    wins:    local.wins   || 0,
+    losses:  local.losses || 0,
+    data: {
+      domains:        local.domains        || [],
+      format:         local.format         || 'Constructed',
+      desc:           local.desc           || '',
+      cards:          local.cards          || [],
+      sideboard:      local.sideboard      || [],
+      sideboardNotes: local.sideboardNotes || '',
+      results:        local.results        || [],
+      battlefields:   local.battlefields   || [null, null, null],
+    },
   };
 }
 
@@ -3295,12 +3273,14 @@ async function saveToCloud(deckId) {
   const deck = myDecks.find(d => d.id === deckId);
   if (!deck) return;
   try {
+    const payload = localToCloud(deck);
     if (deck.cloud_id) {
-      await api('PUT', '/api/decks/' + deck.cloud_id, localToCloud(deck));
+      const { error } = await _sb.from('decks').update(payload).eq('id', deck.cloud_id);
+      if (error) throw error;
     } else {
-      const created = await api('POST', '/api/decks', localToCloud(deck));
+      const { data: created, error } = await _sb.from('decks').insert(payload).select().single();
+      if (error) throw error;
       deck.cloud_id = created.id;
-      deck.id = created.id;
       persist();
     }
   } catch (e) { console.warn('Cloud save failed:', e); }
