@@ -9,6 +9,43 @@ function populateLegendDropdowns(){
 }
 let CARDS=[], cardsLoaded=false;
 let myDecks=[], nextId=1;
+const BANNED_CARDS=new Set(['Called Shot','Draven, Vanquisher','Fight or Flight','Scrapheap','Dreaming Tree','Obelisk of Power',"Reaver's Row"]);
+function baseName(n){return(n||'').replace(/\s*\([^)]*\)\s*$/,'').trim();}
+let myEvents=JSON.parse(localStorage.getItem('rl_myEvents')||'[]');
+let activeEvtTab='all';
+function persistMyEvents(){localStorage.setItem('rl_myEvents',JSON.stringify(myEvents));}
+function switchEvtTab(t){activeEvtTab=t;renderEvents();}
+function createMyEvent(){
+  const name=(document.getElementById('mevt-name')||{}).value||'';
+  const date=(document.getElementById('mevt-date')||{}).value||'';
+  const time=(document.getElementById('mevt-time')||{}).value||'';
+  const loc=(document.getElementById('mevt-loc')||{}).value||'';
+  if(!name.trim()||!date){toast('Name and date are required.');return;}
+  myEvents.push({id:Date.now(),name:name.trim(),date,time,location:loc.trim(),paidEntry:false,hotelBooked:false,flightBooked:false});
+  persistMyEvents();renderEvents();
+}
+function toggleMyEventProp(id,prop){
+  const e=myEvents.find(x=>x.id===id);if(!e)return;
+  e[prop]=!e[prop];persistMyEvents();renderEvents();
+}
+function deleteMyEvent(id){
+  myEvents=myEvents.filter(x=>x.id!==id);persistMyEvents();renderEvents();
+}
+function addRQToMyEvents(idx){
+  const rq=RQ_EVENTS[idx];if(!rq)return;
+  if(myEvents.some(e=>e.name===rq.city+' Regional Qualifier')){toast('Already in My Events');return;}
+  myEvents.push({id:Date.now(),name:rq.city+' Regional Qualifier',date:rq.sortDate,time:'',location:rq.city+', '+rq.region,paidEntry:false,hotelBooked:false,flightBooked:false});
+  persistMyEvents();renderEvents();toast('Added '+rq.city+' RQ to My Events');
+}
+function fillFromRQ(idx){
+  const rq=RQ_EVENTS[idx];if(!rq)return;
+  const n=document.getElementById('mevt-name');
+  const d=document.getElementById('mevt-date');
+  const l=document.getElementById('mevt-loc');
+  if(n)n.value=rq.city+' Regional Qualifier';
+  if(d)d.value=rq.sortDate;
+  if(l)l.value=rq.city+', '+rq.region;
+}
 let VIEW='cards';
 let activeDeckId=null;
 let activeDDTab='cards';
@@ -362,7 +399,8 @@ function setView(v){
   document.getElementById('art-btm').style.display=v==='artists'?'flex':'none';
   document.getElementById('cg').style.display=v==='cards'?'':'none';
   document.getElementById('artist-grid').style.display=v==='artists'?'':'none';
-  ['dw-set','dw-type','dw-rar'].forEach(id=>document.getElementById(id).style.display=v==='cards'?'':'none');
+  ['dw-set','dw-rar'].forEach(id=>document.getElementById(id).style.display=v==='cards'?'':'none');
+  const typeRow=document.querySelector('.cs-type-row');if(typeRow)typeRow.style.display=v==='cards'?'':'none';
   document.getElementById('art-sort').style.display=v==='artists'?'':'none';
   document.getElementById('cs').placeholder=v==='cards'?'Search cards by name or text…':'Search artist name or card name…';
   document.getElementById('reset-btn').textContent=v==='cards'?'Reset filters':'Reset';
@@ -454,7 +492,7 @@ function openDD(id){
   renderDeckDetail();
 }
 
-function buildDeckCurves(d){
+function buildDeckCurves(d,large){
   if(!cardsLoaded||!CARDS.length) return '<div class="deck-curves-empty">Loading stats…</div>';
   const cards=(d.cards||[]).filter(c=>c.t!=='Legend');
   const total=cards.reduce((a,c)=>a+c.cnt,0);
@@ -470,7 +508,7 @@ function buildDeckCurves(d){
   const dom=(d.domains||[])[0]||'order';
   const domCol=`var(--${dom==='body'?'bodyc':dom})`;
   function bars(data,labels,color){
-    const maxV=Math.max(1,...data);const H=44;
+    const maxV=Math.max(1,...data);const H=large?80:44;
     return data.map((v,i)=>{
       const h=v>0?Math.max(3,Math.round(v/maxV*H)):2;
       const op=v>0?1:0.18;
@@ -480,7 +518,7 @@ function buildDeckCurves(d){
   }
   const eLabels=['0','1','2','3','4','5','6','7','8+'];
   const pLabels=['0','1','2','3','4'];
-  return`<div class="deck-curves">
+  return`<div class="deck-curves${large?' deck-curves-lg':''}">
     <div class="curve-pairs-row">
       <div class="curve-pair">
         <div class="curve-stat"><div class="curve-sv">${avgE}</div><div class="curve-sl">Avg Energy</div></div>
@@ -504,6 +542,7 @@ function renderDeckDetail(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const w=wr(d);
   const totalCards=(d.cards||[]).reduce((a,c)=>a+c.cnt,0);
+  const bfOpts=(d.battlefields||[]).filter(Boolean).map(b=>{const f=CARDS.find(x=>x.id===b.id);return`<option value="${b.id}">${f?f.name:b.n}</option>`;}).join('');
   const legendEntry=(d.cards||[]).find(c=>c.t==='Legend');
   const legendFull=legendEntry?CARDS.find(x=>x.id===legendEntry.id):null;
   const legendImg=legendFull?legendFull.imageUrl:'';
@@ -527,7 +566,7 @@ function renderDeckDetail(){
       <div class="deck-header-right">
         <div id="deck-curves-panel">${buildDeckCurves(d)}</div>
         <div class="deck-header-count">
-          <span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">— / 40 cards</span>
+          <span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">${totalCards} / 40 cards</span>
         </div>
       </div>
     </div>
@@ -545,7 +584,7 @@ function renderDeckDetail(){
       </button>
       <button class="dd-tab${activeDDTab==='stats'?' active':''}" onclick="switchDDTab('stats')">
         <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="3" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="6" y="5" width="3" height="10" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="11" y="2" width="3" height="13" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
-        Stats
+        Decklist Data
       </button>
       <button class="dd-tab${activeDDTab==='results'?' active':''}" onclick="switchDDTab('results')">
         <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -564,11 +603,26 @@ function renderDeckDetail(){
       <div class="cards-view-bar">
         <button class="cvt-btn${cardsTabView==='visual'?' on':''}" onclick="setCardsView('visual')">⊞ Visual</button>
         <button class="cvt-btn${cardsTabView==='text'?' on':''}" onclick="setCardsView('text')">☰ List</button>
+        <button class="cvt-btn${cardsTabView==='gallery'?' on':''}" onclick="setCardsView('gallery')">⊟ Gallery</button>
+        <div class="cvt-bar-right">
+          <button class="cvt-icon-btn" onclick="copyDeckLink()" title="Copy link to deck">🔗 Copy Link</button>
+          <div style="position:relative;">
+            <button class="cvt-icon-btn" onclick="toggleExportMenu(this)" title="Export deck">↓ Export ▾</button>
+            <div class="export-drop" id="export-drop">
+              <button class="export-opt" onclick="exportDeck('tts');closeExportMenu()">🎲 TTS Code</button>
+              <button class="export-opt" onclick="exportDeck('text');closeExportMenu()">📄 Text List</button>
+              <button class="export-opt" onclick="exportDeck('pdf');closeExportMenu()">🖨️ Proxy PDF</button>
+              <button class="export-opt" onclick="exportDeck('image');closeExportMenu()">🖼️ Deck Image</button>
+              <button class="export-opt" onclick="exportDeck('reg');closeExportMenu()">📋 Registration Sheet</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div id="cards-text-view" style="${cardsTabView==='text'?'':'display:none'}">
         ${buildCardsListView(d)}
       </div>
       <div id="cards-visual-view" style="${cardsTabView==='visual'?'':'display:none'}"></div>
+      <div id="cards-gallery-view" style="${cardsTabView==='gallery'?'':'display:none'}"></div>
       <button class="btn btn-d" style="margin-top:1rem;" onclick="delDeck(${d.id});closeDeckDetail()">Delete deck</button>
     </div>
 
@@ -591,6 +645,14 @@ function renderDeckDetail(){
         <div>
           <label>Outcome</label>
           <select id="r-outcome"><option value="win">Win</option><option value="loss">Loss</option></select>
+        </div>
+        <div>
+          <label>Turn order</label>
+          <select id="r-turn"><option value="first">Went First</option><option value="second">Went Second</option></select>
+        </div>
+        <div>
+          <label>Battlefield</label>
+          <select id="r-bf"><option value="">— any —</option>${bfOpts}</select>
         </div>
         <div>
           <label>Opponent legend</label>
@@ -616,6 +678,10 @@ function renderDeckDetail(){
   if(activeDDTab==='cards'&&cardsTabView==='visual'){
     setTimeout(()=>renderEditPreview(document.getElementById('cards-visual-view')),10);
   }
+  if(activeDDTab==='cards'&&cardsTabView==='gallery'){
+    setTimeout(()=>{const gv=document.getElementById('cards-gallery-view');if(gv)gv.innerHTML=buildCardsGalleryView(d);},10);
+  }
+  if(activeDDTab==='stats') setTimeout(calcHG,10);
 }
 
 function buildCardsListView(d){
@@ -707,67 +773,161 @@ function switchDDTab(tab){
   renderDeckDetail();
   if(tab==='edit'){setTimeout(()=>{renderEditSearch();renderEditPreview();},10);}
   if(tab==='cards'&&cardsTabView==='visual'){setTimeout(()=>{renderEditPreview(document.getElementById('cards-visual-view'));},10);}
+  if(tab==='cards'&&cardsTabView==='gallery'){setTimeout(()=>{const gv=document.getElementById('cards-gallery-view');const d2=myDecks.find(x=>x.id===activeDeckId);if(gv&&d2)gv.innerHTML=buildCardsGalleryView(d2);},10);}
+  if(tab==='stats'){setTimeout(calcHG,20);}
+}
+function buildCardsGalleryView(d){
+  const d2=myDecks.find(x=>x.id===activeDeckId);if(!d2)return'';
+  const allCards=[];
+  const legend=d2.cards?d2.cards.filter(c=>c.t==='Legend'):[];
+  const champion=d2.champion?[{...d2.champion,cnt:1}]:[];
+  const mainCards=d2.cards?d2.cards.filter(c=>c.t!=='Legend'):[];
+  const runes=d2.runes||[];
+  const bfs=d2.battlefields?d2.battlefields.filter(Boolean):[];
+  const sb=d2.sideboard||[];
+  [...legend,...champion,...mainCards,...runes,...bfs,...sb].forEach(entry=>{
+    const full=CARDS.find(c=>c.id===entry.id);
+    const img=full?full.imageUrl:'';
+    const isBF=full&&full.type==='Battlefield';
+    for(let i=0;i<(entry.cnt||1);i++){
+      allCards.push({id:entry.id,name:entry.n,img,isBF});
+    }
+  });
+  if(!allCards.length) return'<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">No cards in deck yet.</div>';
+  const cards=allCards.map((c,i)=>{
+    const si=(c.id||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return`<div class="gallery-card${c.isBF?' gallery-card-bf':''}" onclick="openCardModal('${si}')" title="${c.name}">
+      ${c.img?`<img src="${c.img}" alt="${c.name}" loading="lazy">`:`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${c.name}</div>`}
+    </div>`;
+  }).join('');
+  return`<div class="cards-gallery-view">${cards}</div>`;
 }
 function setCardsView(mode){
   cardsTabView=mode;
   const tv=document.getElementById('cards-text-view');
   const vv=document.getElementById('cards-visual-view');
+  const gv=document.getElementById('cards-gallery-view');
   const btns=document.querySelectorAll('.cvt-btn');
   if(tv) tv.style.display=mode==='text'?'':'none';
   if(vv) vv.style.display=mode==='visual'?'':'none';
-  btns.forEach(b=>b.classList.toggle('on',b.textContent.trim().startsWith(mode==='text'?'☰':'⊞')));
+  if(gv){
+    gv.style.display=mode==='gallery'?'':'none';
+    if(mode==='gallery'){const d2=myDecks.find(x=>x.id===activeDeckId);if(d2)gv.innerHTML=buildCardsGalleryView(d2);}
+  }
+  btns.forEach(b=>{
+    const t=b.textContent.trim();
+    b.classList.toggle('on',(mode==='text'&&t.startsWith('☰'))||(mode==='visual'&&t.startsWith('⊞'))||(mode==='gallery'&&t.startsWith('⊟')));
+  });
   if(mode==='visual'&&vv) renderEditPreview(vv);
 }
 
 /* ── CARDS TAB helpers ───────────────────────────── */
+function hgProb(N,K,n,k){
+  function lf(x){let s=0;for(let i=2;i<=x;i++)s+=Math.log(i);return s;}
+  function lc(a,b){if(b<0||b>a)return -Infinity;return lf(a)-lf(b)-lf(a-b);}
+  return Math.exp(lc(K,k)+lc(N-K,n-k)-lc(N,n));
+}
+function calcHG(){
+  const N=parseInt(document.getElementById('hg-n')||{value:'40'})&&parseInt(document.getElementById('hg-n').value)||40;
+  const K=parseInt(document.getElementById('hg-k').value)||0;
+  const n=parseInt(document.getElementById('hg-n2').value)||4;
+  const k=parseInt(document.getElementById('hg-k2').value)||1;
+  const res=document.getElementById('hg-result');if(!res)return;
+  if(K>N||k>Math.min(K,n)){res.innerHTML='<span style="color:var(--text-muted);font-size:12px;">Invalid inputs</span>';return;}
+  let pExact=hgProb(N,K,n,k);
+  let pLess=0;for(let i=0;i<k;i++)pLess+=hgProb(N,K,n,i);
+  let pAtLeast=1-pLess;
+  function pct(v){return(Math.min(1,Math.max(0,v))*100).toFixed(1)+'%';}
+  res.innerHTML=
+    '<div class="hg-prob"><div class="hg-prob-val">'+pct(pLess)+'</div><div class="hg-prob-lbl">Less than '+k+'</div></div>'+
+    '<div class="hg-prob"><div class="hg-prob-val">'+pct(pExact)+'</div><div class="hg-prob-lbl">Exactly '+k+'</div></div>'+
+    '<div class="hg-prob"><div class="hg-prob-val">'+pct(pAtLeast)+'</div><div class="hg-prob-lbl">'+k+' or more</div></div>';
+}
 function buildStatsPanel(d){
   const cards=d.cards||[];
   const total=cards.reduce((a,c)=>a+c.cnt,0);
   if(!total) return '<p style="color:var(--text-muted);font-size:13px;padding:1rem 0;">No cards in deck yet.</p>';
-  const byType={};
+
+  let totalCost=0,costCnt=0,totalPow=0,powCnt=0,totalMight=0,mightCnt=0;
+  let actions=0,reactions=0,units=0,spells=0,gear=0,hidden=0,nonblocking=0,fuses=0;
+  const byType={};const kwFreq={};
   cards.forEach(entry=>{
     const t=entry.t||'Unknown';
     byType[t]=(byType[t]||0)+entry.cnt;
-  });
-  const typeColors={Champion:'var(--order)',Unit:'var(--calm)',Spell:'var(--mind)',Gear:'var(--fury)',Unknown:'var(--text-muted)'};
-  const byCost={};
-  cards.forEach(entry=>{
     const card=CARDS.find(c=>c.id===entry.id);
-    const cost=card&&card.cost!==null?card.cost:'?';
-    byCost[cost]=(byCost[cost]||0)+entry.cnt;
+    if(!card)return;
+    if(card.cost!=null){totalCost+=card.cost*entry.cnt;costCnt+=entry.cnt;}
+    if(card.power!=null){totalPow+=card.power*entry.cnt;powCnt+=entry.cnt;}
+    if(card.might!=null){totalMight+=card.might*entry.cnt;mightCnt+=entry.cnt;}
+    const txt=(card.txt||'').toUpperCase();
+    if(txt.includes('ACTION'))actions+=entry.cnt;
+    if(txt.includes('REACTION'))reactions+=entry.cnt;
+    if(txt.includes('HIDDEN'))hidden+=entry.cnt;
+    if(txt.includes('NONBLOCKING')||txt.includes('NON-BLOCKING'))nonblocking+=entry.cnt;
+    if(txt.includes('FUSE'))fuses+=entry.cnt;
+    if(t==='Unit')units+=entry.cnt;
+    if(t==='Spell')spells+=entry.cnt;
+    if(t==='Gear')gear+=entry.cnt;
+    const kwRe=/\b(GUARD|STEALTH|OVERWHELM|SHIELD|TRANSFORM|RECKLESS|RALLY|INSPIRE)\b/g;
+    let m;while((m=kwRe.exec(txt))!==null)kwFreq[m[1]]=(kwFreq[m[1]]||0)+entry.cnt;
   });
-  const costKeys=Object.keys(byCost).filter(k=>k!=='?').map(Number).sort((a,b)=>a-b);
-  const maxCost=Math.max(...costKeys.map(k=>byCost[k]),1);
+  const avgCost=costCnt?+(totalCost/costCnt).toFixed(2):0;
+  const avgPow=powCnt?+(totalPow/powCnt).toFixed(2):0;
+  const avgMight=mightCnt?+(totalMight/mightCnt).toFixed(2):0;
   const winsN=d.wins||0,lossesN=d.losses||0,total_games=winsN+lossesN;
   const wrN=total_games>0?Math.round(winsN/total_games*100):0;
+  const typeColors={Champion:'var(--order)',Unit:'var(--calm)',Spell:'var(--mind)',Gear:'var(--fury)',Legend:'var(--chaos)',Unknown:'var(--text-muted)'};
 
   let html='';
+  html+='<div class="slbl" style="margin-bottom:10px;">Totals</div>';
   html+='<div class="stat-grid">';
-  html+='<div class="stat-card"><div class="stat-num">'+total+'</div><div class="stat-lbl">Total Cards</div></div>';
-  html+='<div class="stat-card"><div class="stat-num">'+total_games+'</div><div class="stat-lbl">Games Played</div></div>';
+  html+='<div class="stat-card"><div class="stat-num">'+total+'</div><div class="stat-lbl">In Deck</div></div>';
+  html+='<div class="stat-card"><div class="stat-num">'+(cards.length)+'</div><div class="stat-lbl">Unique Cards</div></div>';
   html+='<div class="stat-card"><div class="stat-num '+wrc(wrN)+'">'+wrN+'%</div><div class="stat-lbl">Win Rate</div></div>';
-  html+='<div class="stat-card"><div class="stat-num">'+winsN+'W / '+lossesN+'L</div><div class="stat-lbl">Record</div></div>';
+  html+='<div class="stat-card"><div class="stat-num">'+winsN+'W/'+lossesN+'L</div><div class="stat-lbl">Record</div></div>';
   html+='</div>';
-  html+='<div class="slbl" style="margin-bottom:10px;">Card Types</div>';
-  Object.entries(byType).forEach(function(e){
-    var t=e[0],n=e[1];
-    var pct=Math.round(n/total*100);
-    var col=typeColors[t]||'var(--accent)';
-    html+='<div class="dist-row"><span class="dist-label">'+t+'</span><div class="dist-bar-wrap"><div class="dist-bar-fill" style="width:'+pct+'%;background:'+col+';"></div></div><span class="dist-count">'+n+'</span></div>';
-  });
-  if(costKeys.length){
-    html+='<div class="slbl" style="margin:1.25rem 0 10px;">Energy Curve</div>';
-    html+='<div style="display:flex;align-items:flex-end;gap:6px;height:70px;">';
-    costKeys.forEach(function(k){
-      var h=Math.round((byCost[k]/maxCost)*60);
-      html+='<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">';
-      html+='<span style="font-size:10px;color:var(--text-muted);">'+byCost[k]+'</span>';
-      html+='<div style="width:100%;height:'+h+'px;background:var(--accent);border-radius:3px 3px 0 0;min-height:4px;"></div>';
-      html+='<span style="font-size:10px;color:var(--text-muted);">'+k+'</span>';
-      html+='</div>';
+  html+='<div class="slbl" style="margin-bottom:10px;">Averages</div>';
+  html+='<div class="stat-grid-sm">';
+  html+='<div class="stat-card-sm"><div class="stat-num-sm">'+avgCost+'</div><div class="stat-lbl-sm">Avg Cost</div></div>';
+  html+='<div class="stat-card-sm"><div class="stat-num-sm">'+avgPow+'</div><div class="stat-lbl-sm">Avg Power</div></div>';
+  html+='<div class="stat-card-sm"><div class="stat-num-sm">'+avgMight+'</div><div class="stat-lbl-sm">Avg Might</div></div>';
+  html+='</div>';
+  html+='<div class="slbl" style="margin-bottom:10px;">Breakdown</div>';
+  html+='<div class="stat-grid-sm">';
+  if(units)html+='<div class="stat-card-sm"><div class="stat-num-sm" style="color:var(--calm);">'+units+'</div><div class="stat-lbl-sm">Units</div></div>';
+  if(spells)html+='<div class="stat-card-sm"><div class="stat-num-sm" style="color:var(--mind);">'+spells+'</div><div class="stat-lbl-sm">Spells</div></div>';
+  if(gear)html+='<div class="stat-card-sm"><div class="stat-num-sm" style="color:var(--fury);">'+gear+'</div><div class="stat-lbl-sm">Gear</div></div>';
+  if(actions)html+='<div class="stat-card-sm"><div class="stat-num-sm">'+actions+'</div><div class="stat-lbl-sm">Actions</div></div>';
+  if(reactions)html+='<div class="stat-card-sm"><div class="stat-num-sm">'+reactions+'</div><div class="stat-lbl-sm">Reactions</div></div>';
+  if(hidden)html+='<div class="stat-card-sm"><div class="stat-num-sm">'+hidden+'</div><div class="stat-lbl-sm">Hidden</div></div>';
+  if(nonblocking)html+='<div class="stat-card-sm"><div class="stat-num-sm">'+nonblocking+'</div><div class="stat-lbl-sm">Nonblocking</div></div>';
+  if(fuses)html+='<div class="stat-card-sm"><div class="stat-num-sm">'+fuses+'</div><div class="stat-lbl-sm">Fuses</div></div>';
+  html+='</div>';
+  if(Object.keys(kwFreq).length){
+    html+='<div class="slbl" style="margin-bottom:8px;">Keywords</div>';
+    html+='<div class="kw-grid">';
+    Object.entries(kwFreq).sort((a,b)=>b[1]-a[1]).forEach(([kw,n])=>{
+      html+=`<div class="kw-chip"><span class="kw-chip-n">${n}</span><span class="kw-chip-l">${kw[0]+kw.slice(1).toLowerCase()}</span></div>`;
     });
     html+='</div>';
   }
+  html+='<div class="slbl" style="margin-bottom:10px;">Card Types</div>';
+  Object.entries(byType).forEach(function(e){
+    const t=e[0],n=e[1],pct=Math.round(n/total*100),col=typeColors[t]||'var(--accent)';
+    html+='<div class="dist-row"><span class="dist-label">'+t+'</span><div class="dist-bar-wrap"><div class="dist-bar-fill" style="width:'+pct+'%;background:'+col+';"></div></div><span class="dist-count">'+n+'</span></div>';
+  });
+  html+='<div class="slbl" style="margin:1.25rem 0 10px;">Curves</div>';
+  html+=buildDeckCurves(d,true);
+  html+='<div class="hg-calc">';
+  html+='<div class="hg-title">⚗️ Hypergeometric Calculator</div>';
+  html+='<div class="hg-grid">';
+  html+='<div class="hg-field"><label>Deck size</label><input type="number" id="hg-n" value="'+total+'" min="1" max="200" oninput="calcHG()"></div>';
+  html+='<div class="hg-field"><label>Copies in deck</label><input type="number" id="hg-k" value="3" min="0" oninput="calcHG()"></div>';
+  html+='<div class="hg-field"><label>Hand size</label><input type="number" id="hg-n2" value="4" min="1" oninput="calcHG()"></div>';
+  html+='<div class="hg-field"><label>Desired qty</label><input type="number" id="hg-k2" value="1" min="0" oninput="calcHG()"></div>';
+  html+='</div>';
+  html+='<div id="hg-result" class="hg-result"></div>';
+  html+='</div>';
   return html;
 }
 
@@ -780,6 +940,8 @@ function renderResultsList(d){
     var label=r.outcome==='win'?'WIN':'LOSS';
     return '<div class="result-row">'
       +'<span class="result-outcome '+cls+'">'+label+'</span>'
+      +(r.turn?'<span class="result-notes" style="color:var(--text-muted);">'+(r.turn==='first'?'1st':'2nd')+'</span>':'')
+      +(r.bf?'<span class="result-notes" style="color:var(--text-muted);">🌍 '+r.bf+'</span>':'')
       +'<span class="result-opp">vs '+(r.opp||'Unknown')+'</span>'
       +(r.notes?'<span class="result-notes">'+r.notes+'</span>':'')
       +'<button class="result-del" onclick="deleteResult('+d.id+','+realIdx+')" title="Remove">×</button>'
@@ -790,10 +952,14 @@ function renderResultsList(d){
 function addResult(deckId){
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   const outcome=document.getElementById('r-outcome').value;
+  const turn=document.getElementById('r-turn').value;
+  const bfId=document.getElementById('r-bf').value;
+  const bfEl=document.getElementById('r-bf');
+  const bfName=bfEl&&bfEl.selectedIndex>0?bfEl.options[bfEl.selectedIndex].text:'';
   const opp=(document.getElementById('r-opp').value.trim())||'Unknown';
   const notes=document.getElementById('r-notes').value.trim();
   if(!d.results) d.results=[];
-  d.results.push({outcome:outcome,opp:opp,notes:notes,date:new Date().toLocaleDateString()});
+  d.results.push({outcome,opp,notes,turn,bf:bfName,date:new Date().toLocaleDateString()});
   if(outcome==='win') d.wins=(d.wins||0)+1;
   else d.losses=(d.losses||0)+1;
   persist();
@@ -979,10 +1145,7 @@ function renderEditSearch(){
     const RR={Legendary:5,Epic:4,Rare:3,Uncommon:2,Common:1,Showcase:0,Promo:0};
     const seen=new Map();
     source.forEach(c=>{
-      // For champions: strip variant suffix ("Annie - Fiery" → "Annie") so all forms collapse to one
-      // For others: strip only trailing parenthetical "(Alternate Art)" style suffixes
-      let key=c.name.replace(/\s*\([^)]*\)\s*$/,'').toLowerCase().trim();
-      if(EF.type==='Champion'||(c.supertype||'').toLowerCase().includes('champion')) key=key.replace(/\s*[-–]\s*.+$/,'').trim();
+      const key=c.name.replace(/\s*\([^)]*\)\s*$/,'').toLowerCase().trim();
       const ex=seen.get(key);
       if(!ex||(RR[c.rarity]??1)>(RR[ex.rarity]??1)) seen.set(key,c);
     });
@@ -1031,6 +1194,8 @@ function renderEditSearch(){
     slice.forEach(c=>{
       const entry=(d.cards||[]).find(x=>x.id===c.id);
       const cnt=entry?entry.cnt:0;
+      const bn=baseName(c.name);
+      const variantTotal=(d.cards||[]).filter(x=>baseName(x.n)===bn).reduce((a,x)=>a+x.cnt,0);
       const sn=c.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const isChamp=(c.supertype||'').toLowerCase().includes('champion');
       const effType=isChamp?'Champion':c.type;
@@ -1040,19 +1205,21 @@ function renderEditSearch(){
       const domPills=c.doms.map(dm=>`<span class="pill ${dm}">${dm[0].toUpperCase()+dm.slice(1)}</span>`).join('');
       const isRune=c.type==='Rune';
       const isBF=c.type==='Battlefield';
-      const addFn=isRune?`addRune('${si}','${sn}')`:isBF?`addBattlefield(-1,'${si}','${sn}')`:`editDeckCard('${si}','${sn}','${at}',1)`;
-      const canAdd=isBF?true:cnt<3;
-      html+=`<div class="ct ct-img lib-card${isBF?' lib-card-bf':''}" draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')" title="${c.name}" onclick="${canAdd?addFn:''}">`;
+      const isBanned=BANNED_CARDS.has(baseName(c.name));
+      const addFn=isBanned?`toast('This card is banned')`:(isRune?`addRune('${si}','${sn}')`:isBF?`addBattlefield(-1,'${si}','${sn}')`:(variantTotal<3?`editDeckCard('${si}','${sn}','${at}',1)`:''));
+      const dragAttrs=isBanned?'draggable="false"':`draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')"`;
+      html+=`<div class="ct ct-img lib-card${isBF?' lib-card-bf':''}${isBanned?' lib-card-banned':''}" ${dragAttrs} title="${c.name}" onclick="${addFn}">`;
       html+= c.imageUrl
         ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
         :`<div class="ct-img-wrap no-img"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`;
+      if(isBanned) html+=`<div class="edit-banned-overlay"><div class="edit-banned-stamp">Banned</div></div>`;
       if(cnt>0) html+=`<div class="edit-card-thumb-cnt">×${cnt}</div>`;
       html+=`<div class="ct-name">${c.name}</div>`;
       html+=`<div class="ct-sub">${domPills}<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>`;
       html+=`<div class="deck-card-actions lib-card-overlay">`;
       html+=`<div class="dca-btn" onclick="event.stopPropagation();openCardModal('${si}')"><span>🔍</span> Zoom</div>`;
-      html+=`<div class="lib-add-deck-hint">＋ ${isBF?'Add to BF':isRune?'Add to Runes':'Add to deck'}</div>`;
-      html+=`<div class="dca-btn lib-sb-btn" onclick="event.stopPropagation();addDirectToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Sideboard</div>`;
+      if(!isBanned) html+=`<div class="lib-add-deck-hint">＋ ${isBF?'Add to BF':isRune?'Add to Runes':'Add to deck'}</div>`;
+      if(!isBanned) html+=`<div class="dca-btn lib-sb-btn" onclick="event.stopPropagation();addDirectToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Sideboard</div>`;
       html+=`</div>`;
       html+='</div>';
     });
@@ -1109,10 +1276,10 @@ function editZoneDrop(e,zone){
     if(d.champion){toast('Champion zone already has a card — remove it first');_DRAG=null;return;}
     if(_DRAG.src==='library'){
       // From library: add to zone (counts toward max 3)
-      const zoneCnt=0;
-      const deckEntry=(d.cards||[]).find(c=>c.id===_DRAG.id);
-      const sbCnt=((d.sideboard||[]).find(c=>c.id===_DRAG.id)||{cnt:0}).cnt;
-      if(zoneCnt+(deckEntry?deckEntry.cnt:0)+sbCnt>=3){toast('Max 3 copies total across all zones');_DRAG=null;return;}
+      const _bn=baseName(_DRAG.n);
+      const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
+      const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
+      if(deckCntBN+sbCntBN>=3){toast('Max 3 copies (including variants)');_DRAG=null;return;}
       d.champion={id:_DRAG.id,n:_DRAG.n};
     } else if(_DRAG.src==='deck'){
       // From main deck: move 1 copy out of deck into zone
@@ -1133,6 +1300,7 @@ function editZoneDrop(e,zone){
 function renderEditPreview(targetEl){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const right=targetEl||document.getElementById('edit-right');if(!right)return;
+  const isEdit=!targetEl||targetEl.id!=='cards-visual-view';
   // Migrate old t:'Champion' entries in d.cards → d.champion
   if(!d.champion){
     const old=(d.cards||[]).find(c=>c.t==='Champion');
@@ -1145,6 +1313,11 @@ function renderEditPreview(targetEl){
   const nonLegendCards=cards.filter(c=>c.t!=='Legend');
   const total=nonLegendCards.reduce((a,c)=>a+c.cnt,0);
 
+  function bannedBanner(name){
+    const bn=name.replace(/\s*\([^)]*\)\s*$/,'').trim();
+    return BANNED_CARDS.has(bn)?'<div class="banned-banner">BANNED</div>':'';
+  }
+
   function cardItem(c,cls){
     const full=CARDS.find(x=>x.id===c.id);
     const img=full?full.imageUrl:'';
@@ -1155,6 +1328,7 @@ function renderEditPreview(targetEl){
     let h=`<div class="deck-card-item ${cls}" title="${c.n}" draggable="true" ondragstart="editDeckDragStart('${si}','${sn}','${st}')" data-hover-img="${img||''}">`;
     if(img) h+=`<img src="${img}" alt="" loading="lazy">`;
     else h+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
+    h+=bannedBanner(c.n);
     h+=`<div class="deck-card-actions">`;
     h+=`<div class="dca-btn dca-danger" onclick="editDeckCard('${si}','${sn}','${st}',-1)"><span>✕</span> Remove</div>`;
     if(c.t!=='Legend') h+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="editDeckCard('${si}','${sn}','${st}',1)"><span>＋</span> Add 1 copy</div>`;
@@ -1182,7 +1356,7 @@ function renderEditPreview(targetEl){
   function buildHeroSection(){
     let h='<div class="deck-hero-row">';
     // Legend
-    h+='<div class="deck-hero-half"><div class="deck-section-hdr">🦸 Legend</div><div class="deck-hero-cards">';
+    h+='<div class="deck-hero-half"><div class="deck-hero-cards">';
     if(!legendCards.length){
       h+='<div class="deck-hero-empty">None — add from left panel</div>';
     } else {
@@ -1193,6 +1367,7 @@ function renderEditPreview(targetEl){
       h+=`<div class="deck-card-item deck-card-legend" title="${lc.n}" draggable="true" ondragstart="editDeckDragStart('${lsi}','${lsn}','${lst}')" data-hover-img="${li||''}">`;
       if(li) h+=`<img src="${li}" alt="" loading="lazy">`;
       else h+=`<div class="deck-card-no-img"><div class="dcni-name">${lc.n}</div></div>`;
+      h+=bannedBanner(lc.n);
       h+=`<div class="deck-card-actions"><div class="dca-btn dca-danger" onclick="editDeckCard('${lsi}','${lsn}','${lst}',-1)"><span>✕</span> Remove</div></div></div>`;
     }
     h+='</div></div>';
@@ -1202,7 +1377,6 @@ function renderEditPreview(targetEl){
       const bff=bfc?CARDS.find(x=>x.id===bfc.id):null;
       const bfi=bff?bff.imageUrl:'';
       h+='<div class="deck-hero-bf-slot">';
-      h+=`<div class="deck-section-hdr" style="font-size:11px;">🌍 Battlefield ${i+1}</div>`;
       if(bfc){
         const bsi=bfc.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
         const bsn=bfc.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
@@ -1210,17 +1384,18 @@ function renderEditPreview(targetEl){
         h+=`<div class="bf-zone-inner" draggable="true" ondragstart="editDeckDragStart('${bsi}','${bsn}','Battlefield')">`;
         if(bfi) h+=`<img src="${bfi}" alt="" loading="lazy" class="bf-zone-img">`;
         else h+=`<div class="deck-card-no-img"><div class="dcni-name">${bfc.n}</div></div>`;
+        h+=bannedBanner(bfc.n);
         h+=`</div></div>`;
         h+=`<button class="bf-remove-btn" onclick="removeBattlefield(${i})">✕ Remove</button>`;
       } else {
-        h+=`<div class="bf-zone bf-zone-empty drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="bfZoneDrop(event,${i})">`;
-        h+=`<div class="bf-zone-hint">Drag or click</div>`;
+        h+=`<div class="bf-zone bf-zone-empty${isEdit?' drop-zone':''}" ${isEdit?`ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="bfZoneDrop(event,${i})"`:''}">`;
+        h+=`<div class="bf-zone-hint">${isEdit?'Drag or click':'Add in Edit tab'}</div>`;
         h+='</div>';
       }
       h+='</div>';
     }
     // Champion
-    h+='<div class="deck-hero-half"><div class="deck-section-hdr">⚔️ Champion</div>';
+    h+='<div class="deck-hero-half">';
     h+=`<div class="deck-card-item deck-card-legend drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,'champion')" title="${zoneChamp?zoneChamp.n:'Drag champion here'}">`;
     if(zoneChamp){
       const zf=CARDS.find(x=>x.id===zoneChamp.id);const zi=zf?zf.imageUrl:'';
@@ -1229,6 +1404,7 @@ function renderEditPreview(targetEl){
       h+=`<div class="hzb-inner" draggable="true" ondragstart="editDeckDragStart('${zsi}','${zsn}','Champion')" data-hover-img="${zi||''}">`;
       if(zi) h+=`<img src="${zi}" alt="" loading="lazy">`;
       else h+=`<div class="deck-card-no-img"><div class="dcni-name">${zoneChamp.n}</div></div>`;
+      h+=bannedBanner(zoneChamp.n);
       h+=`<div class="deck-card-actions"><div class="dca-btn dca-danger" onclick="removeChampionZone()"><span>✕</span> Remove</div></div></div>`;
     } else {
       h+='<div class="hzb-empty-drop">Drag champion here</div>';
@@ -1257,12 +1433,36 @@ function renderEditPreview(targetEl){
     typeOrder.forEach(type=>{
       const uniqueCards=byType[type];
       const typeTotal=uniqueCards.reduce((a,c)=>a+c.cnt,0);
-      html+=`<div class="deck-type-block"><div class="deck-type-lbl">${type} (${typeTotal})</div>`;
+      html+=`<div class="deck-type-block${type==='Gear'?' gear-type-block':''}"><div class="deck-type-lbl">${type} (${typeTotal})</div>`;
       html+='<div class="deck-type-auto-grid">';
       uniqueCards.forEach(c=>{
-        html+='<div class="deck-col-stack">';
-        for(let i=0;i<c.cnt;i++) html+=cardItem(c,'deck-card-main');
-        html+='</div>';
+        if(type==='Gear'){
+          const full=CARDS.find(x=>x.id===c.id);
+          const img=full?full.imageUrl:'';
+          const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+          const st=c.t.replace(/'/g,"\\'");
+          const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+          const canAdd=c.cnt<3;
+          html+='<div class="gear-h-stack">';
+          for(let i=0;i<c.cnt;i++){
+            html+=`<div class="deck-card-item deck-card-main gear-h-card${i===0?' gear-h-first':''}" title="${c.n}" draggable="true" ondragstart="editDeckDragStart('${si}','${sn}','${st}')" style="z-index:${c.cnt-i};" data-hover-img="${img||''}">`;
+            if(img) html+=`<img src="${img}" alt="" loading="lazy">`;
+            else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
+            html+=bannedBanner(c.n);
+            html+=`<div class="deck-card-actions">`;
+            html+=`<div class="dca-btn dca-danger" onclick="editDeckCard('${si}','${sn}','${st}',-1)"><span>✕</span> Remove</div>`;
+            html+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="editDeckCard('${si}','${sn}','${st}',1)"><span>＋</span> Add 1 copy</div>`;
+            html+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${st}')"><span>→</span> Add to sideboard</div>`;
+            html+='</div>';
+            if(i===0) html+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
+            html+='</div>';
+          }
+          html+='</div>';
+        } else {
+          html+='<div class="deck-col-stack">';
+          for(let i=0;i<c.cnt;i++) html+=cardItem(c,'deck-card-main');
+          html+='</div>';
+        }
       });
       html+='</div>';
       html+='</div>';
@@ -1275,7 +1475,7 @@ function renderEditPreview(targetEl){
   const runeMax=12;
   html+=`<div class="deck-section deck-rune-section"><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">🔮 Runes <span class="ds-count">(${runes.length}/${runeMax})</span></div>`;
   if(!runes.length){
-    html+='<div style="font-size:12px;color:var(--text-muted);">None — select the Rune tab on the left and click a rune to add</div>';
+    html+=`<div style="font-size:12px;color:var(--text-muted);">${isEdit?'None — select the Rune tab on the left and click a rune to add':'Add cards in the Edit tab'}</div>`;
   } else {
     // Group runes by domain, then by card id
     const domainOrder=[];const byDomain={};
@@ -1304,6 +1504,7 @@ function renderEditPreview(targetEl){
           html+=`<div class="deck-card-item rune-h-card${i===0?' rune-first':''}" title="${r.n}" style="z-index:${r.cnt-i};" data-hover-img="${r.img||''}">`;
           if(r.img) html+=`<img src="${r.img}" alt="" loading="lazy">`;
           else html+=`<div class="deck-card-no-img"><div class="dcni-name">${r.n}</div></div>`;
+          html+=bannedBanner(r.n);
           if(i===0) html+=`<div class="deck-card-cnt-badge">×${r.cnt}</div>`;
           html+=`<div class="deck-card-actions">`;
           html+=`<div class="dca-btn" onclick="addRune('${rsi}','${rsn}')"><span>＋</span> Add 1 copy</div>`;
@@ -1323,7 +1524,7 @@ function renderEditPreview(targetEl){
   const sbTotal=sb.reduce((a,c)=>a+c.cnt,0);
   html+=`<div class="deck-section deck-sb-section"><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">📋 Sideboard <span class="ds-count">(${sbTotal}/15)</span></div>`;
   if(!sb.length){
-    html+='<div style="font-size:12px;color:var(--text-muted);">None — hover a card and use "Add to sideboard"</div>';
+    html+=`<div style="font-size:12px;color:var(--text-muted);">${isEdit?'None — hover a card and use "Add to sideboard"':'Add cards in the Edit tab'}</div>`;
   } else {
     const sbSorted=sb.slice().sort((a,b)=>a.n.localeCompare(b.n));
     html+='<div class="deck-type-auto-grid">';
@@ -1337,6 +1538,7 @@ function renderEditPreview(targetEl){
         html+=`<div class="deck-card-item deck-card-main" title="${c.n}" data-hover-img="${img||''}">`;
         if(img) html+=`<img src="${img}" alt="" loading="lazy">`;
         else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
+        html+=bannedBanner(c.n);
         html+=`<div class="deck-card-actions">`;
         html+=`<div class="dca-btn" onclick="adjustSB(${d.id},'${si}',1)"><span>＋</span> Add 1 copy</div>`;
         html+=`<div class="dca-btn dca-danger" onclick="adjustSB(${d.id},'${si}',-1)"><span>✕</span> Remove</div>`;
@@ -1359,10 +1561,11 @@ function editDeckCard(cardId,cardName,cardType,delta){
   if(!d.cards) d.cards=[];
   const idx=d.cards.findIndex(c=>c.id===cardId);
   if(delta>0){
-    const sbCnt=((d.sideboard||[]).find(c=>c.id===cardId)||{cnt:0}).cnt;
-    const deckCnt=idx>=0?d.cards[idx].cnt:0;
-    const zoneCnt=(d.champion&&d.champion.id===cardId)?1:0;
-    if(deckCnt+sbCnt+zoneCnt>=3){toast('Max 3 copies total across all zones');return;}
+    const bn=baseName(cardName);
+    const deckCnt=(d.cards||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
+    const sbCnt=(d.sideboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
+    const zoneCnt=(d.champion&&baseName(d.champion.n)===bn)?1:0;
+    if(deckCnt+sbCnt+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
   }
   if(idx>=0){
     d.cards[idx].cnt=Math.max(0,d.cards[idx].cnt+delta);
@@ -1514,6 +1717,162 @@ function saveDeckTitle(deckId,val){
   if(currentUser) saveToCloud(deckId);
 }
 function closeDeckDetail(){document.getElementById('dl').style.display='';document.getElementById('dd').style.display='none';activeDeckId=null;activeDDTab='cards';renderDecks();}
+
+function copyDeckLink(){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  try{
+    const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(d))));
+    const url=window.location.origin+window.location.pathname+'#deck='+encoded;
+    navigator.clipboard.writeText(url).then(()=>toast('Deck link copied!')).catch(()=>{
+      prompt('Copy this link:',url);
+    });
+  }catch(e){toast('Could not generate link');}
+}
+function toggleExportMenu(btn){
+  const drop=document.getElementById('export-drop');if(!drop)return;
+  const isOpen=drop.classList.contains('open');
+  document.querySelectorAll('.export-drop.open').forEach(d=>d.classList.remove('open'));
+  if(!isOpen) drop.classList.add('open');
+}
+function closeExportMenu(){
+  document.querySelectorAll('.export-drop').forEach(d=>d.classList.remove('open'));
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.cvt-bar-right')) closeExportMenu();
+});
+function exportDeck(type){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const mainCards=d.cards||[];
+  const sb=d.sideboard||[];
+  const runes=d.runes||[];
+  const champion=d.champion?[d.champion]:[];
+  const bfs=(d.battlefields||[]).filter(Boolean);
+  const legend=(d.cards||[]).filter(c=>c.t==='Legend');
+
+  if(type==='text'){
+    const lines=[];
+    if(legend.length){lines.push('// Legend');legend.forEach(c=>lines.push(`${c.cnt}x ${c.n}`));}
+    if(champion.length){lines.push('\n// Champion');champion.forEach(c=>lines.push(`1x ${c.n}`));}
+    const nonLeg=mainCards.filter(c=>c.t!=='Legend');
+    if(nonLeg.length){lines.push('\n// Main Deck');nonLeg.forEach(c=>lines.push(`${c.cnt}x ${c.n}`));}
+    if(runes.length){
+      const rg={};runes.forEach(r=>{if(!rg[r.n])rg[r.n]=0;rg[r.n]++;});
+      lines.push('\n// Runes');Object.entries(rg).forEach(([n,cnt])=>lines.push(`${cnt}x ${n}`));
+    }
+    if(bfs.length){lines.push('\n// Battlefields');bfs.forEach(b=>lines.push(`1x ${b.n}`));}
+    if(sb.length){lines.push('\n// Sideboard');sb.forEach(c=>lines.push(`${c.cnt}x ${c.n}`));}
+    const text=lines.join('\n');
+    navigator.clipboard.writeText(text).then(()=>toast('Text list copied!')).catch(()=>prompt('Copy this list:',text));
+
+  } else if(type==='tts'){
+    const ttsCards=[];
+    const addTTS=(id,name,cnt)=>{const c=CARDS.find(x=>x.id===id);if(c&&c.imageUrl)for(let i=0;i<cnt;i++)ttsCards.push({Nickname:name,ImageURL:c.imageUrl});};
+    mainCards.forEach(c=>addTTS(c.id,c.n,c.cnt));
+    champion.forEach(c=>addTTS(c.id,c.n,1));
+    runes.forEach(r=>addTTS(r.id,r.n,1));
+    const tts=JSON.stringify({ObjectStates:[{Name:'DeckCustom',Nickname:d.name||'Deck',ContainedObjects:ttsCards}]},null,2);
+    navigator.clipboard.writeText(tts).then(()=>toast('TTS code copied!')).catch(()=>prompt('Copy TTS code:',tts));
+
+  } else if(type==='pdf'){
+    const allImgs=[];
+    const addImg=(id,cnt)=>{const c=CARDS.find(x=>x.id===id);if(c&&c.imageUrl)for(let i=0;i<cnt;i++)allImgs.push(c.imageUrl);};
+    mainCards.filter(c=>c.t!=='Legend').forEach(c=>addImg(c.id,c.cnt));
+    champion.forEach(c=>addImg(c.id,1));
+    if(!allImgs.length){toast('No card images to print');return;}
+    const w=window.open('','_blank');
+    if(!w){toast('Allow popups to generate PDF');return;}
+    const cols=3;const rows=3;const perPage=cols*rows;
+    let html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Proxy PDF — ${d.name||'Deck'}</title><style>
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{background:#fff;}
+      .page{width:21cm;height:29.7cm;display:grid;grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr);gap:4px;padding:8px;page-break-after:always;}
+      .card{border-radius:6px;overflow:hidden;border:1px solid #ccc;}
+      .card img{width:100%;height:100%;object-fit:cover;}
+      @media print{.page{page-break-after:always;}}
+    </style></head><body>`;
+    for(let p=0;p<allImgs.length;p+=perPage){
+      const batch=allImgs.slice(p,p+perPage);
+      html+=`<div class="page">${batch.map(url=>`<div class="card"><img src="${url}" loading="eager"></div>`).join('')}</div>`;
+    }
+    html+='</body></html>';
+    w.document.write(html);w.document.close();
+    setTimeout(()=>w.print(),800);
+
+  } else if(type==='image'){
+    const allImgs=[];
+    [...mainCards,...champion,...runes,...bfs].forEach(c=>{
+      const full=CARDS.find(x=>x.id===c.id);
+      if(full&&full.imageUrl)for(let i=0;i<(c.cnt||1);i++)allImgs.push({url:full.imageUrl,name:c.n});
+    });
+    if(!allImgs.length){toast('No card images available');return;}
+    const cols=Math.min(10,allImgs.length);const cardW=70;const cardH=Math.round(cardW*1.4);
+    const rows=Math.ceil(allImgs.length/cols);
+    const canvas=document.createElement('canvas');
+    canvas.width=cols*cardW+4;canvas.height=rows*cardH+4+30;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#0c0b08';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#c8a84b';ctx.font='bold 14px sans-serif';ctx.textAlign='center';
+    ctx.fillText(d.name||'My Deck',canvas.width/2,20);
+    let loaded=0;
+    allImgs.forEach((card,i)=>{
+      const img=new Image();img.crossOrigin='anonymous';
+      img.onload=()=>{
+        const col=i%cols,row=Math.floor(i/cols);
+        ctx.drawImage(img,col*cardW+2,row*cardH+30,cardW,cardH);
+        if(++loaded===allImgs.length){
+          const a=document.createElement('a');a.download=(d.name||'deck')+'.png';a.href=canvas.toDataURL('image/png');a.click();
+        }
+      };
+      img.onerror=()=>{if(++loaded===allImgs.length){const a=document.createElement('a');a.download=(d.name||'deck')+'.png';a.href=canvas.toDataURL('image/png');a.click();}};
+      img.src=card.url;
+    });
+    toast('Generating deck image…');
+
+  } else if(type==='reg'){
+    const w=window.open('','_blank');
+    if(!w){toast('Allow popups to generate sheet');return;}
+    const deckName=d.name||'My Deck';
+    const legendName=legend.length?legend[0].n:'—';
+    const champName=champion.length?champion[0].n:'—';
+    const mainCnt=mainCards.filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0);
+    const sbCnt=sb.reduce((a,c)=>a+c.cnt,0);
+    const nonLeg=mainCards.filter(c=>c.t!=='Legend');
+    const cardRows=nonLeg.map(c=>`<tr><td>${c.cnt}</td><td>${c.n}</td><td>${c.t||''}</td></tr>`).join('');
+    const sbRows=sb.map(c=>`<tr><td>${c.cnt}</td><td>${c.n}</td><td>${c.t||''}</td></tr>`).join('');
+    const runeRows=Object.entries(runes.reduce((a,r)=>{a[r.n]=(a[r.n]||0)+1;return a;},{})).map(([n,cnt])=>`<tr><td>${cnt}</td><td>${n}</td><td>Rune</td></tr>`).join('');
+    const bfRows=bfs.map(b=>`<tr><td>1</td><td>${b.n}</td><td>Battlefield</td></tr>`).join('');
+    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Registration — ${deckName}</title><style>
+      body{font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;color:#000;}
+      h1{font-size:20px;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:16px;}
+      .header-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
+      .field{border-bottom:1px solid #666;padding:4px 0;font-size:13px;}
+      .field-lbl{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:0.05em;}
+      table{width:100%;border-collapse:collapse;margin-bottom:16px;}
+      th{text-align:left;font-size:11px;padding:4px 8px;background:#eee;border:1px solid #ccc;}
+      td{padding:4px 8px;font-size:13px;border:1px solid #eee;}
+      .section-title{font-weight:bold;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;margin:14px 0 4px;color:#444;}
+      @media print{body{padding:0;}}
+    </style></head><body>
+      <h1>Riftbound Deck Registration Sheet</h1>
+      <div class="header-grid">
+        <div><div class="field-lbl">Deck Name</div><div class="field">${deckName}</div></div>
+        <div><div class="field-lbl">Date</div><div class="field">${new Date().toLocaleDateString()}</div></div>
+        <div><div class="field-lbl">Legend</div><div class="field">${legendName}</div></div>
+        <div><div class="field-lbl">Champion</div><div class="field">${champName}</div></div>
+        <div><div class="field-lbl">Player Name</div><div class="field">&nbsp;</div></div>
+        <div><div class="field-lbl">Player ID</div><div class="field">&nbsp;</div></div>
+      </div>
+      <div class="section-title">Main Deck (${mainCnt}/40)</div>
+      <table><thead><tr><th>#</th><th>Card Name</th><th>Type</th></tr></thead><tbody>${cardRows}</tbody></table>
+      ${runeRows?`<div class="section-title">Runes (${runes.length}/12)</div><table><thead><tr><th>#</th><th>Card Name</th><th>Type</th></tr></thead><tbody>${runeRows}</tbody></table>`:''}
+      ${bfRows?`<div class="section-title">Battlefields</div><table><thead><tr><th>#</th><th>Card Name</th><th>Type</th></tr></thead><tbody>${bfRows}</tbody></table>`:''}
+      ${sbRows?`<div class="section-title">Sideboard (${sbCnt}/15)</div><table><thead><tr><th>#</th><th>Card Name</th><th>Type</th></tr></thead><tbody>${sbRows}</tbody></table>`:''}
+      <div style="margin-top:24px;font-size:11px;color:#999;">Generated by RiftLibrary</div>
+    </body></html>`;
+    w.document.write(html);w.document.close();
+    setTimeout(()=>w.print(),500);
+  }
+}
 function delDeck(id){
   if(!confirm('Delete this deck?'))return;
   var deck=myDecks.find(function(d){return d.id===id;});
@@ -1554,6 +1913,11 @@ function setDrop(key,val,label,el){
   el.closest('.cs-drop-wrap').querySelector('.cs-drop-btn').classList.remove('open');
   renderCards();
 }
+function setCFType(t){
+  CF.type=t;CF.legend='';
+  document.querySelectorAll('.cs-type-tab').forEach(b=>b.classList.toggle('on',b.dataset.type===t));
+  renderCards();
+}
 function toggleDom(btn){
   const d=btn.dataset.dom;CF.doms.has(d)?CF.doms.delete(d):CF.doms.add(d);
   btn.classList.toggle('on',CF.doms.has(d));renderCards();
@@ -1583,11 +1947,12 @@ function resetFilters(){
     document.getElementById('rv-'+n).textContent='Any';
     const f=document.getElementById('rf-'+n);f.style.left='0%';f.style.width='100%';
   });
-  ['set','type','rar'].forEach(k=>{
+  ['set','rar'].forEach(k=>{
     document.getElementById('dv-'+k).textContent='All';
     document.getElementById('dd-'+k).querySelectorAll('.cs-dopt').forEach((o,i)=>o.classList.toggle('active',i===0));
   });
-  document.querySelectorAll('.dom-btn').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.cs-type-tab').forEach(b=>b.classList.toggle('on',b.dataset.type===''));
+  document.querySelectorAll('#cs-dom-pills .edit-dom-pill').forEach(b=>b.classList.remove('on'));
   renderCards();
 }
 
@@ -1598,7 +1963,10 @@ function renderCards(){
   const q=document.getElementById('cs').value.toLowerCase();
   const list=CARDS.filter(c=>{
     if(q&&!c.name.toLowerCase().includes(q)&&!c.txt.toLowerCase().includes(q))return false;
-    if(CF.type){
+    if(CF.type==='banned'){
+      const bn=c.name.replace(/\s*\([^)]*\)\s*$/,'').trim();
+      if(!BANNED_CARDS.has(bn))return false;
+    } else if(CF.type){
       const match=c.supertype===CF.type||c.type===CF.type;
       if(!match)return false;
     }
@@ -1808,25 +2176,163 @@ const EVTS=[
   {id:4,name:'Spring Championship 2026',date:'2026-03-28',location:'Tampa, FL',format:'Constructed',status:'completed',prize:'$500 cash',players:48,maxPlayers:64,desc:'Congrats to all participants! Decklists from top 8 coming soon.'},
   {id:5,name:'Friday Night Riftbound',date:'2026-04-11',location:'Card Kingdom — Tampa',format:'Draft',status:'completed',prize:'Promo cards',players:12,maxPlayers:16,desc:'Weekly draft night. Great turnout — thanks everyone!'},
 ];
+const RQ_EVENTS=[
+  {city:'Houston',region:'Texas, USA',dates:'Dec 5–7, 2025',sortDate:'2025-12-05',flag:'🇺🇸'},
+  {city:'Bologna',region:'Italy',dates:'Feb 20–22, 2026',sortDate:'2026-02-20',flag:'🇮🇹'},
+  {city:'Las Vegas',region:'Nevada, USA',dates:'Feb 27–Mar 1, 2026',sortDate:'2026-02-27',flag:'🇺🇸'},
+  {city:'Lille',region:'France',dates:'Apr 17–19, 2026',sortDate:'2026-04-17',flag:'🇫🇷'},
+  {city:'Atlanta',region:'Georgia, USA',dates:'Apr 24–26, 2026',sortDate:'2026-04-24',flag:'🇺🇸'},
+  {city:'Sydney',region:'Australia',dates:'May 15–17, 2026',sortDate:'2026-05-15',flag:'🇦🇺'},
+  {city:'Vancouver',region:'Canada',dates:'May 29–Jun 1, 2026',sortDate:'2026-05-29',flag:'🇨🇦'},
+  {city:'Utrecht',region:'Netherlands',dates:'Jun 12–14, 2026',sortDate:'2026-06-12',flag:'🇳🇱'},
+  {city:'Hartford',region:'Connecticut, USA',dates:'Jun 19–21, 2026',sortDate:'2026-06-19',flag:'🇺🇸'},
+  {city:'Barcelona',region:'Spain',dates:'Aug 21–23, 2026',sortDate:'2026-08-21',flag:'🇪🇸'},
+  {city:'Singapore',region:'Singapore',dates:'Sep 4–6, 2026',sortDate:'2026-09-04',flag:'🇸🇬'},
+  {city:'Los Angeles',region:'California, USA',dates:'Sep 25–27, 2026',sortDate:'2026-09-25',flag:'🇺🇸'},
+];
+const SCHEDULE_2026=[
+  {month:'May 2026',events:[
+    {dates:'May 1–7',name:'Unleashed Pre-Rift',desc:'Global Pre-Rift events at LGS',type:'pre-rift'},
+    {dates:'May 8',name:'Unleashed Release',desc:'Riftbound Set 3 launches worldwide',type:'release'},
+    {dates:'May 15–17',name:'RQ Sydney',desc:'First APAC Regional Qualifier',type:'rq'},
+    {dates:'Mid-May',name:'China Minor Tournaments',desc:'Set 3 Minor events across four cities',type:'minor'},
+    {dates:'May 21–24',name:'MomoCon 2026',desc:'Riftbound events in Atlanta',type:'special'},
+    {dates:'May 25',name:'Summoner Skirmish June Window',desc:'First Skirmish window after Unleashed',type:'skirmish'},
+    {dates:'May 29–Jun 1',name:'RQ Vancouver',desc:"Canada's first Regional Qualifier",type:'rq'},
+  ]},
+  {month:'June 2026',events:[
+    {dates:'Jun 12–14',name:'RQ Utrecht',desc:'Regional Qualifier in the Netherlands',type:'rq'},
+    {dates:'Jun 19–21',name:'RQ Hartford',desc:'New England Regional Qualifier',type:'rq'},
+    {dates:'Jun 22',name:'Vandetta Previews Begin',desc:'First look at Riftbound Set 4',type:'preview'},
+    {dates:'Jun 22',name:'Summoner Skirmish July Window',desc:'July Skirmish events open',type:'skirmish'},
+    {dates:'Jun 26',name:'LoL Mid-Season Invitational',desc:'Riftbound presence in Daejeon, South Korea',type:'special'},
+  ]},
+  {month:'July 2026',events:[
+    {dates:'Mid-July',name:'China Major Tournament',desc:'Set 3 Major in northern China',type:'major'},
+    {dates:'Jul 24–30',name:'Vandetta Pre-Rift',desc:'Global Pre-Rift for Set 4',type:'pre-rift'},
+    {dates:'Jul 30–Aug 2',name:'Gen Con Indy',desc:'Riftbound events and panel',type:'special'},
+    {dates:'Jul 31',name:'Vandetta Release',desc:'Set 4 launches in English and Chinese',type:'release'},
+  ]},
+  {month:'August 2026',events:[
+    {dates:'TBD',name:'State of the Game',desc:'Second State of the Game livestream',type:'special'},
+    {dates:'Aug 21–23',name:'RQ Barcelona',desc:'European Regional Qualifier',type:'rq'},
+  ]},
+  {month:'September 2026',events:[
+    {dates:'Sep 4–6',name:'RQ Singapore',desc:'Southeast Asia Regional Qualifier',type:'rq'},
+    {dates:'Sep 21',name:'Radiance Previews Begin',desc:'Set 5 reveals start',type:'preview'},
+    {dates:'Sep 25–27',name:'RQ Los Angeles',desc:'Final Regional Qualifier of 2026',type:'rq'},
+  ]},
+  {month:'October 2026',events:[
+    {dates:'Oct 16–22',name:'Radiance Pre-Rift',desc:'Final Pre-Rift of the year',type:'pre-rift'},
+    {dates:'Oct 23',name:'Radiance Release',desc:'Riftbound Set 5 launches',type:'release'},
+  ]},
+  {month:'November 2026',events:[
+    {dates:'Nov 27–29',name:'DreamHack Stockholm',desc:'Riftbound events in Sweden',type:'special'},
+  ]},
+  {month:'December 2026',events:[
+    {dates:'Dec 4–6',name:'PAX Unplugged',desc:'Riftbound events and panel presence',type:'special'},
+  ]},
+];
 function renderEvents(){
   const el=document.getElementById('events-content');
-  const up=EVTS.filter(e=>e.status==='upcoming'),done=EVTS.filter(e=>e.status==='completed');
-  function ec(e){
-    const isU=e.status==='upcoming';
-    const ds=new Date(e.date).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-    const pct=Math.round(e.players/e.maxPlayers*100);
-    return`<div class="dc" style="cursor:default;">
-      <div class="dt"><div><div class="dn">${e.name}</div><div class="dl">${ds} · ${e.location}</div></div><span class="ftag" style="${isU?'color:var(--calm);border-color:var(--calm);':''}">${isU?'Upcoming':'Completed'}</span></div>
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">${e.desc}</div>
-      <div style="display:flex;gap:10px;font-size:12px;color:var(--text-muted);margin-bottom:10px;"><span>📋 ${e.format}</span><span>🏆 ${e.prize}</span><span>👥 ${e.players}/${e.maxPlayers}</span></div>
-      ${isU?`<div style="height:4px;background:var(--surface3);border-radius:2px;margin-bottom:10px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:2px;"></div></div>
-        <div style="display:flex;gap:8px;"><button class="btn btn-sm btn-g" onclick="alert('Registration coming soon!')">Register (${e.maxPlayers-e.players} spots)</button><button class="btn btn-sm" onclick="alert('Details coming soon!')">Details</button></div>`
-      :`<div style="font-size:12px;color:var(--text-muted);">Completed · ${e.players} attended</div>`}
-    </div>`;
+  const today=new Date();
+  const typeStyle={
+    rq:       {bg:'rgba(200,168,75,0.15)',color:'var(--accent)',label:'Regional Qualifier'},
+    release:  {bg:'rgba(61,214,163,0.15)',color:'var(--calm)',label:'Set Release'},
+    pre_rift: {bg:'rgba(90,180,245,0.15)',color:'var(--mind)',label:'Pre-Rift'},
+    'pre-rift':{bg:'rgba(90,180,245,0.15)',color:'var(--mind)',label:'Pre-Rift'},
+    preview:  {bg:'rgba(224,90,173,0.15)',color:'var(--chaos)',label:'Preview'},
+    skirmish: {bg:'rgba(245,212,66,0.15)',color:'var(--order)',label:'Skirmish'},
+    special:  {bg:'rgba(245,146,42,0.15)',color:'var(--bodyc)',label:'Special Event'},
+    major:    {bg:'rgba(255,107,74,0.15)',color:'var(--fury)',label:'Major'},
+    minor:    {bg:'rgba(255,255,255,0.07)',color:'var(--text-muted)',label:'Minor'},
+  };
+  function typeBadge(t){const s=typeStyle[t]||typeStyle.special;return`<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${s.bg};color:${s.color};white-space:nowrap;">${s.label}</span>`;}
+  function allEventsHTML(){
+    const rqHTML=RQ_EVENTS.map((rq,idx)=>{
+      const isPast=new Date(rq.sortDate)<today;
+      const alreadyAdded=myEvents.some(e=>e.name===rq.city+' Regional Qualifier');
+      return`<div style="background:var(--surface2);border:1px solid ${isPast?'var(--border)':'rgba(200,168,75,0.3)'};border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden;">
+        ${!isPast?`<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);"></div>`:''}
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+          <span style="font-size:18px;">${rq.flag}</span>
+          <span style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:${isPast?'var(--text-muted)':' var(--text)'};">${rq.city}</span>
+          ${isPast?`<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:var(--surface3);color:var(--text-muted);">Past</span>`:`<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:rgba(200,168,75,0.15);color:var(--accent);font-weight:600;">Upcoming</span>`}
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);">${rq.region}</div>
+        <div style="font-size:13px;font-weight:600;color:${isPast?'var(--text-muted)':'var(--accent)'};">${rq.dates}</div>
+        <button class="rq-add-evt-btn${alreadyAdded?' added':''}" onclick="addRQToMyEvents(${idx})" ${alreadyAdded?'disabled':''}>
+          ${alreadyAdded?'✓ Added':'+ Add to My Events'}
+        </button>
+      </div>`;
+    }).join('');
+    const schedHTML=SCHEDULE_2026.map(month=>{
+      const rows=month.events.map(ev=>{
+        return`<div style="display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:8px;transition:background 0.12s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='transparent'">
+          <div style="min-width:90px;font-size:12px;font-weight:600;color:var(--accent);font-family:'Syne',sans-serif;">${ev.dates}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;">${ev.name}</div>
+            <div style="font-size:12px;color:var(--text-muted);">${ev.desc}</div>
+          </div>
+          ${typeBadge(ev.type)}
+        </div>`;
+      }).join('');
+      return`<div style="margin-bottom:1.5rem;">
+        <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--accent);letter-spacing:0.08em;text-transform:uppercase;padding:8px 14px;background:var(--surface2);border-radius:8px;margin-bottom:6px;border-left:3px solid var(--accent);">${month.month}</div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;">${rows}</div>
+      </div>`;
+    }).join('');
+    return`
+      <div style="margin-bottom:2rem;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;">
+          <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;">🏆 Regional Qualifiers 2025–2026</div>
+          <span style="font-size:12px;color:var(--text-muted);">${RQ_EVENTS.filter(r=>new Date(r.sortDate)>=today).length} upcoming</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;">${rqHTML}</div>
+      </div>
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:1rem;">📅 2026 Schedule</div>
+        ${schedHTML}
+      </div>`;
   }
-  el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:10px;"><div class="slbl" style="margin:0;">${up.length} upcoming</div><button class="btn btn-sm btn-g" onclick="alert('Coming soon!')">+ Submit event</button></div>
-    <div class="dg" style="margin-bottom:2rem;">${up.map(ec).join('')}</div>
-    <div class="slbl" style="margin-bottom:1rem;">Past events</div><div class="dg">${done.map(ec).join('')}</div>`;
+  function myEventsHTML(){
+    const checks=(e,prop,label)=>`<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:${e[prop]?'var(--calm)':'var(--text-muted)'};"><input type="checkbox" ${e[prop]?'checked':''} onchange="toggleMyEventProp(${e.id},'${prop}')" style="accent-color:var(--calm);"> ${label}</label>`;
+    const myList=myEvents.length?myEvents.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(e=>{
+      const ds=new Date(e.date).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+      return`<div class="dc" style="cursor:default;">
+        <div class="dt"><div><div class="dn">${e.name}</div><div class="dl">${ds}${e.time?' · '+e.time:''}${e.location?' · '+e.location:''}</div></div>
+        <button class="result-del" onclick="deleteMyEvent(${e.id})" title="Remove event" style="flex-shrink:0;">×</button></div>
+        <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;">
+          ${checks(e,'paidEntry','Entry fee paid')}
+          ${checks(e,'hotelBooked','Hotel booked')}
+          ${checks(e,'flightBooked','Flight booked')}
+        </div>
+      </div>`;
+    }).join(''):`<div class="es" style="padding:2rem 0;"><p style="color:var(--text-muted);font-size:13px;">No events added yet.</p></div>`;
+    const rqOpts=RQ_EVENTS.map((rq,idx)=>`<option value="${idx}">${rq.flag} ${rq.city} RQ — ${rq.dates}</option>`).join('');
+    return`<div class="dc" style="cursor:default;margin-bottom:1.5rem;">
+      <div class="slbl" style="margin-bottom:1rem;">Add Event</div>
+      <div style="margin-bottom:10px;">
+        <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Quick fill from Regional Qualifier</label>
+        <select id="mevt-rq" onchange="if(this.value!=='')fillFromRQ(parseInt(this.value))" style="width:100%;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;">
+          <option value="">— Select an RQ event —</option>${rqOpts}
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div style="grid-column:1/-1;"><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Event name *</label><input id="mevt-name" type="text" placeholder="e.g. RiftLibrary Open #2" style="width:100%;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;"></div>
+        <div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Date *</label><input id="mevt-date" type="date" style="width:100%;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;"></div>
+        <div><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Start time</label><input id="mevt-time" type="time" style="width:100%;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;"></div>
+        <div style="grid-column:1/-1;"><label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Location</label><input id="mevt-loc" type="text" placeholder="City, venue…" style="width:100%;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;"></div>
+      </div>
+      <button class="btn btn-p" onclick="createMyEvent()">+ Add to My Events</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">${myList}</div>`;
+  }
+  const tabs=`<div class="evt-tab-bar">
+    <button class="evt-tab${activeEvtTab==='all'?' on':''}" onclick="switchEvtTab('all')">Schedule</button>
+    <button class="evt-tab${activeEvtTab==='mine'?' on':''}" onclick="switchEvtTab('mine')">My Events${myEvents.length?` <span class="evt-tab-badge">${myEvents.length}</span>`:''}</button>
+  </div>`;
+  el.innerHTML=tabs+(activeEvtTab==='all'?allEventsHTML():myEventsHTML());
 }
 
 /* ── STATISTICS ──────────────────────────────────── */
