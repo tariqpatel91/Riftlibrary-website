@@ -34,6 +34,7 @@
       <select id="dsl" onchange="renderDecks()"><option value="">All legends</option><option>Jinx</option><option>Viktor</option><option>Ahri</option><option>Darius</option><option>Lee Sin</option><option>Volibear</option><option>Miss Fortune</option><option>Kai'Sa</option></select>
       <select id="dsd" onchange="renderDecks()"><option value="">All domains</option><option>Fury</option><option>Chaos</option><option>Calm</option><option>Mind</option><option>Body</option><option>Order</option></select>
       <button class="btn btn-p" onclick="openModal()">+ New Deck</button>
+      <button class="btn btn-g" onclick="openImportDeckModal()" style="font-size:12px;">⇪ Import</button>
     </div>
     <div class="dg" id="dg"></div>
   </div>
@@ -422,6 +423,38 @@
     <div class="mf">
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button class="btn btn-p" onclick="createDeck()">Create deck</button>
+    </div>
+  </div>
+</div>
+<!-- IMPORT DECK MODAL -->
+<div class="mo" id="import-deck-modal" onclick="if(event.target===this)closeImportDeckModal()">
+  <div class="mbox" style="max-width:540px;">
+    <h3>Import Deck from Text</h3>
+    <div class="field"><label>Deck name</label><input type="text" id="import-deck-name" placeholder="My Imported Deck"></div>
+    <div class="field"><label>Legend</label><select id="import-mleg" onchange="autoImportD()"><option>Jinx</option><option>Viktor</option><option>Ahri</option><option>Darius</option><option>Lee Sin</option><option>Volibear</option><option>Miss Fortune</option><option>Kai'Sa</option></select></div>
+    <div class="field"><label>Format</label><select id="import-mfmt"><option>Constructed</option><option>Draft</option><option>Sealed</option></select></div>
+    <div class="field"><label>Domains (auto-set by legend)</label>
+      <div class="dg2">
+        <button class="idtog fury"  onclick="togImportD(this)">Fury</button>
+        <button class="idtog chaos" onclick="togImportD(this)">Chaos</button>
+        <button class="idtog calm"  onclick="togImportD(this)">Calm</button>
+        <button class="idtog mind"  onclick="togImportD(this)">Mind</button>
+        <button class="idtog body"  onclick="togImportD(this)">Body</button>
+        <button class="idtog order" onclick="togImportD(this)">Order</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Paste a deck list in text format</label>
+      <textarea id="import-deck-text" rows="10" placeholder="Pasting plain text accepted, but champion will be added to main deck instead of champion zone.&#10;&#10;Champion:&#10;1 Ahri&#10;&#10;MainDeck:&#10;3 Ionian Hookmaster&#10;2 Spirit Blade&#10;&#10;Battlefields:&#10;1 Ionia&#10;&#10;Runes:&#10;3 Rune of Haste&#10;&#10;Sideboard:&#10;3 Wages of Pain" style="width:100%;box-sizing:border-box;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-family:monospace;resize:vertical;"></textarea>
+    </div>
+    <div class="field">
+      <label>Or load from file</label>
+      <input type="file" id="import-deck-file" accept=".txt" onchange="loadImportFile(this)" style="font-size:12px;color:var(--text);">
+    </div>
+    <div id="import-deck-feedback" style="font-size:12px;color:var(--text-muted);min-height:18px;"></div>
+    <div class="mf">
+      <button class="btn" onclick="closeImportDeckModal()">Cancel</button>
+      <button class="btn btn-p" onclick="importDeckFromText()">Import Deck</button>
     </div>
   </div>
 </div>

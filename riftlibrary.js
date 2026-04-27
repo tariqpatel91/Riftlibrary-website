@@ -4,12 +4,14 @@ function populateLegendDropdowns(){
   legends.forEach(name=>{if(!LD[name]){const card=CARDS.find(c=>c.type==='Legend'&&c.name===name);if(card&&card.doms.length)LD[name]=card.doms;}});
   const mleg=document.getElementById('mleg');
   if(mleg){const v=mleg.value;mleg.innerHTML=legends.map(n=>`<option${n===v?' selected':''}>${n}</option>`).join('');}
+  const imleg=document.getElementById('import-mleg');
+  if(imleg){const v=imleg.value;imleg.innerHTML=legends.map(n=>`<option${n===v?' selected':''}>${n}</option>`).join('');}
   const dsl=document.getElementById('dsl');
   if(dsl){const v=dsl.value;dsl.innerHTML='<option value="">All legends</option>'+legends.map(n=>`<option${n===v?' selected':''}>${n}</option>`).join('');}
 }
 let CARDS=[], cardsLoaded=false;
 let myDecks=[], nextId=1;
-const BANNED_CARDS=new Set(['Called Shot','Draven, Vanquisher','Fight or Flight','Scrapheap','Dreaming Tree','Obelisk of Power',"Reaver's Row"]);
+const BANNED_CARDS=new Set(['Called Shot','Draven, Vanquisher','Draven - Vanquisher','Fight or Flight','Scrapheap','Dreaming Tree','The Dreaming Tree','Obelisk of Power',"Reaver's Row"]);
 function baseName(n){return(n||'').replace(/\s*\([^)]*\)\s*$/,'').trim();}
 let myEvents=JSON.parse(localStorage.getItem('rl_myEvents')||'[]');
 let activeEvtTab='all';
@@ -51,6 +53,7 @@ let activeDeckId=null;
 let activeDDTab='cards';
 let currentUser=null;
 let cardsTabView='visual';
+let deckSortMode='alpha'; // 'alpha' or 'energy'
 let authToken=null;
 const AF={doms:new Set()};
 const CF={type:'',set:'',rar:'',legend:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false};
@@ -414,7 +417,7 @@ function goto(p,el){
   document.querySelectorAll('.nl').forEach(x=>x.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
   if(el)el.classList.add('active');
-  if(p==='decks')renderDecks();
+  if(p==='decks'){const dd=document.getElementById('dd');const dl=document.getElementById('dl');if(dd&&dd.style.display!=='none'){dd.style.display='none';if(dl)dl.style.display='';activeDeckId=null;activeDDTab='cards';}renderDecks();}
   if(p==='search'&&cardsLoaded)renderCards();
   if(p==='statistics')renderStatistics();
   if(p==='events')renderEvents();
@@ -604,6 +607,8 @@ function renderDeckDetail(){
         <button class="cvt-btn${cardsTabView==='visual'?' on':''}" onclick="setCardsView('visual')">⊞ Visual</button>
         <button class="cvt-btn${cardsTabView==='text'?' on':''}" onclick="setCardsView('text')">☰ List</button>
         <button class="cvt-btn${cardsTabView==='gallery'?' on':''}" onclick="setCardsView('gallery')">⊟ Gallery</button>
+        <span style="font-size:12px;color:var(--text-muted);font-family:'Syne',sans-serif;letter-spacing:0.04em;align-self:center;">Sort by:</span>
+        <button class="cvt-btn sort-tog-btn${deckSortMode==='energy'?' on':''}" onclick="toggleDeckSort()" title="Toggle sort order" style="font-size:12px;padding:6px 14px;">${deckSortMode==='energy'?'⚡ Energy':'🔤 Alphabetical'}</button>
         <div class="cvt-bar-right">
           <button class="cvt-icon-btn" onclick="copyDeckLink()" title="Copy link to deck">🔗 Copy Link</button>
           <div style="position:relative;">
@@ -694,7 +699,8 @@ function buildCardsListView(d){
   const sb=d.sideboard||[];
   const TYPE_ORDER=['Unit','Spell','Gear'];
   function tsort(a,b){const ai=TYPE_ORDER.indexOf(a.t),bi=TYPE_ORDER.indexOf(b.t);return(ai<0?99:ai)-(bi<0?99:bi)||a.n.localeCompare(b.n);}
-  const sortedMain=mainDeck.slice().sort(tsort);
+  function esort(a,b){const ca=CARDS.find(x=>x.id===a.id);const cb=CARDS.find(x=>x.id===b.id);const ea=ca&&ca.cost!=null?ca.cost:999;const eb=cb&&cb.cost!=null?cb.cost:999;return ea!==eb?ea-eb:a.n.localeCompare(b.n);}
+  const sortedMain=mainDeck.slice().sort(deckSortMode==='energy'?esort:tsort);
   const totalMain=mainDeck.reduce((a,c)=>a+c.cnt,0);
 
   function thumb(url){
@@ -778,29 +784,53 @@ function switchDDTab(tab){
 }
 function buildCardsGalleryView(d){
   const d2=myDecks.find(x=>x.id===activeDeckId);if(!d2)return'';
-  const allCards=[];
+  function gcards(entries,isBF){
+    return entries.map(entry=>{
+      const full=CARDS.find(c=>c.id===entry.id);
+      const img=full?full.imageUrl:'';
+      const si=(entry.id||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const tiles=[];
+      for(let i=0;i<(entry.cnt||1);i++){
+        tiles.push(`<div class="gallery-card${isBF?' gallery-card-bf':''}" onclick="openCardModal('${si}')" title="${entry.n}">
+          ${img?`<img src="${img}" alt="${entry.n}" loading="lazy">`:`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${entry.n}</div>`}
+        </div>`);
+      }
+      return tiles.join('');
+    }).join('');
+  }
+  function section(label,html,rawWrap){
+    const inner=rawWrap?html:`<div class="cards-gallery-view">${html}</div>`;
+    return`<div class="gallery-section"><div class="gallery-section-hdr">${label}</div>${inner}</div>`;
+  }
   const legend=d2.cards?d2.cards.filter(c=>c.t==='Legend'):[];
   const champion=d2.champion?[{...d2.champion,cnt:1}]:[];
-  const mainCards=d2.cards?d2.cards.filter(c=>c.t!=='Legend'):[];
+  const mainDeck=d2.cards?d2.cards.filter(c=>c.t!=='Legend'):[];
   const runes=d2.runes||[];
   const bfs=d2.battlefields?d2.battlefields.filter(Boolean):[];
   const sb=d2.sideboard||[];
-  [...legend,...champion,...mainCards,...runes,...bfs,...sb].forEach(entry=>{
-    const full=CARDS.find(c=>c.id===entry.id);
-    const img=full?full.imageUrl:'';
-    const isBF=full&&full.type==='Battlefield';
-    for(let i=0;i<(entry.cnt||1);i++){
-      allCards.push({id:entry.id,name:entry.n,img,isBF});
-    }
+  let html='';
+  if(legend.length) html+=section('Legend',gcards(legend,false));
+  if(champion.length) html+=section('Champion',gcards(champion,false));
+  if(bfs.length) html+=section('Battlefield',`<div class="cards-gallery-view-bf">${gcards(bfs,true)}</div>`,true);
+  if(mainDeck.length) html+=section('Main Deck',gcards(mainDeck,false));
+  if(runes.length) html+=section('Runes',gcards(runes,false));
+  if(sb.length) html+=section('Sideboard',gcards(sb,false));
+  if(!html) return'<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">No cards in deck yet.</div>';
+  return`<div class="gallery-all-sections">${html}</div>`;
+}
+function toggleDeckSort(){
+  deckSortMode=deckSortMode==='alpha'?'energy':'alpha';
+  // Update all sort toggle buttons
+  document.querySelectorAll('.sort-tog-btn').forEach(b=>{
+    b.textContent=deckSortMode==='energy'?'⚡ Energy':'🔤 Alpha';
+    b.classList.toggle('on',deckSortMode==='energy');
   });
-  if(!allCards.length) return'<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">No cards in deck yet.</div>';
-  const cards=allCards.map((c,i)=>{
-    const si=(c.id||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    return`<div class="gallery-card${c.isBF?' gallery-card-bf':''}" onclick="openCardModal('${si}')" title="${c.name}">
-      ${c.img?`<img src="${c.img}" alt="${c.name}" loading="lazy">`:`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${c.name}</div>`}
-    </div>`;
-  }).join('');
-  return`<div class="cards-gallery-view">${cards}</div>`;
+  // Re-render both views
+  const tv=document.getElementById('cards-text-view');
+  if(tv&&tv.style.display!=='none'){const d2=myDecks.find(x=>x.id===activeDeckId);if(d2)tv.innerHTML=buildCardsListView(d2);}
+  renderEditPreview();
+  const vv=document.getElementById('cards-visual-view');
+  if(vv&&vv.style.display!=='none') renderEditPreview(vv);
 }
 function setCardsView(mode){
   cardsTabView=mode;
@@ -888,21 +918,24 @@ function buildStatsPanel(d){
   html+='</div>';
   html+='<div class="slbl" style="margin-bottom:10px;">Averages</div>';
   html+='<div class="stat-grid-sm">';
-  html+='<div class="stat-card-sm"><div class="stat-num-sm">'+avgCost+'</div><div class="stat-lbl-sm">Avg Cost</div></div>';
+  html+='<div class="stat-card-sm"><div class="stat-num-sm">'+avgCost+'</div><div class="stat-lbl-sm">Avg Energy</div></div>';
   html+='<div class="stat-card-sm"><div class="stat-num-sm">'+avgPow+'</div><div class="stat-lbl-sm">Avg Power</div></div>';
-  html+='<div class="stat-card-sm"><div class="stat-num-sm">'+avgMight+'</div><div class="stat-lbl-sm">Avg Might</div></div>';
+  html+='<div class="stat-card-sm"><div class="stat-num-sm">'+avgMight+'</div><div class="stat-lbl-sm">Avg Assault</div></div>';
   html+='</div>';
   html+='<div class="slbl" style="margin-bottom:10px;">Breakdown</div>';
   html+='<div class="stat-grid-sm">';
   if(units)html+='<div class="stat-card-sm"><div class="stat-num-sm" style="color:var(--calm);">'+units+'</div><div class="stat-lbl-sm">Units</div></div>';
   if(spells)html+='<div class="stat-card-sm"><div class="stat-num-sm" style="color:var(--mind);">'+spells+'</div><div class="stat-lbl-sm">Spells</div></div>';
   if(gear)html+='<div class="stat-card-sm"><div class="stat-num-sm" style="color:var(--fury);">'+gear+'</div><div class="stat-lbl-sm">Gear</div></div>';
-  if(actions)html+='<div class="stat-card-sm"><div class="stat-num-sm">'+actions+'</div><div class="stat-lbl-sm">Actions</div></div>';
-  if(reactions)html+='<div class="stat-card-sm"><div class="stat-num-sm">'+reactions+'</div><div class="stat-lbl-sm">Reactions</div></div>';
-  if(hidden)html+='<div class="stat-card-sm"><div class="stat-num-sm">'+hidden+'</div><div class="stat-lbl-sm">Hidden</div></div>';
   if(nonblocking)html+='<div class="stat-card-sm"><div class="stat-num-sm">'+nonblocking+'</div><div class="stat-lbl-sm">Nonblocking</div></div>';
   if(fuses)html+='<div class="stat-card-sm"><div class="stat-num-sm">'+fuses+'</div><div class="stat-lbl-sm">Fuses</div></div>';
   html+='</div>';
+  if(actions||reactions||hidden){
+    html+='<div class="slbl" style="margin:1rem 0 10px;">Card Speeds</div>';
+    if(actions){const p=Math.round(actions/total*100);html+='<div class="dist-row"><span class="dist-label">Actions</span><div class="dist-bar-wrap"><div class="dist-bar-fill" style="width:'+p+'%;background:var(--bodyc);"></div></div><span class="dist-count">'+actions+'</span></div>';}
+    if(reactions){const p=Math.round(reactions/total*100);html+='<div class="dist-row"><span class="dist-label">Reactions</span><div class="dist-bar-wrap"><div class="dist-bar-fill" style="width:'+p+'%;background:var(--chaos);"></div></div><span class="dist-count">'+reactions+'</span></div>';}
+    if(hidden){const p=Math.round(hidden/total*100);html+='<div class="dist-row"><span class="dist-label">Hidden</span><div class="dist-bar-wrap"><div class="dist-bar-fill" style="width:'+p+'%;background:var(--text-muted);"></div></div><span class="dist-count">'+hidden+'</span></div>';}
+  }
   if(Object.keys(kwFreq).length){
     html+='<div class="slbl" style="margin-bottom:8px;">Keywords</div>';
     html+='<div class="kw-grid">';
@@ -1330,7 +1363,7 @@ function renderEditPreview(targetEl){
     else h+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
     h+=bannedBanner(c.n);
     h+=`<div class="deck-card-actions">`;
-    h+=`<div class="dca-btn dca-danger" onclick="editDeckCard('${si}','${sn}','${st}',-1)"><span>✕</span> Remove</div>`;
+    if(c.t!=='Legend') h+=`<div class="dca-btn dca-danger" onclick="editDeckCard('${si}','${sn}','${st}',-1)"><span>✕</span> Remove</div>`;
     if(c.t!=='Legend') h+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="editDeckCard('${si}','${sn}','${st}',1)"><span>＋</span> Add 1 copy</div>`;
     if(c.t!=='Legend') h+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${st}')"><span>→</span> Add to sideboard</div>`;
     h+=`</div>`;
@@ -1340,7 +1373,7 @@ function renderEditPreview(targetEl){
   }
 
   const badge=document.getElementById('deck-count-badge');
-  if(badge) badge.textContent=`${total} / 40 cards`;
+  if(badge) badge.textContent=`${total + (d.champion ? 1 : 0)} / 40 cards`;
 
   // Refresh curves panel live
   const curvesPanel=document.getElementById('deck-curves-panel');
@@ -1422,10 +1455,20 @@ function renderEditPreview(targetEl){
     const av=ai<0?99:ai;const bv=bi<0?99:bi;
     return av!==bv?av-bv:a.localeCompare(b);
   }
+  // Sort toggle button for edit tab
+  html+=`<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px;">
+    <span style="font-size:12px;color:var(--text-muted);font-family:'Syne',sans-serif;letter-spacing:0.04em;">Sort by:</span>
+    <button class="cvt-btn sort-tog-btn${deckSortMode==='energy'?' on':''}" onclick="toggleDeckSort()" title="Toggle sort order" style="font-size:12px;padding:6px 14px;">${deckSortMode==='energy'?'⚡ Energy':'🔤 Alphabetical'}</button>
+  </div>`;
+  function energySort(a,b){
+    const ca=CARDS.find(x=>x.id===a.id);const cb=CARDS.find(x=>x.id===b.id);
+    const ea=ca&&ca.cost!=null?ca.cost:999;const eb=cb&&cb.cost!=null?cb.cost:999;
+    return ea!==eb?ea-eb:a.n.localeCompare(b.n);
+  }
   if(!deckCards.length){
     html+='<div style="font-size:12px;color:var(--text-muted);padding:4px 0;">No cards yet — click cards on the left to add</div>';
   } else {
-    const sorted=deckCards.slice().sort((a,b)=>typeSort(a.t,b.t)||a.n.localeCompare(b.n));
+    const sorted=deckCards.slice().sort((a,b)=>typeSort(a.t,b.t)||(deckSortMode==='energy'?energySort(a,b):a.n.localeCompare(b.n)));
     const byType={};
     const typeOrder=[];
     sorted.forEach(c=>{if(!byType[c.t]){byType[c.t]=[];typeOrder.push(c.t);}byType[c.t].push(c);});
@@ -1473,7 +1516,7 @@ function renderEditPreview(targetEl){
   // Rune section
   const runes=d.runes||[];
   const runeMax=12;
-  html+=`<div class="deck-section deck-rune-section"><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">🔮 Runes <span class="ds-count">(${runes.length}/${runeMax})</span></div>`;
+  html+=`<div class="deck-section deck-rune-section"><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">Runes <span class="ds-count">(${runes.length}/${runeMax})</span></div>`;
   if(!runes.length){
     html+=`<div style="font-size:12px;color:var(--text-muted);">${isEdit?'None — select the Rune tab on the left and click a rune to add':'Add cards in the Edit tab'}</div>`;
   } else {
@@ -1522,7 +1565,7 @@ function renderEditPreview(targetEl){
   // Sideboard section — card image grid like main deck
   const sb=d.sideboard||[];
   const sbTotal=sb.reduce((a,c)=>a+c.cnt,0);
-  html+=`<div class="deck-section deck-sb-section"><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">📋 Sideboard <span class="ds-count">(${sbTotal}/15)</span></div>`;
+  html+=`<div class="deck-section deck-sb-section"><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">Sideboard <span class="ds-count">(${sbTotal}/15)</span></div>`;
   if(!sb.length){
     html+=`<div style="font-size:12px;color:var(--text-muted);">${isEdit?'None — hover a card and use "Add to sideboard"':'Add cards in the Edit tab'}</div>`;
   } else {
@@ -1740,6 +1783,239 @@ function closeExportMenu(){
 document.addEventListener('click',function(e){
   if(!e.target.closest('.cvt-bar-right')) closeExportMenu();
 });
+/* ── EXPORT IMAGE MODAL ─────────────────────────── */
+let _exportCanvas=null;
+function openExportImageModal(d){
+  let modal=document.getElementById('export-img-modal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='export-img-modal';
+    modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.onclick=function(e){if(e.target===modal)closeExportImageModal();};
+    modal.innerHTML=`<div style="background:#1a1916;border:1px solid #333;border-radius:16px;padding:24px;max-width:980px;width:96%;max-height:93vh;display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div><div style="font-size:18px;font-weight:700;color:#fff;font-family:'Syne',sans-serif;">Export Image</div><div style="font-size:12px;color:#888;margin-top:2px;">Preview your deck image before downloading</div></div>
+        <button onclick="closeExportImageModal()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;line-height:1;">×</button>
+      </div>
+      <div style="overflow:auto;border-radius:10px;background:#0c0b08;flex:1;min-height:0;">
+        <canvas id="export-img-canvas" style="display:block;max-width:100%;height:auto;border-radius:10px;"></canvas>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <button onclick="downloadDeckImage()" style="padding:14px;background:#c8a84b;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;color:#000;">↓ Download Image</button>
+        <button onclick="copyDeckImageToClipboard()" style="padding:14px;background:#232220;border:1px solid #444;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;">⧉ Copy to Clipboard</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+  modal.style.display='flex';
+  renderExportCanvas(d);
+}
+function closeExportImageModal(){
+  const m=document.getElementById('export-img-modal');if(m)m.style.display='none';
+}
+function downloadDeckImage(){
+  if(!_exportCanvas)return;
+  const a=document.createElement('a');
+  const d=myDecks.find(x=>x.id===activeDeckId);
+  a.download=(d&&d.name?d.name:'deck').replace(/[^a-z0-9 _-]/gi,'_')+'.png';
+  a.href=_exportCanvas.toDataURL('image/png');a.click();
+}
+function copyDeckImageToClipboard(){
+  if(!_exportCanvas)return;
+  _exportCanvas.toBlob(blob=>{
+    try{navigator.clipboard.write([new ClipboardItem({'image/png':blob})]).then(()=>toast('Image copied to clipboard!'));}
+    catch(e){toast('Copy not supported in this browser');}
+  });
+}
+function renderExportCanvas(d){
+  const canvas=document.getElementById('export-img-canvas');
+  if(!canvas)return;
+  _exportCanvas=canvas;
+  const ctx=canvas.getContext('2d');
+
+  // Layout constants
+  const PAD=18,LEFT_W=206,GAP=14;
+  const CW=88,CH=Math.round(CW*1.4); // main card size
+  const BFW=156,BFH=Math.round(BFW*0.714); // battlefield landscape
+  const LCW=174,LCH=Math.round(LCW*1.4); // legend card
+  const COLS=8;
+  const RIGHT_X=LEFT_W+GAP;
+  const RIGHT_W=COLS*(CW+6)-6;
+  const TOTAL_W=RIGHT_X+RIGHT_W+PAD;
+
+  // Gather unique card lists
+  const legendC=(d.cards||[]).filter(c=>c.t==='Legend');
+  const mainUnique=(d.cards||[]).filter(c=>c.t!=='Legend');
+  const bfList=(d.battlefields||[]).filter(Boolean);
+  const sbList=d.sideboard||[];
+  const runeMap={};(d.runes||[]).forEach(r=>{if(!runeMap[r.n])runeMap[r.n]={...r,cnt:0};runeMap[r.n].cnt++;});
+  const runeList=Object.values(runeMap);
+
+  // Calculate right panel height
+  const mainRows=Math.ceil(mainUnique.length/COLS)||1;
+  const runeRows=Math.ceil(runeList.length/COLS);
+  const sbRows=Math.ceil(sbList.length/COLS);
+  const SEC=28; // section label height
+  let rightH=PAD;
+  rightH+=SEC+mainRows*(CH+6)+10;
+  if(runeList.length) rightH+=SEC+runeRows*(CH+6)+10;
+  if(sbList.length) rightH+=SEC+sbRows*(CH+6)+10;
+  rightH+=PAD;
+
+  // Left panel height
+  let leftH=PAD+24+8+LCH+12; // name + legend card
+  leftH+=30; // domain row
+  if(bfList.length) leftH+=SEC+bfList.length*(BFH+6);
+  leftH+=PAD;
+
+  const TOTAL_H=Math.max(leftH,rightH);
+  canvas.width=TOTAL_W;canvas.height=TOTAL_H;
+
+  // Background
+  ctx.fillStyle='#0c0b08';ctx.fillRect(0,0,TOTAL_W,TOTAL_H);
+  // Left panel bg
+  ctx.fillStyle='#13120f';ctx.beginPath();
+  ctx.roundRect(0,0,LEFT_W,TOTAL_H,0);ctx.fill();
+
+  // Collect all images to load
+  const jobs=[];
+  function addJob(url,draw){jobs.push({url,draw});}
+
+  const legFull=legendC.length?CARDS.find(c=>c.id===legendC[0].id):null;
+  if(legFull&&legFull.imageUrl) addJob(legFull.imageUrl,(img)=>{
+    drawRoundedImage(ctx,img,PAD,PAD+32,LCW,LCH,6);
+  });
+
+  // Domain pips
+  const domColors={fury:'#e05a2a',chaos:'#e05a9e',calm:'#3dd6a3',mind:'#5ab4f5',body:'#f5943e',order:'#c8a84b'};
+
+  // BF cards
+  bfList.forEach((bf,i)=>{
+    const full=CARDS.find(c=>c.id===bf.id);
+    if(full&&full.imageUrl) addJob(full.imageUrl,(img)=>{
+      const y=PAD+32+LCH+42+SEC+i*(BFH+6);
+      drawRoundedImage(ctx,img,PAD,y,BFW,BFH,5);
+    });
+  });
+
+  // Main deck cards
+  mainUnique.forEach((c,i)=>{
+    const full=CARDS.find(x=>x.id===c.id);
+    if(full&&full.imageUrl) addJob(full.imageUrl,(img)=>{
+      const col=i%COLS,row=Math.floor(i/COLS);
+      const x=RIGHT_X+col*(CW+6),y=PAD+SEC+row*(CH+6);
+      drawRoundedImage(ctx,img,x,y,CW,CH,5);
+      if(c.cnt>1){
+        ctx.fillStyle='rgba(0,0,0,0.75)';ctx.beginPath();ctx.roundRect(x+CW-22,y+4,20,16,4);ctx.fill();
+        ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
+        ctx.fillText('×'+c.cnt,x+CW-12,y+15);
+      }
+    });
+  });
+
+  // Rune cards
+  const runeOffsetY=PAD+SEC+mainRows*(CH+6)+(mainUnique.length?16:0);
+  runeList.forEach((r,i)=>{
+    const full=CARDS.find(x=>x.id===r.id);
+    if(full&&full.imageUrl) addJob(full.imageUrl,(img)=>{
+      const col=i%COLS,row=Math.floor(i/COLS);
+      const x=RIGHT_X+col*(CW+6),y=runeOffsetY+SEC+row*(CH+6);
+      drawRoundedImage(ctx,img,x,y,CW,CH,5);
+      if(r.cnt>1){
+        ctx.fillStyle='rgba(0,0,0,0.75)';ctx.beginPath();ctx.roundRect(x+CW-22,y+4,20,16,4);ctx.fill();
+        ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
+        ctx.fillText('×'+r.cnt,x+CW-12,y+15);
+      }
+    });
+  });
+
+  // Sideboard cards
+  const sbBaseY=runeOffsetY+(runeList.length?SEC+runeRows*(CH+6)+16:0);
+  sbList.forEach((c,i)=>{
+    const full=CARDS.find(x=>x.id===c.id);
+    if(full&&full.imageUrl) addJob(full.imageUrl,(img)=>{
+      const col=i%COLS,row=Math.floor(i/COLS);
+      const x=RIGHT_X+col*(CW+6),y=sbBaseY+SEC+row*(CH+6);
+      drawRoundedImage(ctx,img,x,y,CW,CH,5);
+      if(c.cnt>1){
+        ctx.fillStyle='rgba(0,0,0,0.75)';ctx.beginPath();ctx.roundRect(x+CW-22,y+4,20,16,4);ctx.fill();
+        ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
+        ctx.fillText('×'+c.cnt,x+CW-12,y+15);
+      }
+    });
+  });
+
+  // Load all images then draw text labels on top
+  function drawLabels(){
+    // Deck name
+    ctx.fillStyle='#ffffff';ctx.font="bold 15px 'Syne',sans-serif";ctx.textAlign='left';
+    wrapText(ctx,d.name||'My Deck',PAD,PAD+14,LCW,18);
+
+    // Domains
+    const doms=d.domains||[];
+    doms.forEach((dom,i)=>{
+      const col=domColors[dom]||'#888';
+      ctx.fillStyle=col;ctx.beginPath();ctx.arc(PAD+10+i*26,PAD+32+LCH+20,9,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fff';ctx.font='bold 7px sans-serif';ctx.textAlign='center';
+      ctx.fillText(dom.slice(0,2).toUpperCase(),PAD+10+i*26,PAD+32+LCH+23);
+    });
+
+    // BF label
+    if(bfList.length){
+      ctx.fillStyle='#c8a84b';ctx.font="bold 11px 'Syne',sans-serif";ctx.textAlign='left';
+      ctx.fillText('BATTLEFIELDS',PAD,PAD+32+LCH+44);
+    }
+
+    // Main deck label
+    const mainTotal=mainUnique.reduce((a,c)=>a+c.cnt,0);
+    ctx.fillStyle='#c8a84b';ctx.font="bold 12px 'Syne',sans-serif";ctx.textAlign='left';
+    ctx.fillText(`MAIN DECK (${mainTotal} cards)`,RIGHT_X,PAD+18);
+
+    // Rune label
+    if(runeList.length){
+      const runeTotal=runeList.reduce((a,r)=>a+r.cnt,0);
+      ctx.fillStyle='#c8a84b';ctx.font="bold 12px 'Syne',sans-serif";ctx.textAlign='left';
+      ctx.fillText(`RUNES (${runeTotal})`,RIGHT_X,runeOffsetY+18);
+      ctx.strokeStyle='#333';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(RIGHT_X,runeOffsetY-4);ctx.lineTo(RIGHT_X+RIGHT_W,runeOffsetY-4);ctx.stroke();
+    }
+
+    // Sideboard label
+    if(sbList.length){
+      const sbTotal=sbList.reduce((a,c)=>a+c.cnt,0);
+      ctx.fillStyle='#c8a84b';ctx.font="bold 12px 'Syne',sans-serif";ctx.textAlign='left';
+      ctx.fillText(`SIDEBOARD (${sbTotal} cards)`,RIGHT_X,sbBaseY+18);
+      ctx.strokeStyle='#444';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(RIGHT_X,sbBaseY-4);ctx.lineTo(RIGHT_X+RIGHT_W,sbBaseY-4);ctx.stroke();
+    }
+
+    // RiftLibrary watermark
+    ctx.fillStyle='rgba(200,168,75,0.35)';ctx.font="11px 'Syne',sans-serif";ctx.textAlign='right';
+    ctx.fillText('RiftLibrary',TOTAL_W-PAD,TOTAL_H-8);
+  }
+
+  // Load all images
+  let loaded=0;
+  if(!jobs.length){drawLabels();return;}
+  jobs.forEach(job=>{
+    const img=new Image();img.crossOrigin='anonymous';
+    img.onload=()=>{job.draw(img);if(++loaded===jobs.length)drawLabels();};
+    img.onerror=()=>{if(++loaded===jobs.length)drawLabels();};
+    img.src=job.url;
+  });
+}
+function drawRoundedImage(ctx,img,x,y,w,h,r){
+  ctx.save();ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.clip();
+  ctx.drawImage(img,x,y,w,h);ctx.restore();
+}
+function wrapText(ctx,text,x,y,maxW,lineH){
+  const words=text.split(' ');let line='';
+  for(let i=0;i<words.length;i++){
+    const test=line+words[i]+' ';
+    if(ctx.measureText(test).width>maxW&&i>0){ctx.fillText(line,x,y);line=words[i]+' ';y+=lineH;}
+    else line=test;
+  }
+  ctx.fillText(line,x,y);
+}
+
 function exportDeck(type){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const mainCards=d.cards||[];
@@ -1751,16 +2027,13 @@ function exportDeck(type){
 
   if(type==='text'){
     const lines=[];
-    if(legend.length){lines.push('// Legend');legend.forEach(c=>lines.push(`${c.cnt}x ${c.n}`));}
-    if(champion.length){lines.push('\n// Champion');champion.forEach(c=>lines.push(`1x ${c.n}`));}
+    legend.forEach(c=>lines.push(`${c.cnt}x ${c.n}`));
+    champion.forEach(c=>lines.push(`1x ${c.n}`));
     const nonLeg=mainCards.filter(c=>c.t!=='Legend');
-    if(nonLeg.length){lines.push('\n// Main Deck');nonLeg.forEach(c=>lines.push(`${c.cnt}x ${c.n}`));}
-    if(runes.length){
-      const rg={};runes.forEach(r=>{if(!rg[r.n])rg[r.n]=0;rg[r.n]++;});
-      lines.push('\n// Runes');Object.entries(rg).forEach(([n,cnt])=>lines.push(`${cnt}x ${n}`));
-    }
-    if(bfs.length){lines.push('\n// Battlefields');bfs.forEach(b=>lines.push(`1x ${b.n}`));}
-    if(sb.length){lines.push('\n// Sideboard');sb.forEach(c=>lines.push(`${c.cnt}x ${c.n}`));}
+    nonLeg.forEach(c=>lines.push(`${c.cnt}x ${c.n}`));
+    if(runes.length){const rg={};runes.forEach(r=>{if(!rg[r.n])rg[r.n]=0;rg[r.n]++;});Object.entries(rg).forEach(([n,cnt])=>lines.push(`${cnt}x ${n}`));}
+    bfs.forEach(b=>lines.push(`1x ${b.n}`));
+    if(sb.length){lines.push('Sideboard:');sb.forEach(c=>lines.push(`${c.cnt}x ${c.n}`));}
     const text=lines.join('\n');
     navigator.clipboard.writeText(text).then(()=>toast('Text list copied!')).catch(()=>prompt('Copy this list:',text));
 
@@ -1799,34 +2072,7 @@ function exportDeck(type){
     setTimeout(()=>w.print(),800);
 
   } else if(type==='image'){
-    const allImgs=[];
-    [...mainCards,...champion,...runes,...bfs].forEach(c=>{
-      const full=CARDS.find(x=>x.id===c.id);
-      if(full&&full.imageUrl)for(let i=0;i<(c.cnt||1);i++)allImgs.push({url:full.imageUrl,name:c.n});
-    });
-    if(!allImgs.length){toast('No card images available');return;}
-    const cols=Math.min(10,allImgs.length);const cardW=70;const cardH=Math.round(cardW*1.4);
-    const rows=Math.ceil(allImgs.length/cols);
-    const canvas=document.createElement('canvas');
-    canvas.width=cols*cardW+4;canvas.height=rows*cardH+4+30;
-    const ctx=canvas.getContext('2d');
-    ctx.fillStyle='#0c0b08';ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle='#c8a84b';ctx.font='bold 14px sans-serif';ctx.textAlign='center';
-    ctx.fillText(d.name||'My Deck',canvas.width/2,20);
-    let loaded=0;
-    allImgs.forEach((card,i)=>{
-      const img=new Image();img.crossOrigin='anonymous';
-      img.onload=()=>{
-        const col=i%cols,row=Math.floor(i/cols);
-        ctx.drawImage(img,col*cardW+2,row*cardH+30,cardW,cardH);
-        if(++loaded===allImgs.length){
-          const a=document.createElement('a');a.download=(d.name||'deck')+'.png';a.href=canvas.toDataURL('image/png');a.click();
-        }
-      };
-      img.onerror=()=>{if(++loaded===allImgs.length){const a=document.createElement('a');a.download=(d.name||'deck')+'.png';a.href=canvas.toDataURL('image/png');a.click();}};
-      img.src=card.url;
-    });
-    toast('Generating deck image…');
+    openExportImageModal(d);
 
   } else if(type==='reg'){
     const w=window.open('','_blank');
@@ -1834,13 +2080,16 @@ function exportDeck(type){
     const deckName=d.name||'My Deck';
     const legendName=legend.length?legend[0].n:'—';
     const champName=champion.length?champion[0].n:'—';
-    const mainCnt=mainCards.filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0);
-    const sbCnt=sb.reduce((a,c)=>a+c.cnt,0);
     const nonLeg=mainCards.filter(c=>c.t!=='Legend');
-    const cardRows=nonLeg.map(c=>`<tr><td>${c.cnt}</td><td>${c.n}</td><td>${c.t||''}</td></tr>`).join('');
-    const sbRows=sb.map(c=>`<tr><td>${c.cnt}</td><td>${c.n}</td><td>${c.t||''}</td></tr>`).join('');
-    const runeRows=Object.entries(runes.reduce((a,r)=>{a[r.n]=(a[r.n]||0)+1;return a;},{})).map(([n,cnt])=>`<tr><td>${cnt}</td><td>${n}</td><td>Rune</td></tr>`).join('');
-    const bfRows=bfs.map(b=>`<tr><td>1</td><td>${b.n}</td><td>Battlefield</td></tr>`).join('');
+    const mainCnt=nonLeg.reduce((a,c)=>a+c.cnt,0);
+    const champCnt=champion.length?1:0;
+    const totalDeckCnt=mainCnt+champCnt;
+    const sbCnt=sb.reduce((a,c)=>a+c.cnt,0);
+    const cardRows=nonLeg.map(c=>`<tr><td>${c.cnt}</td><td>${c.n}</td></tr>`).join('');
+    const champRow=champion.length?`<tr><td>1</td><td>${champion[0].n}</td></tr>`:'';
+    const sbRows=sb.map(c=>`<tr><td>${c.cnt}</td><td>${c.n}</td></tr>`).join('');
+    const runeRows=Object.entries(runes.reduce((a,r)=>{a[r.n]=(a[r.n]||0)+1;return a;},{})).map(([n,cnt])=>`<tr><td>${cnt}</td><td>${n}</td></tr>`).join('');
+    const bfRows=bfs.map(b=>`<tr><td>1</td><td>${b.n}</td></tr>`).join('');
     const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Registration — ${deckName}</title><style>
       body{font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;color:#000;}
       h1{font-size:20px;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:16px;}
@@ -1858,15 +2107,15 @@ function exportDeck(type){
         <div><div class="field-lbl">Deck Name</div><div class="field">${deckName}</div></div>
         <div><div class="field-lbl">Date</div><div class="field">${new Date().toLocaleDateString()}</div></div>
         <div><div class="field-lbl">Legend</div><div class="field">${legendName}</div></div>
-        <div><div class="field-lbl">Champion</div><div class="field">${champName}</div></div>
         <div><div class="field-lbl">Player Name</div><div class="field">&nbsp;</div></div>
         <div><div class="field-lbl">Player ID</div><div class="field">&nbsp;</div></div>
       </div>
-      <div class="section-title">Main Deck (${mainCnt}/40)</div>
-      <table><thead><tr><th>#</th><th>Card Name</th><th>Type</th></tr></thead><tbody>${cardRows}</tbody></table>
-      ${runeRows?`<div class="section-title">Runes (${runes.length}/12)</div><table><thead><tr><th>#</th><th>Card Name</th><th>Type</th></tr></thead><tbody>${runeRows}</tbody></table>`:''}
-      ${bfRows?`<div class="section-title">Battlefields</div><table><thead><tr><th>#</th><th>Card Name</th><th>Type</th></tr></thead><tbody>${bfRows}</tbody></table>`:''}
-      ${sbRows?`<div class="section-title">Sideboard (${sbCnt}/15)</div><table><thead><tr><th>#</th><th>Card Name</th><th>Type</th></tr></thead><tbody>${sbRows}</tbody></table>`:''}
+      <div class="section-title">Main Deck (${totalDeckCnt}/40)</div>
+      <table><thead><tr><th>#</th><th>Card Name</th></tr></thead><tbody>${cardRows}</tbody></table>
+      ${champRow?`<div class="section-title">Champion Zone</div><table><thead><tr><th>#</th><th>Card Name</th></tr></thead><tbody>${champRow}</tbody></table>`:''}
+      ${runeRows?`<div class="section-title">Runes (${runes.length}/12)</div><table><thead><tr><th>#</th><th>Card Name</th></tr></thead><tbody>${runeRows}</tbody></table>`:''}
+      ${bfRows?`<div class="section-title">Battlefields</div><table><thead><tr><th>#</th><th>Card Name</th></tr></thead><tbody>${bfRows}</tbody></table>`:''}
+      ${sbRows?`<div class="section-title">Sideboard (${sbCnt}/15)</div><table><thead><tr><th>#</th><th>Card Name</th></tr></thead><tbody>${sbRows}</tbody></table>`:''}
       <div style="margin-top:24px;font-size:11px;color:#999;">Generated by RiftLibrary</div>
     </body></html>`;
     w.document.write(html);w.document.close();
@@ -2153,6 +2402,8 @@ function openModal(){document.getElementById('modal').classList.add('open');auto
 function closeModal(){document.getElementById('modal').classList.remove('open');}
 function autoD(){const auto=LD[document.getElementById('mleg').value]||[];document.querySelectorAll('.dtog').forEach(el=>el.classList.toggle('sel',auto.includes(el.classList[1])));}
 function togD(el){if(!el.classList.contains('sel')&&document.querySelectorAll('.dtog.sel').length>=2){toast('Max 2 domains');return;}el.classList.toggle('sel');}
+function autoImportD(){const auto=LD[document.getElementById('import-mleg').value]||[];document.querySelectorAll('.idtog').forEach(el=>el.classList.toggle('sel',auto.includes(el.classList[1])));}
+function togImportD(el){if(!el.classList.contains('sel')&&document.querySelectorAll('.idtog.sel').length>=2){toast('Max 2 domains');return;}el.classList.toggle('sel');}
 function createDeck(){
   const name=document.getElementById('mn').value.trim();
   const legend=document.getElementById('mleg').value;
@@ -2168,6 +2419,112 @@ function createDeck(){
 }
 document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
 
+function openImportDeckModal(){
+  document.getElementById('import-deck-modal').style.display='flex';
+  document.getElementById('import-deck-name').value='';
+  document.getElementById('import-deck-text').value='';
+  document.getElementById('import-deck-file').value='';
+  document.getElementById('import-deck-feedback').textContent='';
+  autoImportD();
+}
+function closeImportDeckModal(){
+  document.getElementById('import-deck-modal').style.display='none';
+}
+function loadImportFile(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    document.getElementById('import-deck-text').value=e.target.result;
+    if(!document.getElementById('import-deck-name').value.trim())
+      document.getElementById('import-deck-name').value=file.name.replace(/\.txt$/i,'');
+  };
+  reader.readAsText(file);
+}
+function importDeckFromText(){
+  const raw=document.getElementById('import-deck-text').value.trim();
+  const deckName=document.getElementById('import-deck-name').value.trim()||'Imported Deck';
+  const fb=document.getElementById('import-deck-feedback');
+  if(!raw){fb.textContent='Paste a deck list first.';fb.style.color='var(--fury)';return;}
+
+  // Normalize a card name for fuzzy matching
+  function norm(s){
+    return s.toLowerCase()
+      .replace(/[\u2018\u2019\u201A\u201B\u2032\u0060\u00B4]/g,"'") // curly/special apostrophes
+      .replace(/[\u2013\u2014]/g,'-')  // em/en dashes
+      .replace(/\s+/g,' ').trim();
+  }
+  // Strip all punctuation for last-resort matching
+  function strip(s){return norm(s).replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();}
+
+  function findCard(name){
+    return CARDS.find(c=>c.name===name)                          // exact
+      ||CARDS.find(c=>c.name.toLowerCase()===name.toLowerCase()) // case-insensitive
+      ||CARDS.find(c=>norm(c.name)===norm(name))                 // normalized punctuation
+      ||CARDS.find(c=>strip(c.name)===strip(name));              // punctuation-stripped fallback
+  }
+
+  // Parse lines — supports "3x Card Name", "3 Card Name", "3X Card Name"
+  function parseLines(str){
+    return str.split('\n').map(l=>l.trim()).filter(Boolean).reduce((acc,l)=>{
+      const m=l.match(/^(\d+)x?\s+(.+)$/i);
+      if(m) acc.push({cnt:parseInt(m[1]),name:m[2].trim()});
+      return acc;
+    },[]);
+  }
+
+  const sbIdx=raw.search(/^Sideboard[:\s]/im);
+  const mainEntries=parseLines(sbIdx>=0?raw.slice(0,sbIdx):raw);
+  const sbEntries=parseLines(sbIdx>=0?raw.slice(sbIdx):'' );
+
+  const deckCards=[];
+  const runes=[];
+  const battlefields=[null,null,null];
+  let bfSlot=0;
+  let matched=0;const unmatched=[];
+
+  mainEntries.forEach(({cnt,name})=>{
+    const found=findCard(name);
+    if(!found){unmatched.push(name);return;}
+    matched++;
+    const t=found.type||'';
+    const tl=t.toLowerCase();
+    if(t==='Battlefield'||tl==='battlefield'){
+      if(bfSlot<3) battlefields[bfSlot++]={id:found.id,n:found.name,t:'Battlefield'};
+    } else if(t==='Rune'||tl==='rune'||found.name.toLowerCase().includes(' rune')){
+      for(let i=0;i<cnt;i++) runes.push({id:found.id,n:found.name,t:t||'Rune'});
+    } else {
+      deckCards.push({id:found.id,n:found.name,t,cnt});
+    }
+  });
+
+  // Auto-add the legend card from the dropdown — same as + New Deck
+  const selectedLegend=document.getElementById('import-mleg').value;
+  const legendCardObj=CARDS.find(c=>c.type==='Legend'&&c.name===selectedLegend);
+  if(legendCardObj&&!deckCards.find(c=>c.id===legendCardObj.id)){
+    deckCards.unshift({id:legendCardObj.id,n:legendCardObj.name,t:legendCardObj.type,cnt:1});
+  }
+
+  const sb=[];
+  sbEntries.forEach(({cnt,name})=>{
+    const found=findCard(name);
+    if(!found){unmatched.push(name);return;}
+    sb.push({id:found.id,n:found.name,t:found.type||'',cnt});
+  });
+
+  const format=document.getElementById('import-mfmt').value||'Constructed';
+  const domains=[...document.querySelectorAll('.idtog.sel')].map(e=>e.classList[1]);
+  const deck={id:nextId++,name:deckName,legend:selectedLegend,domains,format,
+    wins:0,losses:0,desc:'',cards:deckCards,champion:null,
+    runes,battlefields,sideboard:sb};
+  myDecks.unshift(deck);persist();closeImportDeckModal();renderDecks();
+  if(unmatched.length){
+    toast(`Imported — ${matched} matched. NOT FOUND: ${unmatched.join(', ')}`);
+  } else {
+    toast(`Deck imported — ${matched} cards matched.`);
+  }
+  if(currentUser) setTimeout(()=>saveToCloud(deck.id),100);
+}
+
 /* ── EVENTS ─────────────────────────────────────── */
 const EVTS=[
   {id:1,name:'RiftLibrary Open #1',date:'2026-05-10',location:'Orlando, FL',format:'Constructed',status:'upcoming',prize:'$200 store credit',players:0,maxPlayers:32,desc:'Our first community tournament! Open to all skill levels. Registration open now.'},
@@ -2177,18 +2534,18 @@ const EVTS=[
   {id:5,name:'Friday Night Riftbound',date:'2026-04-11',location:'Card Kingdom — Tampa',format:'Draft',status:'completed',prize:'Promo cards',players:12,maxPlayers:16,desc:'Weekly draft night. Great turnout — thanks everyone!'},
 ];
 const RQ_EVENTS=[
-  {city:'Houston',region:'Texas, USA',dates:'Dec 5–7, 2025',sortDate:'2025-12-05',flag:'🇺🇸'},
-  {city:'Bologna',region:'Italy',dates:'Feb 20–22, 2026',sortDate:'2026-02-20',flag:'🇮🇹'},
-  {city:'Las Vegas',region:'Nevada, USA',dates:'Feb 27–Mar 1, 2026',sortDate:'2026-02-27',flag:'🇺🇸'},
-  {city:'Lille',region:'France',dates:'Apr 17–19, 2026',sortDate:'2026-04-17',flag:'🇫🇷'},
-  {city:'Atlanta',region:'Georgia, USA',dates:'Apr 24–26, 2026',sortDate:'2026-04-24',flag:'🇺🇸'},
-  {city:'Sydney',region:'Australia',dates:'May 15–17, 2026',sortDate:'2026-05-15',flag:'🇦🇺'},
-  {city:'Vancouver',region:'Canada',dates:'May 29–Jun 1, 2026',sortDate:'2026-05-29',flag:'🇨🇦'},
-  {city:'Utrecht',region:'Netherlands',dates:'Jun 12–14, 2026',sortDate:'2026-06-12',flag:'🇳🇱'},
-  {city:'Hartford',region:'Connecticut, USA',dates:'Jun 19–21, 2026',sortDate:'2026-06-19',flag:'🇺🇸'},
-  {city:'Barcelona',region:'Spain',dates:'Aug 21–23, 2026',sortDate:'2026-08-21',flag:'🇪🇸'},
-  {city:'Singapore',region:'Singapore',dates:'Sep 4–6, 2026',sortDate:'2026-09-04',flag:'🇸🇬'},
-  {city:'Los Angeles',region:'California, USA',dates:'Sep 25–27, 2026',sortDate:'2026-09-25',flag:'🇺🇸'},
+  {city:'Houston',region:'Texas, USA',dates:'Dec 5–7, 2025',sortDate:'2025-12-05',flag:'🇺🇸',code:'us'},
+  {city:'Bologna',region:'Italy',dates:'Feb 20–22, 2026',sortDate:'2026-02-20',flag:'🇮🇹',code:'it'},
+  {city:'Las Vegas',region:'Nevada, USA',dates:'Feb 27–Mar 1, 2026',sortDate:'2026-02-27',flag:'🇺🇸',code:'us'},
+  {city:'Lille',region:'France',dates:'Apr 17–19, 2026',sortDate:'2026-04-17',flag:'🇫🇷',code:'fr'},
+  {city:'Atlanta',region:'Georgia, USA',dates:'Apr 24–26, 2026',sortDate:'2026-04-24',flag:'🇺🇸',code:'us'},
+  {city:'Sydney',region:'Australia',dates:'May 15–17, 2026',sortDate:'2026-05-15',flag:'🇦🇺',code:'au'},
+  {city:'Vancouver',region:'Canada',dates:'May 29–Jun 1, 2026',sortDate:'2026-05-29',flag:'🇨🇦',code:'ca'},
+  {city:'Utrecht',region:'Netherlands',dates:'Jun 12–14, 2026',sortDate:'2026-06-12',flag:'🇳🇱',code:'nl'},
+  {city:'Hartford',region:'Connecticut, USA',dates:'Jun 19–21, 2026',sortDate:'2026-06-19',flag:'🇺🇸',code:'us'},
+  {city:'Barcelona',region:'Spain',dates:'Aug 21–23, 2026',sortDate:'2026-08-21',flag:'🇪🇸',code:'es'},
+  {city:'Singapore',region:'Singapore',dates:'Sep 4–6, 2026',sortDate:'2026-09-04',flag:'🇸🇬',code:'sg'},
+  {city:'Los Angeles',region:'California, USA',dates:'Sep 25–27, 2026',sortDate:'2026-09-25',flag:'🇺🇸',code:'us'},
 ];
 const SCHEDULE_2026=[
   {month:'May 2026',events:[
@@ -2255,7 +2612,7 @@ function renderEvents(){
       return`<div style="background:var(--surface2);border:1px solid ${isPast?'var(--border)':'rgba(200,168,75,0.3)'};border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden;">
         ${!isPast?`<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);"></div>`:''}
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
-          <span style="font-size:18px;">${rq.flag}</span>
+          <img src="https://flagcdn.com/w40/${rq.code}.png" style="width:28px;height:auto;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,0.4);" alt="${rq.code}">
           <span style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:${isPast?'var(--text-muted)':' var(--text)'};">${rq.city}</span>
           ${isPast?`<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:var(--surface3);color:var(--text-muted);">Past</span>`:`<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:rgba(200,168,75,0.15);color:var(--accent);font-weight:600;">Upcoming</span>`}
         </div>
@@ -2266,12 +2623,28 @@ function renderEvents(){
         </button>
       </div>`;
     }).join('');
+    function schedFlag(ev){
+      const t=(ev.name+' '+ev.desc).toLowerCase();
+      if(t.includes('australia')||t.includes('sydney')||t.includes('apac')||t.includes('melbourne')||t.includes('brisbane')) return'🇦🇺';
+      if(t.includes('china')||t.includes('chinese')) return'🇨🇳';
+      if(t.includes('south korea')||t.includes('korea')||t.includes('daejeon')||t.includes('seoul')) return'🇰🇷';
+      if(t.includes('sweden')||t.includes('stockholm')) return'🇸🇪';
+      if(t.includes('netherlands')||t.includes('utrecht')||t.includes('amsterdam')) return'🇳🇱';
+      if(t.includes('spain')||t.includes('barcelona')||t.includes('madrid')) return'🇪🇸';
+      if(t.includes('singapore')) return'🇸🇬';
+      if(t.includes('canada')||t.includes('vancouver')||t.includes('toronto')) return'🇨🇦';
+      if(t.includes('japan')||t.includes('tokyo')) return'🇯🇵';
+      if(t.includes('brazil')||t.includes('são paulo')) return'🇧🇷';
+      if(t.includes('atlanta')||t.includes('hartford')||t.includes('los angeles')||t.includes('indianapolis')||t.includes('philadelphia')||t.includes('indy')||t.includes('pax')||t.includes('gen con')||t.includes('momocon')||t.includes('usa')||t.includes('united states')||t.includes('america')) return'🇺🇸';
+      return'';
+    }
     const schedHTML=SCHEDULE_2026.map(month=>{
       const rows=month.events.map(ev=>{
+        const flag=schedFlag(ev);
         return`<div style="display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:8px;transition:background 0.12s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='transparent'">
           <div style="min-width:90px;font-size:12px;font-weight:600;color:var(--accent);font-family:'Syne',sans-serif;">${ev.dates}</div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;">${ev.name}</div>
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;">${flag?flag+' ':''} ${ev.name}</div>
             <div style="font-size:12px;color:var(--text-muted);">${ev.desc}</div>
           </div>
           ${typeBadge(ev.type)}
@@ -2303,7 +2676,7 @@ function renderEvents(){
         <div class="dt"><div><div class="dn">${e.name}</div><div class="dl">${ds}${e.time?' · '+e.time:''}${e.location?' · '+e.location:''}</div></div>
         <button class="result-del" onclick="deleteMyEvent(${e.id})" title="Remove event" style="flex-shrink:0;">×</button></div>
         <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;">
-          ${checks(e,'paidEntry','Entry fee paid')}
+          ${checks(e,'paidEntry','Registered')}
           ${checks(e,'hotelBooked','Hotel booked')}
           ${checks(e,'flightBooked','Flight booked')}
         </div>
