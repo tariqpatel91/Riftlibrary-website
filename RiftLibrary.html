@@ -10,13 +10,12 @@
 <body>
 
 <nav>
-  <div class="logo">Rift<em>Library</em></div>
+  <div class="logo" onclick="goto('articles',null)" style="cursor:pointer;">Rift<em>Library</em></div>
   <div class="nav-links">
     <button class="nl active" onclick="goto('search',this)">Cards</button>
     <button class="nl" onclick="goto('decks',this)">Decks</button>
-    <button class="nl" onclick="goto('articles',this)">Articles</button>
-    <button class="nl" onclick="goto('statistics',this)">Statistics</button>
     <button class="nl" onclick="goto('events',this)">Events</button>
+    <button class="nl" onclick="goto('statistics',this)">Statistics</button>
     <button class="nl" onclick="goto('play',this)">⚔ Play</button>
   </div>
   <div class="auth-btn-wrap" id="auth-nav-area">
@@ -68,19 +67,6 @@
             <div class="cs-dopt" onclick="setDrop('set','UNL','Unleashed',this)">Unleashed</div>
           </div>
         </div>
-        <div class="cs-drop-wrap" id="dw-type">
-          <button class="cs-drop-btn" onclick="toggleDrop('dd-type',this)"><span class="dv-lbl">Type</span><span class="dv-val" id="dv-type">All</span><span class="caret">⌄</span></button>
-          <div class="cs-dropdown" id="dd-type">
-            <div class="cs-dopt active" onclick="setDrop('type','','All',this)">All</div>
-            <div class="cs-dopt" onclick="setDrop('type','Champion','Champion',this)">Champion</div>
-            <div class="cs-dopt" onclick="setDrop('type','Unit','Unit',this)">Unit</div>
-            <div class="cs-dopt" onclick="setDrop('type','Spell','Spell',this)">Spell</div>
-            <div class="cs-dopt" onclick="setDrop('type','Gear','Gear',this)">Gear</div>
-            <div class="cs-dopt" onclick="setDrop('type','Legend','Legend',this)">Legend</div>
-            <div class="cs-dopt" onclick="setDrop('type','Rune','Rune',this)">Rune</div>
-            <div class="cs-dopt" onclick="setDrop('type','Battlefield','Battlefield',this)">Battlefield</div>
-          </div>
-        </div>
         <div class="cs-drop-wrap" id="dw-rar">
           <button class="cs-drop-btn" onclick="toggleDrop('dd-rar',this)"><span class="dv-lbl">Rarity</span><span class="dv-val" id="dv-rar">All</span><span class="caret">⌄</span></button>
           <div class="cs-dropdown" id="dd-rar">
@@ -101,15 +87,28 @@
       </div>
     </div>
 
-    <!-- cards bottom: domains + range sliders -->
+    <!-- type tabs -->
+    <div class="cs-type-row">
+      <button class="cs-type-tab on" data-type="" onclick="setCFType('')">All</button>
+      <button class="cs-type-tab" data-type="Champion" onclick="setCFType('Champion')">Champion</button>
+      <button class="cs-type-tab" data-type="Unit" onclick="setCFType('Unit')">Unit</button>
+      <button class="cs-type-tab" data-type="Spell" onclick="setCFType('Spell')">Spell</button>
+      <button class="cs-type-tab" data-type="Gear" onclick="setCFType('Gear')">Gear</button>
+      <button class="cs-type-tab" data-type="Legend" onclick="setCFType('Legend')">Legend</button>
+      <button class="cs-type-tab" data-type="Rune" onclick="setCFType('Rune')">Rune</button>
+      <button class="cs-type-tab" data-type="Battlefield" onclick="setCFType('Battlefield')">Battlefield</button>
+      <button class="cs-type-tab banned-type-tab" data-type="banned" onclick="setCFType('banned')">⛔ Banned</button>
+    </div>
+
+    <!-- cards bottom: domain pills + range sliders -->
     <div class="cs-btm" id="cards-btm">
-      <div class="cs-doms">
-        <button class="dom-btn" data-dom="fury"  onclick="toggleDom(this)" title="Fury"><img src="https://static0.fextralifeimages.com/file/riftbound/4/46/Fury.png" alt="Fury"></button>
-        <button class="dom-btn" data-dom="chaos" onclick="toggleDom(this)" title="Chaos"><img src="https://static0.fextralifeimages.com/file/riftbound/8/8f/Chaos.png" alt="Chaos"></button>
-        <button class="dom-btn" data-dom="calm"  onclick="toggleDom(this)" title="Calm"><img src="https://static0.fextralifeimages.com/file/riftbound/2/20/Calm.png" alt="Calm"></button>
-        <button class="dom-btn" data-dom="mind"  onclick="toggleDom(this)" title="Mind"><img src="https://static0.fextralifeimages.com/file/riftbound/e/e5/Mind2.png" alt="Mind"></button>
-        <button class="dom-btn" data-dom="body"  onclick="toggleDom(this)" title="Body"><img src="https://static0.fextralifeimages.com/file/riftbound/e/e9/Body.png" alt="Body"></button>
-        <button class="dom-btn" data-dom="order" onclick="toggleDom(this)" title="Order"><img src="https://static0.fextralifeimages.com/file/riftbound/5/58/Order.png" alt="Order"></button>
+      <div class="cs-dom-pills" id="cs-dom-pills">
+        <button class="edit-dom-pill fury"  data-dom="fury"  onclick="toggleDom(this)">Fury</button>
+        <button class="edit-dom-pill chaos" data-dom="chaos" onclick="toggleDom(this)">Chaos</button>
+        <button class="edit-dom-pill calm"  data-dom="calm"  onclick="toggleDom(this)">Calm</button>
+        <button class="edit-dom-pill mind"  data-dom="mind"  onclick="toggleDom(this)">Mind</button>
+        <button class="edit-dom-pill body"  data-dom="body"  onclick="toggleDom(this)">Body</button>
+        <button class="edit-dom-pill order" data-dom="order" onclick="toggleDom(this)">Order</button>
       </div>
       <div class="ranges">
         <div class="rg">
@@ -167,7 +166,12 @@
 <!-- STATISTICS -->
 <div class="page" id="page-statistics">
   <div class="ph"><h1>Statistics</h1><p>Collection and meta stats</p></div>
-  <div id="stats-content"></div>
+  <div style="display:flex;align-items:center;justify-content:center;padding:4rem 2rem;flex-direction:column;gap:12px;">
+    <div style="font-size:32px;">📊</div>
+    <div style="font-size:20px;font-weight:700;color:var(--text);">Coming Soon</div>
+    <div style="font-size:14px;color:var(--text-muted);text-align:center;max-width:360px;">This is where match data from the Play page will be stored — win rates, card performance, and more.</div>
+  </div>
+  <div id="stats-content" style="display:none;"></div>
 </div>
 
 <!-- EVENTS -->
