@@ -2712,6 +2712,20 @@ let collOwned=JSON.parse(localStorage.getItem('rl_collection')||'{}');
 let collWanted=JSON.parse(localStorage.getItem('rl_collection_wanted')||'{}');
 const CF2={q:'',type:'',dom:'',rar:'',set:'',show:'all',view:'grid'};
 
+const SET_META={
+  UNL:{label:'Unleashed',   grad:'linear-gradient(135deg,#c8006a 0%,#6a0030 60%,#1a000d 100%)',accent:'#f050a0',textShadow:'0 0 20px rgba(200,0,106,0.6)'},
+  SFD:{label:'Spiritforged',grad:'linear-gradient(135deg,#4a5568 0%,#1a1f2e 60%,#0d0f14 100%)',accent:'#a0aec0',textShadow:'0 0 20px rgba(160,174,192,0.4)'},
+  OGN:{label:'Origins',     grad:'linear-gradient(135deg,#b8860b 0%,#5a3e00 60%,#140e00 100%)',accent:'#f5c842',textShadow:'0 0 20px rgba(200,168,75,0.5)'},
+  OGS:{label:'Proving Grounds',grad:'linear-gradient(135deg,#c05000 0%,#5a2000 60%,#140800 100%)',accent:'#f5922a',textShadow:'0 0 20px rgba(245,146,42,0.5)'},
+  'OGN-NN':{label:'Origins | Nexus Night',grad:'linear-gradient(135deg,#1a3a5c 0%,#0a1828 60%,#05080f 100%)',accent:'#5ab4f5',textShadow:'0 0 20px rgba(90,180,245,0.5)'},
+  'SFD-NN':{label:'Spiritforged | Nexus Night',grad:'linear-gradient(135deg,#2d1b5e 0%,#110a28 60%,#060412 100%)',accent:'#9f7aea',textShadow:'0 0 20px rgba(159,122,234,0.5)'},
+  ARC:{label:'Arcane Box Set',grad:'linear-gradient(135deg,#5a3000 0%,#1a0e00 60%,#0a0500 100%)',accent:'#e8a84b',textShadow:'0 0 20px rgba(232,168,75,0.5)'},
+  WRLD25:{label:'Worlds 2025',grad:'linear-gradient(135deg,#00406a 0%,#001428 60%,#000810 100%)',accent:'#3dd6a3',textShadow:'0 0 20px rgba(61,214,163,0.5)'},
+  OPP:{label:'Organized Play Promos',grad:'linear-gradient(135deg,#3a0060 0%,#150024 60%,#08000f 100%)',accent:'#c084fc',textShadow:'0 0 20px rgba(192,132,252,0.5)'},
+  JDG:{label:'Judge Promos',grad:'linear-gradient(135deg,#003a60 0%,#001424 60%,#00080f 100%)',accent:'#5ab4f5',textShadow:'0 0 20px rgba(90,180,245,0.5)'},
+  PR:{label:'Promos',       grad:'linear-gradient(135deg,#003a30 0%,#001410 60%,#000806 100%)',accent:'#3dd6a3',textShadow:'0 0 20px rgba(61,214,163,0.5)'},
+};
+
 function persistColl(){
   localStorage.setItem('rl_collection',JSON.stringify(collOwned));
   localStorage.setItem('rl_collection_wanted',JSON.stringify(collWanted));
@@ -2726,6 +2740,7 @@ function toggleCollWanted(id){
   if(collWanted[id]) delete collWanted[id]; else collWanted[id]=true;
   persistColl();renderCollection();
 }
+function setCollSet(s){CF2.set=CF2.set===s?'':s;renderCollection();}
 
 function renderCollection(){
   const el=document.getElementById('collection-content');
@@ -2735,36 +2750,91 @@ function renderCollection(){
     return;
   }
 
-  // derive source — unique base cards (highest rarity per base name)
   const RR={Legendary:5,Epic:4,Rare:3,Uncommon:2,Common:1,Showcase:0,Promo:0};
-  const seen=new Map();
+  const rarColors={Legendary:'var(--order)',Epic:'var(--chaos)',Rare:'var(--accent)',Uncommon:'var(--calm)',Common:'var(--text-muted)',Showcase:'var(--mind)',Promo:'var(--fury)'};
+
+  // unique cards per set (deduplicated by base name within each set)
+  const setMap={};
+  CARDS.forEach(c=>{
+    const s=c.set||'?';
+    if(!setMap[s]) setMap[s]={cards:new Map(),label:c.setLabel||s};
+    const key=baseName(c.name).toLowerCase();
+    const ex=setMap[s].cards.get(key);
+    if(!ex||(RR[c.rarity]??1)>(RR[ex.rarity]??1)) setMap[s].cards.set(key,c);
+  });
+
+  // overall unique pool (across all sets, best rarity globally)
+  const globalSeen=new Map();
   CARDS.forEach(c=>{
     const key=baseName(c.name).toLowerCase();
-    const ex=seen.get(key);
-    if(!ex||(RR[c.rarity]??1)>(RR[ex.rarity]??1)) seen.set(key,c);
+    const ex=globalSeen.get(key);
+    if(!ex||(RR[c.rarity]??1)>(RR[ex.rarity]??1)) globalSeen.set(key,c);
   });
-  const allUnique=[...seen.values()].sort((a,b)=>a.name.localeCompare(b.name));
+  const allUnique=[...globalSeen.values()].sort((a,b)=>a.name.localeCompare(b.name));
   const totalUnique=allUnique.length;
-
-  // stats
-  const ownedIds=new Set(Object.keys(collOwned));
-  const totalOwned=allUnique.filter(c=>ownedIds.has(c.id)).length;
+  const totalOwned=allUnique.filter(c=>collOwned[c.id]).length;
   const totalComplete=allUnique.filter(c=>(collOwned[c.id]||0)>=3).length;
   const totalWanted=Object.keys(collWanted).length;
   const totalCopies=Object.values(collOwned).reduce((a,v)=>a+v,0);
-  const pct=totalUnique?Math.round(totalOwned/totalUnique*100):0;
 
-  const rarityGroups={Legendary:0,Epic:0,Rare:0,Uncommon:0,Common:0};
-  const rarityTotal={Legendary:0,Epic:0,Rare:0,Uncommon:0,Common:0};
-  allUnique.forEach(c=>{
-    const r=c.rarity;
-    if(rarityTotal[r]!==undefined){
-      rarityTotal[r]++;
-      if(collOwned[c.id]) rarityGroups[r]++;
-    }
+  // build set progress cards
+  const SET_ORDER=['UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
+  const orderedSets=[...SET_ORDER.filter(s=>setMap[s]),...Object.keys(setMap).filter(s=>!SET_ORDER.includes(s))];
+
+  let html=`<div class="ph"><h1>My Collection</h1><p>Track your Riftbound card collection</p></div>`;
+
+  // overall mini stat bar
+  const overallPct=totalUnique?Math.round(totalOwned/totalUnique*100):0;
+  html+=`<div style="display:flex;align-items:center;gap:16px;margin-bottom:1.5rem;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
+    <div style="display:flex;gap:20px;flex-wrap:wrap;flex:1;">
+      <div><span style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--accent);">${overallPct}%</span><span style="font-size:12px;color:var(--text-muted);margin-left:6px;">overall</span></div>
+      <div><span style="font-weight:700;">${totalOwned}</span><span style="font-size:12px;color:var(--text-muted);"> / ${totalUnique} unique owned</span></div>
+      <div><span style="font-weight:700;color:var(--calm);">${totalComplete}</span><span style="font-size:12px;color:var(--text-muted);"> playsets</span></div>
+      <div><span style="font-weight:700;">${totalCopies}</span><span style="font-size:12px;color:var(--text-muted);"> total copies</span></div>
+      <div><span style="font-weight:700;color:var(--chaos);">${totalWanted}</span><span style="font-size:12px;color:var(--text-muted);"> wishlisted</span></div>
+    </div>
+  </div>`;
+
+  // set cards grid
+  html+=`<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;">Sets</div>`;
+  html+=`<div class="coll-set-grid">`;
+  orderedSets.forEach(sid=>{
+    const sd=setMap[sid];
+    const meta=SET_META[sid]||{label:sd.label||sid,grad:'linear-gradient(135deg,var(--surface3),var(--surface2))',accent:'var(--accent)',textShadow:'none'};
+    const setCards=[...sd.cards.values()];
+    const setTotal=setCards.length;
+    const setOwned=setCards.filter(c=>collOwned[c.id]).length;
+    const setComplete=setCards.filter(c=>(collOwned[c.id]||0)>=3).length;
+    const setPct=setTotal?Math.round(setOwned/setTotal*100):0;
+    const isActive=CF2.set===sid;
+    const releaseYear=setCards[0]?'':'' ;
+    html+=`<div class="coll-set-card${isActive?' active':''}" onclick="setCollSet('${sid}')">
+      <div class="coll-set-art" style="background:${meta.grad};">
+        <div class="coll-set-name" style="color:${meta.accent};text-shadow:${meta.textShadow};">${meta.label||sd.label}</div>
+      </div>
+      <div class="coll-set-body">
+        <div class="coll-set-info">
+          <span class="coll-set-id">${sid}</span>
+          <span class="coll-set-count">${setTotal} cards</span>
+          <span class="coll-set-pct" style="color:${setPct===100?'var(--calm)':'var(--accent)'};">${setPct}%</span>
+        </div>
+        <div class="coll-set-prog-track"><div class="coll-set-prog-fill" style="width:${setPct}%;background:${setPct===100?'var(--calm)':meta.accent};"></div></div>
+        <div class="coll-set-bottom">
+          <span style="font-size:11px;color:var(--text-muted);">${setOwned} / ${setTotal}</span>
+          ${setComplete>0?`<span style="font-size:11px;color:var(--calm);">${setComplete} complete</span>`:''}
+        </div>
+      </div>
+    </div>`;
   });
+  html+=`</div>`;
 
-  // filter
+  // divider + card grid section
+  html+=`<div style="margin-top:2rem;margin-bottom:1rem;display:flex;align-items:center;gap:10px;">
+    <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;">${CF2.set?(SET_META[CF2.set]?.label||CF2.set):'All Cards'}</div>
+    ${CF2.set?`<button class="coll-pill" onclick="setCollSet('')" style="font-size:11px;">✕ Show all sets</button>`:''}
+  </div>`;
+
+  // filter source
   let source=allUnique;
   if(CF2.q) source=source.filter(c=>c.name.toLowerCase().includes(CF2.q)||c.txt.toLowerCase().includes(CF2.q));
   if(CF2.type) source=source.filter(c=>c.type===CF2.type||(CF2.type==='Champion'&&(c.supertype||'').toLowerCase().includes('champion')));
@@ -2776,33 +2846,11 @@ function renderCollection(){
   if(CF2.show==='complete') source=source.filter(c=>(collOwned[c.id]||0)>=3);
   if(CF2.show==='wanted') source=source.filter(c=>collWanted[c.id]);
 
-  const sets=[...new Set(CARDS.map(c=>c.set).filter(Boolean))];
-  const rarColors={Legendary:'var(--order)',Epic:'var(--chaos)',Rare:'var(--accent)',Uncommon:'var(--calm)',Common:'var(--text-muted)',Showcase:'var(--mind)',Promo:'var(--fury)'};
-
-  // progress bar
-  let html=`<div class="ph"><h1>My Collection</h1><p>Track your Riftbound card collection</p></div>`;
-  html+=`<div class="coll-progress-bar-wrap">
-    <div class="coll-progress-top">
-      <span class="coll-progress-title">Collection Progress — ${totalOwned} / ${totalUnique} unique cards</span>
-      <span class="coll-progress-pct">${pct}%</span>
-    </div>
-    <div class="coll-progress-track"><div class="coll-progress-fill" style="width:${pct}%"></div></div>
-    <div class="coll-rarity-row">
-      ${Object.entries(rarityGroups).map(([r,owned])=>`
-        <div class="coll-rar-chip">
-          <span style="color:${rarColors[r]||'var(--text-muted)'};font-weight:700;font-size:11px;">${r}</span>
-          <span class="coll-rar-chip-val">${owned}/${rarityTotal[r]}</span>
-        </div>`).join('')}
-    </div>
-  </div>`;
-
-  // stat cards
-  html+=`<div class="coll-stat-grid">
-    <div class="coll-stat-card"><div class="coll-stat-val">${totalOwned}</div><div class="coll-stat-lbl">Unique Owned</div><div class="coll-stat-sub">of ${totalUnique} cards</div></div>
-    <div class="coll-stat-card"><div class="coll-stat-val" style="color:var(--calm);">${totalComplete}</div><div class="coll-stat-lbl">Playset Complete</div><div class="coll-stat-sub">3 copies owned</div></div>
-    <div class="coll-stat-card"><div class="coll-stat-val">${totalCopies}</div><div class="coll-stat-lbl">Total Copies</div><div class="coll-stat-sub">across all cards</div></div>
-    <div class="coll-stat-card"><div class="coll-stat-val" style="color:var(--chaos);">${totalWanted}</div><div class="coll-stat-lbl">Wishlist</div><div class="coll-stat-sub">cards wanted</div></div>
-  </div>`;
+  const rarityGroups={Legendary:0,Epic:0,Rare:0,Uncommon:0,Common:0};
+  const rarityTotal={Legendary:0,Epic:0,Rare:0,Uncommon:0,Common:0};
+  allUnique.filter(c=>!CF2.set||c.set===CF2.set).forEach(c=>{
+    const r=c.rarity;if(rarityTotal[r]!==undefined){rarityTotal[r]++;if(collOwned[c.id])rarityGroups[r]++;}
+  });
 
   // controls
   html+=`<div class="coll-controls">
@@ -2822,24 +2870,18 @@ function renderCollection(){
       <option value="">All Rarities</option>
       ${Object.keys(rarityGroups).map(r=>`<option${CF2.rar===r?' selected':''} value="${r}">${r}</option>`).join('')}
     </select>
-    <select class="coll-select" onchange="CF2.set=this.value;renderCollection()">
-      <option value="">All Sets</option>
-      ${sets.map(s=>`<option${CF2.set===s?' selected':''} value="${s}">${s}</option>`).join('')}
-    </select>
     <div class="coll-view-toggle">
       <button class="coll-pill${CF2.view==='grid'?' on':''}" onclick="CF2.view='grid';renderCollection()">⊞ Grid</button>
       <button class="coll-pill${CF2.view==='list'?' on':''}" onclick="CF2.view='list';renderCollection()">☰ List</button>
     </div>
   </div>`;
 
-  // show filter pills
   html+=`<div class="coll-filter-row">
     ${['all','owned','missing','complete','wanted'].map(s=>`<button class="coll-pill${CF2.show===s?' on':''}" onclick="CF2.show='${s}';renderCollection()">${{all:'All',owned:'Owned',missing:'Missing',complete:'Playset',wanted:'♥ Wishlist'}[s]}</button>`).join('')}
     <span style="margin-left:4px;font-size:12px;color:var(--text-muted);">${source.length} cards</span>
-    ${(CF2.q||CF2.type||CF2.dom||CF2.rar||CF2.set||CF2.show!=='all')?`<button class="coll-pill" onclick="CF2.q='';CF2.type='';CF2.dom='';CF2.rar='';CF2.set='';CF2.show='all';renderCollection()" style="margin-left:auto;">✕ Clear</button>`:''}
+    ${(CF2.q||CF2.type||CF2.dom||CF2.rar||CF2.show!=='all')?`<button class="coll-pill" onclick="CF2.q='';CF2.type='';CF2.dom='';CF2.rar='';CF2.show='all';renderCollection()" style="margin-left:auto;">✕ Clear</button>`:''}
   </div>`;
 
-  // domain pills
   html+=`<div class="coll-filter-row">
     ${['fury','chaos','calm','mind','body','order'].map(d=>`<button class="coll-dom-pill ${d}${CF2.dom===d?' on':''}" onclick="CF2.dom=CF2.dom==='${d}'?'':'${d}';renderCollection()">${d[0].toUpperCase()+d.slice(1)}</button>`).join('')}
   </div>`;
