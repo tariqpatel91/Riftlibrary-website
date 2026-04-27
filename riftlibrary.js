@@ -421,6 +421,7 @@ function goto(p,el){
   if(p==='search'&&cardsLoaded)renderCards();
   if(p==='statistics')renderStatistics();
   if(p==='events')renderEvents();
+  if(p==='collection')renderCollection();
   if(p==='play'&&typeof populateDeckSelectors==='function')populateDeckSelectors();
   if(p==='articles')renderArticles();
 }
@@ -2704,6 +2705,199 @@ function renderEvents(){
     <button class="evt-tab${activeEvtTab==='mine'?' on':''}" onclick="switchEvtTab('mine')">My Events${myEvents.length?` <span class="evt-tab-badge">${myEvents.length}</span>`:''}</button>
   </div>`;
   el.innerHTML=tabs+(activeEvtTab==='all'?allEventsHTML():myEventsHTML());
+}
+
+/* ── COLLECTION TRACKER ─────────────────────────── */
+let collOwned=JSON.parse(localStorage.getItem('rl_collection')||'{}');
+let collWanted=JSON.parse(localStorage.getItem('rl_collection_wanted')||'{}');
+const CF2={q:'',type:'',dom:'',rar:'',set:'',show:'all',view:'grid'};
+
+function persistColl(){
+  localStorage.setItem('rl_collection',JSON.stringify(collOwned));
+  localStorage.setItem('rl_collection_wanted',JSON.stringify(collWanted));
+}
+function setCollOwned(id,delta){
+  const cur=collOwned[id]||0;
+  const next=Math.max(0,Math.min(3,cur+delta));
+  if(next===0) delete collOwned[id]; else collOwned[id]=next;
+  persistColl();renderCollection();
+}
+function toggleCollWanted(id){
+  if(collWanted[id]) delete collWanted[id]; else collWanted[id]=true;
+  persistColl();renderCollection();
+}
+
+function renderCollection(){
+  const el=document.getElementById('collection-content');
+  if(!el)return;
+  if(!cardsLoaded||!CARDS.length){
+    el.innerHTML='<div style="padding:3rem;text-align:center;color:var(--text-muted);font-size:13px;">Loading cards…</div>';
+    return;
+  }
+
+  // derive source — unique base cards (highest rarity per base name)
+  const RR={Legendary:5,Epic:4,Rare:3,Uncommon:2,Common:1,Showcase:0,Promo:0};
+  const seen=new Map();
+  CARDS.forEach(c=>{
+    const key=baseName(c.name).toLowerCase();
+    const ex=seen.get(key);
+    if(!ex||(RR[c.rarity]??1)>(RR[ex.rarity]??1)) seen.set(key,c);
+  });
+  const allUnique=[...seen.values()].sort((a,b)=>a.name.localeCompare(b.name));
+  const totalUnique=allUnique.length;
+
+  // stats
+  const ownedIds=new Set(Object.keys(collOwned));
+  const totalOwned=allUnique.filter(c=>ownedIds.has(c.id)).length;
+  const totalComplete=allUnique.filter(c=>(collOwned[c.id]||0)>=3).length;
+  const totalWanted=Object.keys(collWanted).length;
+  const totalCopies=Object.values(collOwned).reduce((a,v)=>a+v,0);
+  const pct=totalUnique?Math.round(totalOwned/totalUnique*100):0;
+
+  const rarityGroups={Legendary:0,Epic:0,Rare:0,Uncommon:0,Common:0};
+  const rarityTotal={Legendary:0,Epic:0,Rare:0,Uncommon:0,Common:0};
+  allUnique.forEach(c=>{
+    const r=c.rarity;
+    if(rarityTotal[r]!==undefined){
+      rarityTotal[r]++;
+      if(collOwned[c.id]) rarityGroups[r]++;
+    }
+  });
+
+  // filter
+  let source=allUnique;
+  if(CF2.q) source=source.filter(c=>c.name.toLowerCase().includes(CF2.q)||c.txt.toLowerCase().includes(CF2.q));
+  if(CF2.type) source=source.filter(c=>c.type===CF2.type||(CF2.type==='Champion'&&(c.supertype||'').toLowerCase().includes('champion')));
+  if(CF2.dom) source=source.filter(c=>c.doms.includes(CF2.dom));
+  if(CF2.rar) source=source.filter(c=>c.rarity===CF2.rar);
+  if(CF2.set) source=source.filter(c=>c.set===CF2.set);
+  if(CF2.show==='owned') source=source.filter(c=>collOwned[c.id]);
+  if(CF2.show==='missing') source=source.filter(c=>!collOwned[c.id]);
+  if(CF2.show==='complete') source=source.filter(c=>(collOwned[c.id]||0)>=3);
+  if(CF2.show==='wanted') source=source.filter(c=>collWanted[c.id]);
+
+  const sets=[...new Set(CARDS.map(c=>c.set).filter(Boolean))];
+  const rarColors={Legendary:'var(--order)',Epic:'var(--chaos)',Rare:'var(--accent)',Uncommon:'var(--calm)',Common:'var(--text-muted)',Showcase:'var(--mind)',Promo:'var(--fury)'};
+
+  // progress bar
+  let html=`<div class="ph"><h1>My Collection</h1><p>Track your Riftbound card collection</p></div>`;
+  html+=`<div class="coll-progress-bar-wrap">
+    <div class="coll-progress-top">
+      <span class="coll-progress-title">Collection Progress — ${totalOwned} / ${totalUnique} unique cards</span>
+      <span class="coll-progress-pct">${pct}%</span>
+    </div>
+    <div class="coll-progress-track"><div class="coll-progress-fill" style="width:${pct}%"></div></div>
+    <div class="coll-rarity-row">
+      ${Object.entries(rarityGroups).map(([r,owned])=>`
+        <div class="coll-rar-chip">
+          <span style="color:${rarColors[r]||'var(--text-muted)'};font-weight:700;font-size:11px;">${r}</span>
+          <span class="coll-rar-chip-val">${owned}/${rarityTotal[r]}</span>
+        </div>`).join('')}
+    </div>
+  </div>`;
+
+  // stat cards
+  html+=`<div class="coll-stat-grid">
+    <div class="coll-stat-card"><div class="coll-stat-val">${totalOwned}</div><div class="coll-stat-lbl">Unique Owned</div><div class="coll-stat-sub">of ${totalUnique} cards</div></div>
+    <div class="coll-stat-card"><div class="coll-stat-val" style="color:var(--calm);">${totalComplete}</div><div class="coll-stat-lbl">Playset Complete</div><div class="coll-stat-sub">3 copies owned</div></div>
+    <div class="coll-stat-card"><div class="coll-stat-val">${totalCopies}</div><div class="coll-stat-lbl">Total Copies</div><div class="coll-stat-sub">across all cards</div></div>
+    <div class="coll-stat-card"><div class="coll-stat-val" style="color:var(--chaos);">${totalWanted}</div><div class="coll-stat-lbl">Wishlist</div><div class="coll-stat-sub">cards wanted</div></div>
+  </div>`;
+
+  // controls
+  html+=`<div class="coll-controls">
+    <div class="coll-search-wrap">
+      <span class="coll-search-icon">⌕</span>
+      <input type="text" placeholder="Search cards…" value="${CF2.q.replace(/"/g,'&quot;')}" oninput="CF2.q=this.value;renderCollection()">
+    </div>
+    <select class="coll-select" onchange="CF2.type=this.value;renderCollection()">
+      <option value="">All Types</option>
+      <option${CF2.type==='Champion'?' selected':''} value="Champion">Champion</option>
+      <option${CF2.type==='Unit'?' selected':''} value="Unit">Unit</option>
+      <option${CF2.type==='Spell'?' selected':''} value="Spell">Spell</option>
+      <option${CF2.type==='Gear'?' selected':''} value="Gear">Gear</option>
+      <option${CF2.type==='Rune'?' selected':''} value="Rune">Rune</option>
+    </select>
+    <select class="coll-select" onchange="CF2.rar=this.value;renderCollection()">
+      <option value="">All Rarities</option>
+      ${Object.keys(rarityGroups).map(r=>`<option${CF2.rar===r?' selected':''} value="${r}">${r}</option>`).join('')}
+    </select>
+    <select class="coll-select" onchange="CF2.set=this.value;renderCollection()">
+      <option value="">All Sets</option>
+      ${sets.map(s=>`<option${CF2.set===s?' selected':''} value="${s}">${s}</option>`).join('')}
+    </select>
+    <div class="coll-view-toggle">
+      <button class="coll-pill${CF2.view==='grid'?' on':''}" onclick="CF2.view='grid';renderCollection()">⊞ Grid</button>
+      <button class="coll-pill${CF2.view==='list'?' on':''}" onclick="CF2.view='list';renderCollection()">☰ List</button>
+    </div>
+  </div>`;
+
+  // show filter pills
+  html+=`<div class="coll-filter-row">
+    ${['all','owned','missing','complete','wanted'].map(s=>`<button class="coll-pill${CF2.show===s?' on':''}" onclick="CF2.show='${s}';renderCollection()">${{all:'All',owned:'Owned',missing:'Missing',complete:'Playset',wanted:'♥ Wishlist'}[s]}</button>`).join('')}
+    <span style="margin-left:4px;font-size:12px;color:var(--text-muted);">${source.length} cards</span>
+    ${(CF2.q||CF2.type||CF2.dom||CF2.rar||CF2.set||CF2.show!=='all')?`<button class="coll-pill" onclick="CF2.q='';CF2.type='';CF2.dom='';CF2.rar='';CF2.set='';CF2.show='all';renderCollection()" style="margin-left:auto;">✕ Clear</button>`:''}
+  </div>`;
+
+  // domain pills
+  html+=`<div class="coll-filter-row">
+    ${['fury','chaos','calm','mind','body','order'].map(d=>`<button class="coll-dom-pill ${d}${CF2.dom===d?' on':''}" onclick="CF2.dom=CF2.dom==='${d}'?'':'${d}';renderCollection()">${d[0].toUpperCase()+d.slice(1)}</button>`).join('')}
+  </div>`;
+
+  if(!source.length){
+    html+=`<div class="coll-empty">No cards match your filters.</div>`;
+    el.innerHTML=html;return;
+  }
+
+  if(CF2.view==='grid'){
+    html+=`<div class="coll-grid">`;
+    source.forEach(c=>{
+      const owned=collOwned[c.id]||0;
+      const wanted=!!collWanted[c.id];
+      const isComplete=owned>=3;
+      const cls=isComplete?'complete':owned>0?'owned':wanted?'wanted':'';
+      const si=c.id.replace(/'/g,"\\'");
+      html+=`<div class="coll-card ${cls}" title="${c.name}">
+        ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
+        <div class="coll-card-overlay"></div>
+        ${isComplete?'<div class="coll-card-badge coll-badge-complete">✓ ×3</div>':owned>0?`<div class="coll-card-badge coll-badge-owned">×${owned}</div>`:wanted?'<div class="coll-card-badge coll-badge-wanted">♥</div>':''}
+        <button class="coll-wanted-btn${wanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${wanted?'Remove from wishlist':'Add to wishlist'}">♥</button>
+        <div class="coll-card-actions">
+          <button class="coll-copy-btn coll-copy-minus" onclick="event.stopPropagation();setCollOwned('${si}',-1)" title="Remove copy">−</button>
+          <span class="coll-copy-count">${owned}/3</span>
+          <button class="coll-copy-btn coll-copy-plus" onclick="event.stopPropagation();setCollOwned('${si}',1)" title="Add copy">+</button>
+        </div>
+        <div class="coll-card-name">${c.name}</div>
+      </div>`;
+    });
+    html+=`</div>`;
+  } else {
+    html+=`<div class="coll-list-view">`;
+    source.forEach(c=>{
+      const owned=collOwned[c.id]||0;
+      const isComplete=owned>=3;
+      const cls=isComplete?'complete':owned>0?'owned':'';
+      const si=c.id.replace(/'/g,"\\'");
+      const rarCol=rarColors[c.rarity]||'var(--text-muted)';
+      html+=`<div class="coll-list-row ${cls}">
+        ${c.imageUrl?`<img class="coll-list-thumb" src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-list-thumb"></div>`}
+        <div class="coll-list-name">${c.name}</div>
+        <div class="coll-list-type">${c.type}</div>
+        <div class="coll-list-rar" style="color:${rarCol};font-size:11px;font-weight:600;">${c.rarity}</div>
+        <div class="coll-list-copies">
+          ${[0,1,2].map(i=>`<div class="coll-list-dot${owned>i?(isComplete?' filled-max':' filled'):''}"></div>`).join('')}
+        </div>
+        <div style="display:flex;gap:4px;margin-left:10px;">
+          <button class="coll-copy-btn coll-copy-minus" style="width:22px;height:22px;font-size:12px;" onclick="setCollOwned('${si}',-1)">−</button>
+          <button class="coll-copy-btn coll-copy-plus" style="width:22px;height:22px;font-size:12px;" onclick="setCollOwned('${si}',1)">+</button>
+        </div>
+        <button class="coll-wanted-btn${collWanted[c.id]?' active':''}" style="opacity:1;position:static;width:22px;height:22px;margin-left:4px;" onclick="toggleCollWanted('${si}')" title="Wishlist">♥</button>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+
+  el.innerHTML=html;
 }
 
 /* ── STATISTICS ──────────────────────────────────── */
