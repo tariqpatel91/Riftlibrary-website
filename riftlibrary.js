@@ -1059,7 +1059,7 @@ function adjustSB(deckId,cardId,delta){
   const entry=d.sideboard.find(c=>c.id===cardId);
   if(entry){
     if(delta>0&&entry.cnt>=3){toast('Max 3 copies');return;}
-    if(delta>0){const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);if(sbTotal>=15){toast('Sideboard is full (15 cards max)');return;}}
+    if(delta>0){const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}}
     entry.cnt=Math.max(0,entry.cnt+delta);
     if(entry.cnt===0) d.sideboard=d.sideboard.filter(c=>c.id!==cardId);
   }
@@ -1124,7 +1124,7 @@ function addToSB(deckId,cardId,cardName,cardType){
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   if(!d.sideboard) d.sideboard=[];
   const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
-  if(sbTotal>=15){toast('Sideboard is full (15 cards max)');return;}
+  if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}
   const deckIdx=(d.cards||[]).findIndex(c=>c.id===cardId);
   if(deckIdx<0){toast('Card not found in main deck');return;}
   d.cards[deckIdx].cnt--;
@@ -1144,7 +1144,7 @@ function addDirectToSB(deckId,cardId,cardName,cardType){
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   if(!d.sideboard) d.sideboard=[];
   const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
-  if(sbTotal>=15){toast('Sideboard is full (15 cards max)');return;}
+  if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}
   const existing=d.sideboard.find(c=>c.id===cardId);
   if(existing){if(existing.cnt>=3){toast('Max 3 copies');return;}existing.cnt++;}
   else d.sideboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
@@ -2480,49 +2480,118 @@ function importDeckFromText(){
     },[]);
   }
 
-  const sbIdx=raw.search(/^Sideboard[:\s]/im);
-  const mainEntries=parseLines(sbIdx>=0?raw.slice(0,sbIdx):raw);
-  const sbEntries=parseLines(sbIdx>=0?raw.slice(sbIdx):'' );
+  // Detect sectioned format (has headers like "Legend:", "MainDeck:", etc.)
+  const SECTION_RE=/^(Legend|Champion|MainDeck|Main Deck|Battlefields?|Runes?|Sideboard)\s*:/im;
+  const isSectioned=SECTION_RE.test(raw);
 
   const deckCards=[];
   const runes=[];
   const battlefields=[null,null,null];
   let bfSlot=0;
   let matched=0;const unmatched=[];
+  const sb=[];
+  let importedLegendName=null;
+  let importedChampion=null;
 
-  mainEntries.forEach(({cnt,name})=>{
-    const found=findCard(name);
-    if(!found){unmatched.push(name);return;}
-    matched++;
-    const t=found.type||'';
-    const tl=t.toLowerCase();
-    if(t==='Battlefield'||tl==='battlefield'){
-      if(bfSlot<3) battlefields[bfSlot++]={id:found.id,n:found.name,t:'Battlefield'};
-    } else if(t==='Rune'||tl==='rune'||found.name.toLowerCase().includes(' rune')){
-      for(let i=0;i<cnt;i++) runes.push({id:found.id,n:found.name,t:t||'Rune'});
-    } else {
+  if(isSectioned){
+    // Split raw text into named sections
+    const sectionMap={};
+    let currentSection=null;
+    raw.split('\n').forEach(line=>{
+      const hdr=line.match(/^(Legend|Champion|MainDeck|Main Deck|Battlefields?|Runes?|Sideboard)\s*:/i);
+      if(hdr){currentSection=hdr[1].toLowerCase().replace(/\s+/g,'').replace(/s$/,'');sectionMap[currentSection]=[];}
+      else if(currentSection&&line.trim()) sectionMap[currentSection].push(line);
+    });
+
+    const parseSec=(key)=>parseLines((sectionMap[key]||[]).join('\n'));
+
+    // Legend
+    parseSec('legend').forEach(({name})=>{
+      const found=findCard(name)||findCard(name.split(',')[0].trim());
+      if(found&&found.type==='Legend') importedLegendName=found.name;
+    });
+
+    // Champion
+    parseSec('champion').forEach(({name})=>{
+      const found=findCard(name);
+      if(found){matched++;importedChampion={id:found.id,n:found.name};}
+      else unmatched.push(name);
+    });
+
+    // MainDeck
+    parseSec('maindeck').forEach(({cnt,name})=>{
+      const found=findCard(name);
+      if(!found){unmatched.push(name);return;}
+      matched++;
+      const t=found.type||'';
+      if(t==='Legend') return; // legend handled separately
+      if(t==='Champion') return; // champion handled separately
       deckCards.push({id:found.id,n:found.name,t,cnt});
-    }
-  });
+    });
 
-  // Auto-add the legend card from the dropdown — same as + New Deck
-  const selectedLegend=document.getElementById('import-mleg').value;
+    // Battlefields
+    parseSec('battlefield').forEach(({name})=>{
+      const found=findCard(name);
+      if(!found){unmatched.push(name);return;}
+      matched++;
+      if(bfSlot<3) battlefields[bfSlot++]={id:found.id,n:found.name,t:'Battlefield'};
+    });
+
+    // Runes
+    parseSec('rune').forEach(({cnt,name})=>{
+      const found=findCard(name);
+      if(!found){unmatched.push(name);return;}
+      matched++;
+      for(let i=0;i<cnt;i++) runes.push({id:found.id,n:found.name,t:found.type||'Rune'});
+    });
+
+    // Sideboard
+    parseSec('sideboard').forEach(({cnt,name})=>{
+      const found=findCard(name);
+      if(!found){unmatched.push(name);return;}
+      matched++;
+      sb.push({id:found.id,n:found.name,t:found.type||'',cnt});
+    });
+
+  } else {
+    // Legacy flat format — original behavior
+    const sbIdx=raw.search(/^Sideboard[:\s]/im);
+    const mainEntries=parseLines(sbIdx>=0?raw.slice(0,sbIdx):raw);
+    const sbEntries=parseLines(sbIdx>=0?raw.slice(sbIdx):'');
+
+    mainEntries.forEach(({cnt,name})=>{
+      const found=findCard(name);
+      if(!found){unmatched.push(name);return;}
+      matched++;
+      const t=found.type||'';
+      const tl=t.toLowerCase();
+      if(t==='Battlefield'||tl==='battlefield'){
+        if(bfSlot<3) battlefields[bfSlot++]={id:found.id,n:found.name,t:'Battlefield'};
+      } else if(t==='Rune'||tl==='rune'||found.name.toLowerCase().includes(' rune')){
+        for(let i=0;i<cnt;i++) runes.push({id:found.id,n:found.name,t:t||'Rune'});
+      } else {
+        deckCards.push({id:found.id,n:found.name,t,cnt});
+      }
+    });
+
+    sbEntries.forEach(({cnt,name})=>{
+      const found=findCard(name);
+      if(!found){unmatched.push(name);return;}
+      sb.push({id:found.id,n:found.name,t:found.type||'',cnt});
+    });
+  }
+
+  // Use legend from section header if found, otherwise fall back to dropdown
+  const selectedLegend=importedLegendName||document.getElementById('import-mleg').value;
   const legendCardObj=CARDS.find(c=>c.type==='Legend'&&c.name===selectedLegend);
   if(legendCardObj&&!deckCards.find(c=>c.id===legendCardObj.id)){
     deckCards.unshift({id:legendCardObj.id,n:legendCardObj.name,t:legendCardObj.type,cnt:1});
   }
 
-  const sb=[];
-  sbEntries.forEach(({cnt,name})=>{
-    const found=findCard(name);
-    if(!found){unmatched.push(name);return;}
-    sb.push({id:found.id,n:found.name,t:found.type||'',cnt});
-  });
-
   const format=document.getElementById('import-mfmt').value||'Constructed';
   const domains=[...document.querySelectorAll('.idtog.sel')].map(e=>e.classList[1]);
   const deck={id:nextId++,name:deckName,legend:selectedLegend,domains,format,
-    wins:0,losses:0,desc:'',cards:deckCards,champion:null,
+    wins:0,losses:0,desc:'',cards:deckCards,champion:importedChampion||null,
     runes,battlefields,sideboard:sb};
   myDecks.unshift(deck);persist();closeImportDeckModal();renderDecks();
   if(unmatched.length){
