@@ -34,6 +34,7 @@ function deleteMyEvent(id){
   myEvents=myEvents.filter(x=>x.id!==id);persistMyEvents();renderEvents();
 }
 function addRQToMyEvents(idx){
+  if(!currentUser){openAuthModal('login');toast('Please log in to save events.');return;}
   const rq=RQ_EVENTS[idx];if(!rq)return;
   if(myEvents.some(e=>e.name===rq.city+' Regional Qualifier')){toast('Already in My Events');return;}
   myEvents.push({id:Date.now(),name:rq.city+' Regional Qualifier',date:rq.sortDate,time:'',location:rq.city+', '+rq.region,paidEntry:false,hotelBooked:false,flightBooked:false});
@@ -441,7 +442,7 @@ function renderDecks(){
     if(fd&&!(d.domains||[]).includes(fd))return false;
     return true;
   });
-  if(!list.length){g.innerHTML=`<div class="es"><h3>No decks yet</h3><p>Create your first deck above.</p></div>`;return;}
+  if(!list.length){g.innerHTML=`<div class="es" style="grid-column:1/-1;"><h3>No decks yet</h3><p>Create your first deck above.</p></div>`;return;}
   g.innerHTML=list.map(d=>{
     const totalC=(d.cards||[]).reduce((a,c)=>a+c.cnt,0)||0;
     const w=wr(d);
@@ -2404,7 +2405,7 @@ function openArtistModal(artistName){
 function closeArtistModal(){document.getElementById('artist-modal').classList.remove('open');}
 
 /* ── MODAL ──────────────────────────────────────── */
-function openModal(){document.getElementById('modal').classList.add('open');autoD();}
+function openModal(){if(!currentUser){openAuthModal('login');toast('Please log in to create decks.');return;}document.getElementById('modal').classList.add('open');autoD();}
 function closeModal(){document.getElementById('modal').classList.remove('open');}
 function autoD(){const auto=LD[document.getElementById('mleg').value]||[];document.querySelectorAll('.dtog').forEach(el=>el.classList.toggle('sel',auto.includes(el.classList[1])));}
 function togD(el){if(!el.classList.contains('sel')&&document.querySelectorAll('.dtog.sel').length>=2){toast('Max 2 domains');return;}el.classList.toggle('sel');}
@@ -2426,6 +2427,7 @@ function createDeck(){
 document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
 
 function openImportDeckModal(){
+  if(!currentUser){openAuthModal('login');toast('Please log in to import decks.');return;}
   document.getElementById('import-deck-modal').style.display='flex';
   document.getElementById('import-deck-name').value='';
   document.getElementById('import-deck-text').value='';
@@ -2631,17 +2633,18 @@ function renderEvents(){
     }).join('');
     function schedFlag(ev){
       const t=(ev.name+' '+ev.desc).toLowerCase();
-      if(t.includes('australia')||t.includes('sydney')||t.includes('apac')||t.includes('melbourne')||t.includes('brisbane')) return'🇦🇺';
-      if(t.includes('china')||t.includes('chinese')) return'🇨🇳';
-      if(t.includes('south korea')||t.includes('korea')||t.includes('daejeon')||t.includes('seoul')) return'🇰🇷';
-      if(t.includes('sweden')||t.includes('stockholm')) return'🇸🇪';
-      if(t.includes('netherlands')||t.includes('utrecht')||t.includes('amsterdam')) return'🇳🇱';
-      if(t.includes('spain')||t.includes('barcelona')||t.includes('madrid')) return'🇪🇸';
-      if(t.includes('singapore')) return'🇸🇬';
-      if(t.includes('canada')||t.includes('vancouver')||t.includes('toronto')) return'🇨🇦';
-      if(t.includes('japan')||t.includes('tokyo')) return'🇯🇵';
-      if(t.includes('brazil')||t.includes('são paulo')) return'🇧🇷';
-      if(t.includes('atlanta')||t.includes('hartford')||t.includes('los angeles')||t.includes('indianapolis')||t.includes('philadelphia')||t.includes('indy')||t.includes('pax')||t.includes('gen con')||t.includes('momocon')||t.includes('usa')||t.includes('united states')||t.includes('america')) return'🇺🇸';
+      const fi=(code)=>`<img src="https://flagcdn.com/w20/${code}.png" style="width:20px;height:14px;object-fit:cover;border-radius:2px;vertical-align:middle;box-shadow:0 1px 2px rgba(0,0,0,0.35);" alt="${code}">`;
+      if(t.includes('australia')||t.includes('sydney')||t.includes('apac')||t.includes('melbourne')||t.includes('brisbane')) return fi('au');
+      if(t.includes('china')||t.includes('chinese')) return fi('cn');
+      if(t.includes('south korea')||t.includes('korea')||t.includes('daejeon')||t.includes('seoul')) return fi('kr');
+      if(t.includes('sweden')||t.includes('stockholm')) return fi('se');
+      if(t.includes('netherlands')||t.includes('utrecht')||t.includes('amsterdam')) return fi('nl');
+      if(t.includes('spain')||t.includes('barcelona')||t.includes('madrid')) return fi('es');
+      if(t.includes('singapore')) return fi('sg');
+      if(t.includes('canada')||t.includes('vancouver')||t.includes('toronto')) return fi('ca');
+      if(t.includes('japan')||t.includes('tokyo')) return fi('jp');
+      if(t.includes('brazil')||t.includes('são paulo')) return fi('br');
+      if(t.includes('atlanta')||t.includes('hartford')||t.includes('los angeles')||t.includes('indianapolis')||t.includes('philadelphia')||t.includes('indy')||t.includes('pax')||t.includes('gen con')||t.includes('momocon')||t.includes('usa')||t.includes('united states')||t.includes('america')) return fi('us');
       return'';
     }
     const schedHTML=SCHEDULE_2026.map(month=>{
