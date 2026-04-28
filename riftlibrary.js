@@ -3327,9 +3327,13 @@ async function syncCloudDecks() {
       const merged = cloudToLocal(cd);
       if (localIdx >= 0) {
         if (!myDecks[localIdx].updated_at || new Date(cd.updated_at) > new Date(myDecks[localIdx].updated_at)) {
+          // Preserve local integer ID so onclick attributes stay valid
+          merged.id = myDecks[localIdx].id;
           myDecks[localIdx] = merged;
         }
       } else {
+        // Assign a stable local integer ID to any new cloud deck
+        merged.id = nextId++;
         myDecks.unshift(merged);
       }
     });
@@ -3353,7 +3357,7 @@ async function syncCloudDecks() {
 function cloudToLocal(cd) {
   const d = cd.data || {};
   return {
-    id:             cd.id,
+    id:             cd.id,  // overwritten by caller to preserve local integer id
     cloud_id:       cd.id,
     name:           cd.name,
     legend:         cd.legend,
@@ -3368,6 +3372,8 @@ function cloudToLocal(cd) {
     results:        d.results      || [],
     cards:          d.cards        || [],
     battlefields:   d.battlefields || [null, null, null],
+    champion:       d.champion     || null,
+    runes:          d.runes        || [],
   };
 }
 
@@ -3387,6 +3393,8 @@ function localToCloud(local) {
       sideboardNotes: local.sideboardNotes || '',
       results:        local.results        || [],
       battlefields:   local.battlefields   || [null, null, null],
+      champion:       local.champion       || null,
+      runes:          local.runes          || [],
     },
   };
 }
