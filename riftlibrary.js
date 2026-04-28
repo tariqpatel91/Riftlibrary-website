@@ -1711,7 +1711,7 @@ function removeChampionZone(){
 function addBattlefield(preferSlot,cardId,cardName){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   if(!d.battlefields) d.battlefields=[null,null,null];
-  // Find free slot; if preferSlot given and free, use it
+  if(d.battlefields.some(s=>s&&s.id===cardId)){toast('Only 1 copy of each battlefield allowed');return;}
   let slot=-1;
   if(preferSlot>=0&&preferSlot<3&&!d.battlefields[preferSlot]) slot=preferSlot;
   if(slot<0) slot=d.battlefields.findIndex(s=>s===null);
@@ -1732,7 +1732,8 @@ function bfZoneDrop(e,slotIdx){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d){_DRAG=null;return;}
   if(_DRAG.t!=='Battlefield'){toast('Only Battlefield cards can go in battlefield zones');_DRAG=null;return;}
   if(!d.battlefields) d.battlefields=[null,null,null];
-  if(d.battlefields[slotIdx]){toast('Battlefield zone '+( slotIdx+1)+' already has a card — remove it first');_DRAG=null;return;}
+  if(d.battlefields[slotIdx]){toast('Battlefield zone '+(slotIdx+1)+' already has a card — remove it first');_DRAG=null;return;}
+  if(d.battlefields.some(s=>s&&s.id===_DRAG.id)){toast('Only 1 copy of each battlefield allowed');_DRAG=null;return;}
   d.battlefields[slotIdx]={id:_DRAG.id,n:_DRAG.n};
   persist();renderEditSearch();renderEditPreview();
   _DRAG=null;
