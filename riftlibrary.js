@@ -466,8 +466,8 @@ function renderDecks(){
         <span class="${wrc(w)}"><strong>${w}%</strong> WR</span>
       </div>
       <div class="da">
-        <button class="btn btn-sm btn-g" onclick="openDD(${d.id})">View</button>
-        <button class="btn btn-sm btn-d" onclick="delDeck(${d.id})">Delete</button>
+        <button class="btn btn-sm btn-g" onclick="openDD('${d.id}')">View</button>
+        <button class="btn btn-sm btn-d" onclick="delDeck('${d.id}')">Delete</button>
       </div>
     </div>`;
   }).join('');
@@ -487,7 +487,7 @@ function populateDeckSelectors(){
 }
 
 function openDD(id){
-  const d=myDecks.find(x=>x.id===id);if(!d)return;
+  const d=myDecks.find(x=>String(x.id)===String(id));if(!d)return;
   activeDeckId=id;
   if(!d.sideboard) d.sideboard=[];
   if(!d.results)   d.results=[];
@@ -2123,9 +2123,9 @@ function exportDeck(type){
 }
 function delDeck(id){
   if(!confirm('Delete this deck?'))return;
-  var deck=myDecks.find(function(d){return d.id===id;});
+  var deck=myDecks.find(function(d){return String(d.id)===String(id);});
   var cloudId=deck&&deck.cloud_id;
-  myDecks=myDecks.filter(function(d){return d.id!==id;});
+  myDecks=myDecks.filter(function(d){return String(d.id)!==String(id);});
   persist();renderDecks();toast('Deck deleted');
   if(currentUser&&cloudId) _sb.from('decks').delete().eq('id',cloudId).then(({error})=>{ if(error) console.warn('Delete failed',error); });
 }
