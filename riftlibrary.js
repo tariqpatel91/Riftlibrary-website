@@ -15,7 +15,7 @@ const BANNED_CARDS=new Set(['Called Shot','Draven, Vanquisher','Draven - Vanquis
 function baseName(n){return(n||'').replace(/\s*\([^)]*\)\s*$/,'').trim();}
 let myEvents=JSON.parse(localStorage.getItem('rl_myEvents')||'[]');
 let activeEvtTab='all';
-function persistMyEvents(){localStorage.setItem('rl_myEvents',JSON.stringify(myEvents));}
+function persistMyEvents(){localStorage.setItem('rl_myEvents',JSON.stringify(myEvents));saveEventsToCloud();}
 function switchEvtTab(t){activeEvtTab=t;renderEvents();}
 function createMyEvent(){
   const name=(document.getElementById('mevt-name')||{}).value||'';
@@ -2740,11 +2740,11 @@ function setCollOwned(id,delta){
   const cur=collOwned[id]||0;
   const next=Math.max(0,Math.min(3,cur+delta));
   if(next===0) delete collOwned[id]; else collOwned[id]=next;
-  persistColl();renderCollection();
+  persistColl();saveCardToCloud(id);renderCollection();
 }
 function toggleCollWanted(id){
   if(collWanted[id]) delete collWanted[id]; else collWanted[id]=true;
-  persistColl();renderCollection();
+  persistColl();saveCardToCloud(id);renderCollection();
 }
 function setCollSet(s){CF2.set=CF2.set===s?'':s;renderCollection();}
 
@@ -3199,8 +3199,12 @@ async function logOut() {
   await _sb.auth.signOut();
   currentUser = null;
   myDecks = [];
+  myEvents = [];
+  collOwned = {}; collWanted = {};
   renderAuthNav(null);
   if(document.getElementById('page-decks').classList.contains('active')) renderDecks();
+  if(document.getElementById('page-events').classList.contains('active')) renderEvents();
+  if(document.getElementById('page-collection').classList.contains('active')) renderCollection();
   toast('Logged out');
 }
 
@@ -3233,6 +3237,8 @@ async function syncCloudDecks() {
     if (document.getElementById('page-decks').classList.contains('active')) renderDecks();
     toast('Decks synced ☁');
   } catch (e) { console.warn('Sync failed:', e); }
+  loadEventsFromCloud();
+  loadCollectionFromCloud();
 }
 
 function cloudToLocal(cd) {
@@ -3274,6 +3280,57 @@ function localToCloud(local) {
       battlefields:   local.battlefields   || [null, null, null],
     },
   };
+}
+
+async function saveEventsToCloud() {
+  if (!currentUser) return;
+  try {
+    for (const evt of myEvents) {
+      const row = { user_id: currentUser.id, name: evt.name, date: evt.date, time: evt.time||'', location: evt.location||'', paid_entry: evt.paidEntry||false, hotel_booked: evt.hotelBooked||false, flight_booked: evt.flightBooked||false };
+      if (evt.cloud_id) {
+        await _sb.from('my_events').update(row).eq('id', evt.cloud_id);
+      } else {
+        const { data, error } = await _sb.from('my_events').insert(row).select().single();
+        if (!error && data) { evt.cloud_id = data.id; localStorage.setItem('rl_myEvents', JSON.stringify(myEvents)); }
+      }
+    }
+  } catch(e) { console.warn('Events cloud save failed:', e); }
+}
+
+async function loadEventsFromCloud() {
+  if (!currentUser) return;
+  try {
+    const { data, error } = await _sb.from('my_events').select('*').eq('user_id', currentUser.id);
+    if (error || !data || !data.length) return;
+    myEvents = data.map(cd => ({ id: cd.id, cloud_id: cd.id, name: cd.name, date: cd.date, time: cd.time||'', location: cd.location||'', paidEntry: cd.paid_entry||false, hotelBooked: cd.hotel_booked||false, flightBooked: cd.flight_booked||false }));
+    localStorage.setItem('rl_myEvents', JSON.stringify(myEvents));
+    if (document.getElementById('page-events').classList.contains('active')) renderEvents();
+  } catch(e) { console.warn('Events cloud load failed:', e); }
+}
+
+async function saveCardToCloud(cardId) {
+  if (!currentUser) return;
+  try {
+    const owned = collOwned[cardId] || 0;
+    const wanted = !!collWanted[cardId];
+    if (owned === 0 && !wanted) {
+      await _sb.from('collection').delete().eq('user_id', currentUser.id).eq('card_id', cardId);
+    } else {
+      await _sb.from('collection').upsert({ user_id: currentUser.id, card_id: cardId, owned, wanted, updated_at: new Date().toISOString() }, { onConflict: 'user_id,card_id' });
+    }
+  } catch(e) { console.warn('Collection cloud save failed:', e); }
+}
+
+async function loadCollectionFromCloud() {
+  if (!currentUser) return;
+  try {
+    const { data, error } = await _sb.from('collection').select('*').eq('user_id', currentUser.id);
+    if (error || !data || !data.length) return;
+    collOwned = {}; collWanted = {};
+    data.forEach(row => { if (row.owned > 0) collOwned[row.card_id] = row.owned; if (row.wanted) collWanted[row.card_id] = true; });
+    persistColl();
+    if (document.getElementById('page-collection').classList.contains('active')) renderCollection();
+  } catch(e) { console.warn('Collection cloud load failed:', e); }
 }
 
 async function saveToCloud(deckId) {
