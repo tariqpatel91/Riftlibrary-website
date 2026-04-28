@@ -317,7 +317,10 @@ function loadStorage(){
     if(!myDecks.length)myDecks=[];
   }catch(e){myDecks=[];}
 }
-function persist(){try{localStorage.setItem('rl_decks',JSON.stringify(myDecks));localStorage.setItem('rl_nid',String(nextId));}catch(e){}}
+function persist(){
+  if(activeDeckId){const d=myDecks.find(x=>String(x.id)===String(activeDeckId));if(d)d.updated_at=new Date().toISOString();}
+  try{localStorage.setItem('rl_decks',JSON.stringify(myDecks));localStorage.setItem('rl_nid',String(nextId));}catch(e){}
+}
 function wr(d){return d.wins+d.losses>0?Math.round(d.wins/(d.wins+d.losses)*100):0;}
 function wrc(w){return w>=55?'wg':w>=45?'wm':'wb';}
 function pills(doms){return(doms||[]).map(d=>`<span class="pill ${d.toLowerCase()}">${d[0].toUpperCase()+d.slice(1).toLowerCase()}</span>`).join('');}
@@ -1758,7 +1761,10 @@ function saveDeckTitle(deckId,val){
   }
   if(currentUser) saveToCloud(deckId);
 }
-function closeDeckDetail(){document.getElementById('dl').style.display='';document.getElementById('dd').style.display='none';activeDeckId=null;activeDDTab='cards';renderDecks();}
+function closeDeckDetail(){
+  if(currentUser&&activeDeckId) saveToCloud(activeDeckId);
+  document.getElementById('dl').style.display='';document.getElementById('dd').style.display='none';activeDeckId=null;activeDDTab='cards';renderDecks();
+}
 
 function copyDeckLink(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
