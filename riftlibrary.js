@@ -492,7 +492,7 @@ function populateDeckSelectors(){
 
 function openDD(id){
   const d=myDecks.find(x=>String(x.id)===String(id));if(!d)return;
-  activeDeckId=id;
+  activeDeckId=d.id;
   if(!d.sideboard) d.sideboard=[];
   if(!d.results)   d.results=[];
   document.getElementById('dl').style.display='none';
