@@ -3049,8 +3049,10 @@ async function initAuth() {
     renderAuthNav(null);
   }
   _sb.auth.onAuthStateChange((_event, session) => {
+    const wasLoggedIn = !!currentUser;
     currentUser = session ? session.user : null;
     renderAuthNav(currentUser);
+    if (currentUser && !wasLoggedIn) syncCloudDecks();
   });
 }
 
