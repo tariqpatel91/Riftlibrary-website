@@ -3157,11 +3157,45 @@ function showAuthError(msg)   { const el=document.getElementById('auth-error'); 
 function showAuthSuccess(msg) { const el=document.getElementById('auth-success'); el.textContent=msg; el.classList.add('show'); document.getElementById('auth-error').classList.remove('show'); }
 function clearAuthMessages()  { document.getElementById('auth-error').classList.remove('show'); document.getElementById('auth-success').classList.remove('show'); }
 
+function checkPasswordStrength() {
+  const pw = document.getElementById('reg-password').value;
+  const bar = document.getElementById('pw-strength-bar');
+  const fill = document.getElementById('pw-strength-fill');
+  const label = document.getElementById('pw-strength-label');
+  if (!pw) { bar.style.display='none'; label.textContent=''; return; }
+  bar.style.display = 'block';
+  let score = 0;
+  if (pw.length >= 8)  score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const levels = [{w:'20%',c:'#ef4444',t:'Weak'},{w:'40%',c:'#f97316',t:'Fair'},{w:'60%',c:'#eab308',t:'Good'},{w:'80%',c:'#22c55e',t:'Strong'},{w:'100%',c:'#16a34a',t:'Very strong'}];
+  const lvl = levels[Math.min(score-1, 4)] || levels[0];
+  fill.style.width = lvl.w; fill.style.background = lvl.c;
+  label.style.color = lvl.c; label.textContent = lvl.t;
+  checkPasswordMatch();
+}
+
+function checkPasswordMatch() {
+  const pw  = document.getElementById('reg-password').value;
+  const pw2 = document.getElementById('reg-password-confirm').value;
+  const label = document.getElementById('pw-match-label');
+  if (!pw2) { label.textContent=''; return; }
+  if (pw === pw2) { label.style.color='#22c55e'; label.textContent='✓ Passwords match'; }
+  else            { label.style.color='#ef4444'; label.textContent='✗ Passwords do not match'; }
+}
+
 async function submitRegister() {
   const username = document.getElementById('reg-username').value.trim();
   const email    = document.getElementById('reg-email').value.trim();
   const password = document.getElementById('reg-password').value;
-  if (!username || !email || !password) { showAuthError('All fields required'); return; }
+  const confirm  = document.getElementById('reg-password-confirm').value;
+  if (!username || !email || !password || !confirm) { showAuthError('All fields required'); return; }
+  if (password !== confirm) { showAuthError('Passwords do not match'); return; }
+  if (password.length < 8) { showAuthError('Password must be at least 8 characters'); return; }
+  if (!/[A-Z]/.test(password)) { showAuthError('Password must contain at least one uppercase letter'); return; }
+  if (!/[0-9]/.test(password)) { showAuthError('Password must contain at least one number'); return; }
   const btn = document.querySelector('#auth-form-register .auth-submit');
   btn.textContent = 'Creating account…'; btn.disabled = true;
   try {

@@ -397,8 +397,15 @@
       </div>
       <div class="auth-field">
         <label>Password</label>
-        <input type="password" id="reg-password" placeholder="Min 8 characters" autocomplete="new-password"
-               onkeydown="if(event.key==='Enter')submitRegister()">
+        <input type="password" id="reg-password" placeholder="Min 8 characters" autocomplete="new-password" oninput="checkPasswordStrength()">
+        <div id="pw-strength-bar" style="margin-top:6px;height:4px;border-radius:2px;background:var(--bg3);overflow:hidden;display:none;"><div id="pw-strength-fill" style="height:100%;width:0;transition:width 0.3s,background 0.3s;border-radius:2px;"></div></div>
+        <div id="pw-strength-label" style="font-size:11px;margin-top:3px;color:var(--text-muted);"></div>
+      </div>
+      <div class="auth-field">
+        <label>Confirm Password</label>
+        <input type="password" id="reg-password-confirm" placeholder="Re-enter your password" autocomplete="new-password"
+               onkeydown="if(event.key==='Enter')submitRegister()" oninput="checkPasswordMatch()">
+        <div id="pw-match-label" style="font-size:11px;margin-top:3px;"></div>
       </div>
       <button class="auth-submit" onclick="submitRegister()">Create account</button>
       <div class="auth-switch">Already have an account? <a onclick="switchAuthTab('login')">Log in</a></div>
