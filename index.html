@@ -64,9 +64,53 @@
           <button class="cs-drop-btn" onclick="toggleDrop('dd-set',this)"><span class="dv-lbl">Set</span><span class="dv-val" id="dv-set">All</span><span class="caret">⌄</span></button>
           <div class="cs-dropdown" id="dd-set">
             <div class="cs-dopt active" onclick="setDrop('set','','All',this)">All</div>
-            <div class="cs-dopt" onclick="setDrop('set','OGN','Origins',this)">Origins</div>
-            <div class="cs-dopt" onclick="setDrop('set','SFD','Spiritforged',this)">Spiritforged</div>
             <div class="cs-dopt" onclick="setDrop('set','UNL','Unleashed',this)">Unleashed</div>
+            <div class="cs-dopt" onclick="setDrop('set','SFD','Spiritforged',this)">Spiritforged</div>
+            <div class="cs-dopt" onclick="setDrop('set','SFD-NN','Spiritforged | Nexus Night',this)">Spiritforged | Nexus Night</div>
+            <div class="cs-dopt" onclick="setDrop('set','ARC','Arcane Box Set',this)">Arcane Box Set</div>
+            <div class="cs-dopt" onclick="setDrop('set','OGN','Origins',this)">Origins</div>
+            <div class="cs-dopt" onclick="setDrop('set','OGS','Proving Grounds',this)">Proving Grounds</div>
+            <div class="cs-dopt" onclick="setDrop('set','OGN-NN','Origins | Nexus Night',this)">Origins | Nexus Night</div>
+            <div class="cs-dopt" onclick="setDrop('set','WRLD25','Worlds Bundle 2025',this)">Worlds Bundle 2025</div>
+            <div class="cs-dopt" onclick="setDrop('set','OPP','Organized Play Promos',this)">Organized Play Promos</div>
+            <div class="cs-dopt" onclick="setDrop('set','JDG','Judge Promos',this)">Judge Promos</div>
+            <div class="cs-dopt" onclick="setDrop('set','PR','Promos',this)">Promos</div>
+          </div>
+        </div>
+        <div class="cs-drop-wrap" id="dw-type">
+          <button class="cs-drop-btn" onclick="toggleDrop('dd-type',this)"><span class="dv-lbl">Type</span><span class="dv-val" id="dv-type">All</span><span class="caret">⌄</span></button>
+          <div class="cs-dropdown" id="dd-type">
+            <div class="cs-dopt active" data-val="" onclick="setCFType('')">All</div>
+            <div class="cs-dopt" data-val="Unit" onclick="setCFType('Unit')">Unit</div>
+            <div class="cs-dopt" data-val="Spell" onclick="setCFType('Spell')">Spell</div>
+            <div class="cs-dopt" data-val="Gear" onclick="setCFType('Gear')">Gear</div>
+            <div class="cs-dopt" data-val="Legend" onclick="setCFType('Legend')">Legend</div>
+            <div class="cs-dopt" data-val="Rune" onclick="setCFType('Rune')">Rune</div>
+            <div class="cs-dopt" data-val="Battlefield" onclick="setCFType('Battlefield')">Battlefield</div>
+            <div class="cs-dopt" data-val="banned" onclick="setCFType('banned')" style="color:var(--fury);">⛔ Banned</div>
+          </div>
+        </div>
+        <div class="cs-drop-wrap" id="dw-subtype">
+          <button class="cs-drop-btn" onclick="toggleDrop('dd-subtype',this)"><span class="dv-lbl">Subtype</span><span class="dv-val" id="dv-subtype">All</span><span class="caret">⌄</span></button>
+          <div class="cs-dropdown" id="dd-subtype">
+            <div class="cs-dopt active" onclick="setDrop('subtype','','All',this)">All</div>
+            <div class="cs-dopt" onclick="setDrop('subtype','Action','Action',this)">Action</div>
+            <div class="cs-dopt" onclick="setDrop('subtype','Reaction','Reaction',this)">Reaction</div>
+            <div class="cs-dopt" onclick="setDrop('subtype','Champion','Champion',this)">Champion</div>
+            <div class="cs-dopt" onclick="setDrop('subtype','Signature','Signature',this)">Signature</div>
+            <div class="cs-dopt" onclick="setDrop('subtype','Token','Token',this)">Token</div>
+          </div>
+        </div>
+        <div class="cs-drop-wrap" id="dw-variant">
+          <button class="cs-drop-btn" onclick="toggleDrop('dd-variant',this)"><span class="dv-lbl">Variant</span><span class="dv-val" id="dv-variant">All</span><span class="caret">⌄</span></button>
+          <div class="cs-dropdown" id="dd-variant">
+            <div class="cs-dopt active" onclick="setDrop('variant','','All',this)">All</div>
+            <div class="cs-dopt" onclick="setDrop('variant','Standard','Standard',this)">Standard</div>
+            <div class="cs-dopt" onclick="setDrop('variant','Foil','Foil',this)">Foil</div>
+            <div class="cs-dopt" onclick="setDrop('variant','Alt Art','Alt Art',this)">Alt Art</div>
+            <div class="cs-dopt" onclick="setDrop('variant','Overnumbered','Overnumbered',this)">Overnumbered</div>
+            <div class="cs-dopt" onclick="setDrop('variant','Signed','Signed',this)">Signed</div>
+            <div class="cs-dopt" onclick="setDrop('variant','Promo','Promo',this)">Promo</div>
           </div>
         </div>
         <div class="cs-drop-wrap" id="dw-rar">
@@ -77,6 +121,7 @@
             <div class="cs-dopt" onclick="setDrop('rar','Uncommon','Uncommon',this)">Uncommon</div>
             <div class="cs-dopt" onclick="setDrop('rar','Rare','Rare',this)">Rare</div>
             <div class="cs-dopt" onclick="setDrop('rar','Epic','Epic',this)">Epic</div>
+            <div class="cs-dopt" onclick="setDrop('rar','Legendary','Legendary',this)">Legendary</div>
           </div>
         </div>
         <!-- artist sort (hidden until artists view) -->
@@ -89,18 +134,6 @@
       </div>
     </div>
 
-    <!-- type tabs -->
-    <div class="cs-type-row">
-      <button class="cs-type-tab on" data-type="" onclick="setCFType('')">All</button>
-      <button class="cs-type-tab" data-type="Champion" onclick="setCFType('Champion')">Champion</button>
-      <button class="cs-type-tab" data-type="Unit" onclick="setCFType('Unit')">Unit</button>
-      <button class="cs-type-tab" data-type="Spell" onclick="setCFType('Spell')">Spell</button>
-      <button class="cs-type-tab" data-type="Gear" onclick="setCFType('Gear')">Gear</button>
-      <button class="cs-type-tab" data-type="Legend" onclick="setCFType('Legend')">Legend</button>
-      <button class="cs-type-tab" data-type="Rune" onclick="setCFType('Rune')">Rune</button>
-      <button class="cs-type-tab" data-type="Battlefield" onclick="setCFType('Battlefield')">Battlefield</button>
-      <button class="cs-type-tab banned-type-tab" data-type="banned" onclick="setCFType('banned')">⛔ Banned</button>
-    </div>
 
     <!-- cards bottom: domain pills + range sliders -->
     <div class="cs-btm" id="cards-btm">

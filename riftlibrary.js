@@ -57,7 +57,7 @@ let cardsTabView='visual';
 let deckSortMode='alpha'; // 'alpha' or 'energy'
 let authToken=null;
 const AF={doms:new Set()};
-const CF={type:'',set:'',rar:'',legend:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false};
+const CF={type:'',set:'',rar:'',legend:'',subtype:'',variant:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false};
 const EF={type:'',dom:'',page:1,showAllVersions:false};
 function getEditPer(){return 18;}
 const EDIT_PER=24;
@@ -381,6 +381,7 @@ function mapCard(c){
     name:c.name,
     type:cls.type||'Unit',
     supertype:cls.supertype||'',
+    variant:(cls.finish||cls.variant||meta.variant||(c.name.match(/\(([^)]+)\)\s*$/)||[])[1]||'Standard'),
     dom,doms,
     cost:attr.energy??null,
     might:attr.might??null,
@@ -2195,7 +2196,7 @@ function resetAll(){
   if(VIEW==='cards')resetFilters();else resetArtistFilters();
 }
 function resetFilters(){
-  CF.type='';CF.set='';CF.rar='';CF.legend='';CF.doms.clear();CF.energy=[0,12];CF.power=[0,4];CF.might=[0,10];
+  CF.type='';CF.set='';CF.rar='';CF.legend='';CF.subtype='';CF.variant='';CF.doms.clear();CF.energy=[0,12];CF.power=[0,4];CF.might=[0,10];
   document.getElementById('cs').value='';
   ['energy','power','might'].forEach(n=>{
     const max=parseInt(document.getElementById('rhi-'+n).max);
@@ -2203,12 +2204,19 @@ function resetFilters(){
     document.getElementById('rv-'+n).textContent='Any';
     const f=document.getElementById('rf-'+n);f.style.left='0%';f.style.width='100%';
   });
-  ['set','rar'].forEach(k=>{
-    document.getElementById('dv-'+k).textContent='All';
-    document.getElementById('dd-'+k).querySelectorAll('.cs-dopt').forEach((o,i)=>o.classList.toggle('active',i===0));
+  ['set','rar','type','subtype','variant'].forEach(k=>{
+    const el=document.getElementById('dv-'+k);if(el)el.textContent='All';
+    const dd=document.getElementById('dd-'+k);if(dd)dd.querySelectorAll('.cs-dopt').forEach((o,i)=>o.classList.toggle('active',i===0));
   });
-  document.querySelectorAll('.cs-type-tab').forEach(b=>b.classList.toggle('on',b.dataset.type===''));
   document.querySelectorAll('#cs-dom-pills .edit-dom-pill').forEach(b=>b.classList.remove('on'));
+  renderCards();
+}
+function setCFType(t){
+  CF.type=t;CF.legend='';
+  const el=document.getElementById('dv-type');
+  if(el){const labels={'':"All",'Unit':'Unit','Spell':'Spell','Gear':'Gear','Legend':'Legend','Rune':'Rune','Battlefield':'Battlefield','banned':'Banned'};el.textContent=labels[t]||t;}
+  const dd=document.getElementById('dd-type');
+  if(dd)dd.querySelectorAll('.cs-dopt').forEach(o=>o.classList.toggle('active',o.dataset.val===t));
   renderCards();
 }
 
@@ -2229,6 +2237,8 @@ function renderCards(){
     if(CF.legend&&!c.name.startsWith(CF.legend))return false;
     if(CF.rar&&c.rarity!==CF.rar)return false;
     if(CF.set&&c.set!==CF.set)return false;
+    if(CF.subtype&&!(c.supertype||'').toLowerCase().includes(CF.subtype.toLowerCase()))return false;
+    if(CF.variant){if(CF.variant==='Standard'?c.variant!=='Standard':c.variant!==CF.variant)return false;}
     if(CF.doms.size>0&&!CF.doms.has(c.dom))return false;
     if(c.cost!==null&&(c.cost<CF.energy[0]||c.cost>CF.energy[1]))return false;
     if(c.power!==null&&(c.power<CF.power[0]||c.power>CF.power[1]))return false;
