@@ -3029,7 +3029,7 @@ window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=se
    ═══════════════════════════════════════════════════════════════ */
 
 const SUPABASE_URL  = 'https://rxolycfdleetydbbehep.supabase.co';
-const SUPABASE_ANON = 'PASTE_YOUR_ANON_KEY_HERE';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ4b2x5Y2ZkbGVldHlkYmJlaGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTg1NjIsImV4cCI6MjA5Mjg3NDU2Mn0.d2iPG_2hPAwpjbX466-4ZAb1hO83CEtP4tg-M-ky_BA';
 const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 async function initAuth() {
