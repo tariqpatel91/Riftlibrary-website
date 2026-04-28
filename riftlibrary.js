@@ -429,10 +429,6 @@ function goto(p,el){
 /* ── DECKS ──────────────────────────────────────── */
 function renderDecks(){
   const g=document.getElementById('dg');
-  if(!currentUser){
-    g.innerHTML=`<div class="es"><h3>Sign in to access your decks</h3><p>Your decks are saved to your account and only visible to you.</p><button class="btn btn-p" style="margin-top:12px;" onclick="openAuthModal('login')">Log in</button><button class="btn btn-g" style="margin-top:12px;margin-left:8px;" onclick="openAuthModal('register')">Sign up</button></div>`;
-    return;
-  }
   const q=document.getElementById('ds').value.toLowerCase();
   const fl=document.getElementById('dsl').value;
   const fd=document.getElementById('dsd').value.toLowerCase();
