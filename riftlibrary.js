@@ -2329,11 +2329,10 @@ function renderCards(){
     const safeId=c.id.replace(/'/g,"\\'");
     const owned=collOwned[c.id]||0;
     const isBF=c.type==='Battlefield';
-    const imgWrapClass=isBF?'ct-img-wrap bf-img-wrap':'ct-img-wrap';
     return`<div class="ct ct-img${isBF?' ct-bf':''}" onclick="openCardModal('${safeId}')">
       ${c.imageUrl
-        ?`<div class="${imgWrapClass}"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
-        :`<div class="${imgWrapClass} no-img"><div class="ct-img-placeholder" style="background:var(--surface3);display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`
+        ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
+        :`<div class="ct-img-wrap no-img"><div class="ct-img-placeholder" style="background:var(--surface3);display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`
       }
       ${c.cost!==null?`<div class="cost">${c.cost}</div>`:''}
       <div class="ct-name">${c.name}</div>
