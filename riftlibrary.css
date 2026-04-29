@@ -852,3 +852,44 @@ select option{background:#1e1e2a;}
 .coll-set-prog-track{height:5px;background:var(--surface3);border-radius:3px;overflow:hidden;margin-bottom:5px;}
 .coll-set-prog-fill{height:100%;border-radius:3px;transition:width 0.4s ease;}
 .coll-set-bottom{display:flex;justify-content:space-between;align-items:center;}
+
+/* ── COLLECTION HALF-CLICK ZONES ───────────────── */
+.coll-half{position:absolute;top:0;bottom:36px;width:50%;z-index:1;cursor:pointer;}
+.coll-half-left{left:0;}
+.coll-half-right{right:0;}
+.coll-wishlist-btn{background:rgba(220,38,100,0.25);color:var(--chaos);border:1px solid rgba(220,38,100,0.4);}
+.coll-wishlist-btn:hover{background:rgba(220,38,100,0.5)!important;}
+.coll-wishlist-btn.active{background:var(--chaos)!important;color:#fff;border-color:var(--chaos);}
+/* remove old standalone wishlist btn — now handled by .coll-wishlist-btn in actions */
+.coll-wanted-btn{display:none;}
+
+/* ── TEAM TAB ───────────────────────────────────── */
+.team-header{display:flex;align-items:center;gap:14px;padding:16px 20px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;margin-bottom:1rem;}
+.team-avatar{width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);}
+.team-avatar-placeholder{width:56px;height:56px;border-radius:50%;background:var(--surface3);border:2px solid var(--border);flex-shrink:0;}
+.team-name{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;}
+.team-members-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 0;margin-bottom:4px;}
+.team-member-chip{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);font-size:12px;font-weight:600;}
+.team-member-you{background:rgba(200,168,75,0.15);border-color:var(--accent);color:var(--accent);}
+.team-chip-remove{background:none;border:none;color:var(--text-muted);font-size:13px;cursor:pointer;padding:0 0 0 2px;line-height:1;}
+.team-chip-remove:hover{color:var(--chaos);}
+.team-add-row{display:flex;gap:6px;align-items:center;}
+.team-add-row input{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;width:150px;}
+.team-tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1.25rem;}
+.team-tab-btn{padding:9px 20px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;}
+.team-tab-btn:hover{color:var(--text);}
+.team-tab-btn.on{border-bottom-color:var(--accent);color:var(--accent);}
+.team-section{display:flex;flex-direction:column;gap:10px;}
+.team-compose{display:flex;gap:10px;align-items:flex-end;margin-bottom:6px;}
+.team-compose textarea{flex:1;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;resize:vertical;min-height:64px;font-family:inherit;}
+.team-compose textarea:focus{outline:none;border-color:var(--accent);}
+.team-post{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+.team-deck-row{display:flex;align-items:center;gap:10px;}
+.team-deck-icon{font-size:22px;flex-shrink:0;}
+.team-post-text{font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap;margin-bottom:8px;}
+.team-post-meta{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--text-muted);}
+.team-post-del{background:none;border:none;color:var(--text-muted);font-size:15px;cursor:pointer;padding:0;line-height:1;transition:color 0.15s;}
+.team-post-del:hover{color:var(--chaos);}
+.team-empty{text-align:center;padding:2.5rem;color:var(--text-muted);font-size:13px;background:var(--surface2);border:1px dashed var(--border);border-radius:10px;}
+.team-share-row{display:flex;gap:10px;align-items:center;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;}
+.team-share-row select{flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface3);color:var(--text);font-size:13px;}

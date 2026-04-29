@@ -15,6 +15,10 @@ const BANNED_CARDS=new Set(['Called Shot','Draven, Vanquisher','Draven - Vanquis
 function baseName(n){return(n||'').replace(/\s*\([^)]*\)\s*$/,'').trim();}
 let myEvents=JSON.parse(localStorage.getItem('rl_myEvents')||'[]');
 let activeEvtTab='all';
+let myTeam=JSON.parse(localStorage.getItem('rl_team')||'null');
+let teamAnnouncements=JSON.parse(localStorage.getItem('rl_team_announcements')||'[]');
+let teamDecklists=JSON.parse(localStorage.getItem('rl_team_decklists')||'[]');
+let activeTeamTab='announcements';
 function persistMyEvents(){localStorage.setItem('rl_myEvents',JSON.stringify(myEvents));saveEventsToCloud();}
 function switchEvtTab(t){activeEvtTab=t;renderEvents();}
 function createMyEvent(){
@@ -430,6 +434,7 @@ function goto(p,el){
   if(p==='statistics')renderStatistics();
   if(p==='events')renderEvents();
   if(p==='collection')renderCollection();
+  if(p==='team')renderTeam();
   if(p==='play'&&typeof populateDeckSelectors==='function')populateDeckSelectors();
   if(p==='articles')renderArticles();
 }
@@ -1271,7 +1276,7 @@ function renderEditSearch(){
     const label=(lv===0&&hv===max)?'Any':lv===hv?String(lv):`${lv} – ${hv}`;
     const fl=lv/max*100,fw=(hv-lv)/max*100;
     return `<div class="rg"><div class="rh"><span class="rl">${n.toUpperCase()}</span><span class="rv" id="erv-${n}">${label}</span></div>`
-      +`<div class="rt"><div class="rf" id="erf-${n}" style="left:${fl}%;width:${fw}%"></div>`
+      +`<div class="rt" onmousedown="pickEditThumb(event,'${n}')" ontouchstart="pickEditThumb(event,'${n}')"><div class="rf" id="erf-${n}" style="left:${fl}%;width:${fw}%"></div>`
       +`<input type="range" class="rng" id="erlo-${n}" min="0" max="${max}" value="${lv}" oninput="updateEditRange('${n}')">`
       +`<input type="range" class="rng" id="erhi-${n}" min="0" max="${max}" value="${hv}" oninput="updateEditRange('${n}')">`
       +`</div><div class="rticks">${ticks.map(t=>`<span>${t}</span>`).join('')}</div></div>`;
@@ -1346,17 +1351,20 @@ function buildPageNums(cur,total){
   return [1,'…',cur-1,cur,cur+1,'…',total];
 }
 function updateEditRange(n){
-  const lo=parseInt(document.getElementById('erlo-'+n).value);
-  const hi=parseInt(document.getElementById('erhi-'+n).value);
-  const max=parseInt(document.getElementById('erhi-'+n).max);
-  const lf=Math.min(lo,hi),hf=Math.max(lo,hi);
-  if(n==='energy')EF.energy=[lf,hf];
-  else if(n==='power')EF.power=[lf,hf];
-  else if(n==='might')EF.might=[lf,hf];
+  const loEl=document.getElementById('erlo-'+n);
+  const hiEl=document.getElementById('erhi-'+n);
+  const max=parseInt(hiEl.max);
+  let lo=parseInt(loEl.value);
+  let hi=parseInt(hiEl.value);
+  if(lo>hi){loEl.value=hi;lo=hi;}
+  if(hi<lo){hiEl.value=lo;hi=lo;}
+  if(n==='energy')EF.energy=[lo,hi];
+  else if(n==='power')EF.power=[lo,hi];
+  else if(n==='might')EF.might=[lo,hi];
   const lbl=document.getElementById('erv-'+n);
-  if(lbl)lbl.textContent=(lf===0&&hf===max)?'Any':lf===hf?String(lf):`${lf} – ${hf}`;
+  if(lbl)lbl.textContent=(lo===0&&hi===max)?'Any':lo===hi?String(lo):`${lo} – ${hi}`;
   const f=document.getElementById('erf-'+n);
-  if(f){f.style.left=(lf/max*100)+'%';f.style.width=((hf-lf)/max*100)+'%';}
+  if(f){f.style.left=(lo/max*100)+'%';f.style.width=((hi-lo)/max*100)+'%';}
   EF.page=1;renderEditSearch();
 }
 function setEditType(t){EF.type=t;EF.page=1;renderEditSearch();}
@@ -2262,7 +2270,23 @@ function toggleDom(btn){
   const d=btn.dataset.dom;CF.doms.has(d)?CF.doms.delete(d):CF.doms.add(d);
   btn.classList.toggle('on',CF.doms.has(d));renderCards();
 }
-// Called on mousedown/touchstart on the .rt container — picks the correct thumb before browser drag starts
+// Edit-tab slider version (uses erlo-/erhi- IDs)
+function pickEditThumb(e,n){
+  const loEl=document.getElementById('erlo-'+n);
+  const hiEl=document.getElementById('erhi-'+n);
+  const max=parseInt(hiEl.max);
+  const lo=parseInt(loEl.value);
+  const hi=parseInt(hiEl.value);
+  const rect=e.currentTarget.getBoundingClientRect();
+  const clientX=e.touches?e.touches[0].clientX:e.clientX;
+  const pct=Math.max(0,Math.min(1,(clientX-rect.left)/rect.width));
+  if(Math.abs(pct-lo/max)<=Math.abs(pct-hi/max)){
+    loEl.style.zIndex=3;hiEl.style.zIndex=1;
+  }else{
+    loEl.style.zIndex=1;hiEl.style.zIndex=3;
+  }
+}
+// Cards-tab slider version (uses rlo-/rhi- IDs)
 function pickThumb(e,n){
   const loEl=document.getElementById('rlo-'+n);
   const hiEl=document.getElementById('rhi-'+n);
@@ -2838,6 +2862,144 @@ const SCHEDULE_2026=[
     {dates:'Dec 4–6',name:'PAX Unplugged',desc:'Riftbound events and panel presence',type:'special'},
   ]},
 ];
+/* ── TEAM ───────────────────────────────────────── */
+function persistTeam(){localStorage.setItem('rl_team',JSON.stringify(myTeam));}
+function switchTeamTab(t){activeTeamTab=t;renderTeam();}
+function createTeam(){
+  const name=(document.getElementById('tm-name')||{}).value||'';
+  const img=(document.getElementById('tm-img')||{}).value||'';
+  if(!name.trim()){toast('Team name required');return;}
+  myTeam={name:name.trim(),img:img.trim(),members:[],created:Date.now()};
+  persistTeam();renderTeam();
+}
+function addTeamMember(){
+  if(!myTeam)return;
+  const inp=document.getElementById('tm-add-member');
+  const name=(inp||{}).value||'';
+  if(!name.trim()){toast('Enter a name');return;}
+  if(myTeam.members.includes(name.trim())){toast('Already a member');return;}
+  myTeam.members.push(name.trim());
+  if(inp)inp.value='';
+  persistTeam();renderTeam();
+}
+function removeTeamMember(name){
+  if(!myTeam)return;
+  myTeam.members=myTeam.members.filter(m=>m!==name);
+  persistTeam();renderTeam();
+}
+function postAnnouncement(){
+  const ta=document.getElementById('tm-post-text');
+  const text=(ta||{}).value||'';
+  if(!text.trim()){toast('Write something first');return;}
+  teamAnnouncements.unshift({id:Date.now(),text:text.trim(),ts:new Date().toISOString()});
+  localStorage.setItem('rl_team_announcements',JSON.stringify(teamAnnouncements));
+  if(ta)ta.value='';
+  renderTeam();
+}
+function deleteAnnouncement(id){
+  teamAnnouncements=teamAnnouncements.filter(a=>a.id!==id);
+  localStorage.setItem('rl_team_announcements',JSON.stringify(teamAnnouncements));
+  renderTeam();
+}
+function shareTeamDecklist(){
+  const sel=document.getElementById('tm-share-deck');
+  if(!sel)return;
+  const deckId=parseInt(sel.value);
+  const d=myDecks.find(x=>x.id===deckId);if(!d)return;
+  if(teamDecklists.find(x=>x.deckId===deckId)){toast('Already shared');return;}
+  teamDecklists.unshift({id:Date.now(),deckId,name:d.name,legend:d.legend,ts:new Date().toISOString()});
+  localStorage.setItem('rl_team_decklists',JSON.stringify(teamDecklists));
+  renderTeam();toast('Deck shared with team');
+}
+function unshareTeamDecklist(id){
+  teamDecklists=teamDecklists.filter(x=>x.id!==id);
+  localStorage.setItem('rl_team_decklists',JSON.stringify(teamDecklists));
+  renderTeam();
+}
+function renderTeam(){
+  const el=document.getElementById('page-team');
+  if(!el)return;
+  if(!myTeam){
+    el.innerHTML=`<div class="ph"><h1>Team</h1><p>Create a team to collaborate with friends</p></div>
+    <div style="max-width:480px;margin:2rem auto;">
+      <div class="dc" style="padding:2rem;display:flex;flex-direction:column;gap:12px;">
+        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">Create a Team</div>
+        <input id="tm-name" type="text" placeholder="Team name" style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;">
+        <input id="tm-img" type="text" placeholder="Profile image URL (optional)" style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;">
+        <button class="btn btn-p" onclick="createTeam()" style="padding:10px;font-size:14px;">Create Team</button>
+      </div>
+    </div>`;
+    return;
+  }
+  let html=`<div class="team-header">
+    ${myTeam.img?`<img src="${myTeam.img}" class="team-avatar" alt="team" onerror="this.style.display='none'">`:''}
+    <div class="${myTeam.img?'':'team-avatar-placeholder'}"></div>
+    <div>
+      <div class="team-name">${myTeam.name}</div>
+      <div style="font-size:12px;color:var(--text-muted);">${1+myTeam.members.length} member${myTeam.members.length?'s':''}</div>
+    </div>
+    <button class="btn btn-g" style="margin-left:auto;font-size:12px;padding:6px 14px;" onclick="if(confirm('Disband this team?')){myTeam=null;localStorage.removeItem('rl_team');renderTeam();}">Disband</button>
+  </div>
+  <div class="team-members-row">
+    <span class="team-member-chip team-member-you">👑 You</span>
+    ${myTeam.members.map(m=>`<span class="team-member-chip">${m} <button class="team-chip-remove" onclick="removeTeamMember('${m.replace(/'/g,"\\'")}')" title="Remove">×</button></span>`).join('')}
+    <div class="team-add-row">
+      <input id="tm-add-member" type="text" placeholder="Add friend by name…" onkeydown="if(event.key==='Enter')addTeamMember()">
+      <button class="btn btn-g" onclick="addTeamMember()" style="font-size:12px;padding:5px 12px;">Add</button>
+    </div>
+  </div>
+  <div class="team-tabs">
+    <button class="team-tab-btn${activeTeamTab==='announcements'?' on':''}" onclick="switchTeamTab('announcements')">📢 Announcements</button>
+    <button class="team-tab-btn${activeTeamTab==='decklists'?' on':''}" onclick="switchTeamTab('decklists')">📋 Decklists</button>
+  </div>`;
+  if(activeTeamTab==='announcements'){
+    html+=`<div class="team-section">
+      <div class="team-compose">
+        <textarea id="tm-post-text" placeholder="Write an announcement for your team…"></textarea>
+        <button class="btn btn-p" onclick="postAnnouncement()">Post</button>
+      </div>`;
+    if(!teamAnnouncements.length){
+      html+=`<div class="team-empty">No announcements yet. Post one above!</div>`;
+    }else{
+      teamAnnouncements.forEach(a=>{
+        const dt=new Date(a.ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        html+=`<div class="team-post">
+          <div class="team-post-text">${a.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>
+          <div class="team-post-meta">${dt}<button class="team-post-del" onclick="deleteAnnouncement(${a.id})" title="Delete">×</button></div>
+        </div>`;
+      });
+    }
+    html+=`</div>`;
+  }else{
+    html+=`<div class="team-section">`;
+    if(myDecks.length){
+      html+=`<div class="team-share-row">
+        <select id="tm-share-deck">${myDecks.map(d=>`<option value="${d.id}">${d.name} (${d.legend})</option>`).join('')}</select>
+        <button class="btn btn-p" onclick="shareTeamDecklist()">Share Deck</button>
+      </div>`;
+    }
+    if(!teamDecklists.length){
+      html+=`<div class="team-empty">No decklists shared yet.</div>`;
+    }else{
+      teamDecklists.forEach(td=>{
+        const dt=new Date(td.ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+        const exists=myDecks.find(d=>d.id===td.deckId);
+        html+=`<div class="team-post team-deck-row">
+          <div class="team-deck-icon">📋</div>
+          <div style="flex:1;">
+            <div style="font-weight:600;font-size:13px;">${td.name}</div>
+            <div style="font-size:11px;color:var(--text-muted);">${td.legend} · Shared ${dt}</div>
+          </div>
+          ${exists?`<button class="btn btn-g" style="font-size:12px;padding:5px 12px;" onclick="goto('decks',document.querySelectorAll('.nl')[1]);setTimeout(()=>openDD(${td.deckId}),80)">View</button>`:'<span style="font-size:11px;color:var(--text-muted);">Deck deleted</span>'}
+          <button class="team-post-del" onclick="unshareTeamDecklist(${td.id})" title="Remove">×</button>
+        </div>`;
+      });
+    }
+    html+=`</div>`;
+  }
+  el.innerHTML=html;
+}
+
 function renderEvents(){
   const el=document.getElementById('events-content');
   const today=new Date();
@@ -3148,14 +3310,14 @@ function renderCollection(){
       const cls=isComplete?'complete':owned>0?'owned':wanted?'wanted':'';
       const si=c.id.replace(/'/g,"\\'");
       const ownedLabel=owned>=15?'15+':String(owned);
-      html+=`<div class="coll-card ${cls}" title="${c.name}" onclick="setCollOwned('${si}',1)">
+      html+=`<div class="coll-card ${cls}" title="${c.name}">
         ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
-        <div class="coll-card-overlay"></div>
-        ${owned>0?`<div class="coll-card-badge coll-badge-owned">×${ownedLabel}</div>`:wanted?'<div class="coll-card-badge coll-badge-wanted">♥</div>':''}
-        <button class="coll-wanted-btn${wanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${wanted?'Remove from wishlist':'Add to wishlist'}">♥</button>
+        <div class="coll-half coll-half-left" onclick="setCollOwned('${si}',-1)"></div>
+        <div class="coll-half coll-half-right" onclick="setCollOwned('${si}',1)"></div>
+        ${owned>0?`<div class="coll-card-badge coll-badge-owned">×${ownedLabel}</div>`:''}
         <div class="coll-card-actions">
           <button class="coll-copy-btn coll-copy-minus" onclick="event.stopPropagation();setCollOwned('${si}',-1)" title="Remove copy">−</button>
-          <span class="coll-copy-count">${ownedLabel}/15</span>
+          <button class="coll-copy-btn coll-wishlist-btn${wanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${wanted?'Remove from wishlist':'Add to wishlist'}">♥</button>
           <button class="coll-copy-btn coll-copy-plus" onclick="event.stopPropagation();setCollOwned('${si}',1)" title="Add copy">+</button>
         </div>
         <div class="coll-card-name">${c.name}</div>
