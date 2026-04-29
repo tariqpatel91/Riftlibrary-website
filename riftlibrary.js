@@ -58,7 +58,7 @@ let deckSortMode='alpha'; // 'alpha' or 'energy'
 let authToken=null;
 const AF={doms:new Set()};
 const CF={type:'',set:'',rar:'',legend:'',subtype:'',variant:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false};
-const EF={type:'',dom:'',page:1,showAllVersions:false};
+const EF={type:'',dom:'',set:'',subtype:'',variant:'',rar:'',page:1,showAllVersions:false};
 function getEditPer(){return 18;}
 const EDIT_PER=24;
 
@@ -781,7 +781,7 @@ function buildCardsListView(d){
 }
 
 function switchDDTab(tab){
-  if(tab!=='edit'){EF.type='';EF.dom='';EF.page=1;EF.showAllVersions=false;const hzb=document.getElementById('hero-zone-bar');if(hzb)hzb.innerHTML='';}
+  if(tab!=='edit'){EF.type='';EF.dom='';EF.set='';EF.subtype='';EF.variant='';EF.rar='';EF.page=1;EF.showAllVersions=false;const hzb=document.getElementById('hero-zone-bar');if(hzb)hzb.innerHTML='';}
   activeDDTab=tab;
   renderDeckDetail();
   if(tab==='edit'){setTimeout(()=>{renderEditSearch();renderEditPreview();},10);}
@@ -1181,6 +1181,21 @@ function renderEditSearch(){
   if(EF.type==='Champion') source=source.filter(c=>(c.supertype||'').toLowerCase().includes('champion')&&c.type!=='Legend');
   else if(EF.type) source=source.filter(c=>c.type===EF.type||c.supertype===EF.type);
   if(EF.dom) source=source.filter(c=>c.doms.includes(EF.dom));
+  if(EF.set) source=source.filter(c=>c.set===EF.set);
+  if(EF.rar) source=source.filter(c=>c.rarity===EF.rar);
+  if(EF.subtype){
+    if(EF.subtype==='Action') source=source.filter(c=>c.txt.toLowerCase().includes('[action]'));
+    else if(EF.subtype==='Reaction') source=source.filter(c=>c.txt.toLowerCase().includes('[reaction]'));
+    else if(EF.subtype==='Champion') source=source.filter(c=>c.supertype==='Champion');
+    else if(EF.subtype==='Signature Card') source=source.filter(c=>c.isSignature);
+    else if(EF.subtype==='Token') source=source.filter(c=>c.type==='Token'||c.supertype==='Token');
+  }
+  if(EF.variant){
+    if(EF.variant==='Alt Art') source=source.filter(c=>c.isAltArt);
+    else if(EF.variant==='Overnumbered') source=source.filter(c=>c.isOvernumbered);
+    else if(EF.variant==='Promo') source=source.filter(c=>c.rarity==='Promo');
+    else if(EF.variant==='Standard') source=source.filter(c=>!c.isAltArt&&!c.isOvernumbered&&c.rarity!=='Promo');
+  }
   if(!EF.showAllVersions){
     const RR={Legendary:5,Epic:4,Rare:3,Uncommon:2,Common:1,Showcase:0,Promo:0};
     const seen=new Map();
@@ -1217,6 +1232,23 @@ function renderEditSearch(){
     const cap=dom[0].toUpperCase()+dom.slice(1);
     html+=`<button class="edit-dom-pill ${dom}${EF.dom===dom?' on':''}" onclick="setEditDom('${dom}')">${cap}</button>`;
   });
+  html+='</div>';
+
+  const ESETS=['','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
+  const ERARS=['','Legendary','Epic','Rare','Uncommon','Common','Promo'];
+  const ESUBTYPES=['','Action','Reaction','Champion','Token','Signature Card'];
+  const EVARIANTS=['','Standard','Alt Art','Overnumbered','Promo'];
+
+  function efDrop(field,val,label,opts,labelMap){
+    let h=`<div class="ef-drop-wrap"><button class="ef-drop-btn" onclick="toggleEFDrop('efd-${field}',this)"><span class="ef-dv-lbl">${label}</span><span class="ef-dv-val">${val||'All'}</span><span class="caret">⌄</span></button><div class="ef-dropdown" id="efd-${field}">`;
+    opts.forEach(o=>{const l=labelMap?labelMap[o]:(o||'All');h+=`<div class="ef-dopt${(val===o)?' active':''}" onclick="setEF('${field}','${o}',this)">${l}</div>`;});
+    h+='</div></div>';return h;
+  }
+  html+='<div class="ef-drop-row">';
+  html+=efDrop('set',EF.set,'Set',ESETS);
+  html+=efDrop('subtype',EF.subtype,'Subtype',ESUBTYPES);
+  html+=efDrop('variant',EF.variant,'Art Variants',EVARIANTS);
+  html+=efDrop('rar',EF.rar,'Rarity',ERARS);
   html+='</div>';
 
   const qEsc=savedVal.replace(/"/g,'&quot;');
@@ -1294,6 +1326,17 @@ function setEditType(t){EF.type=t;EF.page=1;renderEditSearch();}
 function setEditDom(d){EF.dom=EF.dom===d?'':d;EF.page=1;renderEditSearch();}
 function setEditPage(p){EF.page=p;renderEditSearch();}
 function setEditShowAll(v){EF.showAllVersions=v;EF.page=1;renderEditSearch();}
+function setEF(field,val,el){
+  EF[field]=val;EF.page=1;
+  const wrap=el.closest('.ef-drop-wrap');
+  if(wrap){wrap.querySelectorAll('.ef-dopt').forEach(o=>o.classList.remove('active'));el.classList.add('active');}
+  renderEditSearch();
+}
+function toggleEFDrop(id,btn){
+  document.querySelectorAll('.ef-dropdown').forEach(d=>{if(d.id!==id){d.classList.remove('open');const b=d.previousElementSibling;if(b)b.classList.remove('open');}});
+  const dd=document.getElementById(id);if(!dd)return;
+  dd.classList.toggle('open');btn.classList.toggle('open');
+}
 
 /* ── DRAG AND DROP ───────────────────────────────── */
 function editLibDragStart(id,name,type){_DRAG={src:'library',id,n:name,t:type};}
