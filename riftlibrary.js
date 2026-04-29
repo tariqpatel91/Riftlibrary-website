@@ -58,7 +58,7 @@ let deckSortMode='alpha'; // 'alpha' or 'energy'
 let authToken=null;
 const AF={doms:new Set()};
 const CF={type:'',set:'',rar:'',legend:'',subtype:'',variant:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false};
-const EF={type:'',dom:'',set:'',subtype:'',variant:'',rar:'',page:1,showAllVersions:false};
+const EF={type:'',dom:'',set:'',subtype:'',variant:'',rar:'',energy:[0,12],power:[0,4],might:[0,10],page:1,showAllVersions:false};
 function getEditPer(){return 18;}
 const EDIT_PER=24;
 
@@ -456,7 +456,7 @@ function renderDecks(){
     const dcAvatar=dcImg
       ?`<div class="dc-avatar"><img src="${dcImg}" alt="${d.legend}"></div>`
       :`<div class="dc-avatar dc-avatar-empty"></div>`;
-    return `<div class="dc">
+    return `<div class="dc" onclick="openDD('${d.id}')">
       <div class="dt">
         <div style="display:flex;align-items:center;gap:10px;">
           ${dcAvatar}
@@ -474,8 +474,8 @@ function renderDecks(){
         <span class="${wrc(w)}"><strong>${w}%</strong> WR</span>
       </div>
       <div class="da">
-        <button class="btn btn-sm btn-g" onclick="openDD('${d.id}')">View</button>
-        <button class="btn btn-sm btn-d" onclick="delDeck('${d.id}')">Delete</button>
+        <button class="btn btn-sm btn-g" onclick="event.stopPropagation();openDD('${d.id}')">View</button>
+        <button class="btn btn-sm btn-d" onclick="event.stopPropagation();delDeck('${d.id}')">Delete</button>
       </div>
     </div>`;
   }).join('');
@@ -781,7 +781,7 @@ function buildCardsListView(d){
 }
 
 function switchDDTab(tab){
-  if(tab!=='edit'){EF.type='';EF.dom='';EF.set='';EF.subtype='';EF.variant='';EF.rar='';EF.page=1;EF.showAllVersions=false;const hzb=document.getElementById('hero-zone-bar');if(hzb)hzb.innerHTML='';}
+  if(tab!=='edit'){EF.type='';EF.dom='';EF.set='';EF.subtype='';EF.variant='';EF.rar='';EF.energy=[0,12];EF.power=[0,4];EF.might=[0,10];EF.page=1;EF.showAllVersions=false;const hzb=document.getElementById('hero-zone-bar');if(hzb)hzb.innerHTML='';}
   activeDDTab=tab;
   renderDeckDetail();
   if(tab==='edit'){setTimeout(()=>{renderEditSearch();renderEditPreview();},10);}
@@ -1197,6 +1197,12 @@ function renderEditSearch(){
     else if(EF.variant==='Artist Signed') source=source.filter(c=>c.isSignature);
     else if(EF.variant==='Standard') source=source.filter(c=>!c.isAltArt&&!c.isOvernumbered&&c.rarity!=='Promo'&&!c.isSignature);
   }
+  source=source.filter(c=>{
+    if(c.cost!==null&&(c.cost<EF.energy[0]||c.cost>EF.energy[1]))return false;
+    if(c.power!==null&&(c.power<EF.power[0]||c.power>EF.power[1]))return false;
+    if(c.might!==null&&(c.might<EF.might[0]||c.might>EF.might[1]))return false;
+    return true;
+  });
   if(!EF.showAllVersions){
     const RR={Legendary:5,Epic:4,Rare:3,Uncommon:2,Common:1,Showcase:0,Promo:0};
     const seen=new Map();
@@ -1260,6 +1266,22 @@ function renderEditSearch(){
     +'</div>'
     +`<label class="edit-all-versions-label"><input type="checkbox"${EF.showAllVersions?' checked':''} onchange="setEditShowAll(this.checked)"> Show all versions</label>`;
 
+  function efSlider(n,lo,hi,max,ticks){
+    const lv=EF[n][0],hv=EF[n][1];
+    const label=(lv===0&&hv===max)?'Any':lv===hv?String(lv):`${lv} – ${hv}`;
+    const fl=lv/max*100,fw=(hv-lv)/max*100;
+    return `<div class="rg"><div class="rh"><span class="rl">${n.toUpperCase()}</span><span class="rv" id="erv-${n}">${label}</span></div>`
+      +`<div class="rt"><div class="rf" id="erf-${n}" style="left:${fl}%;width:${fw}%"></div>`
+      +`<input type="range" class="rng" id="erlo-${n}" min="0" max="${max}" value="${lv}" oninput="updateEditRange('${n}')">`
+      +`<input type="range" class="rng" id="erhi-${n}" min="0" max="${max}" value="${hv}" oninput="updateEditRange('${n}')">`
+      +`</div><div class="rticks">${ticks.map(t=>`<span>${t}</span>`).join('')}</div></div>`;
+  }
+  html+='<div class="edit-ranges">'
+    +efSlider('energy',0,12,12,[0,2,4,6,8,10,12])
+    +efSlider('power',0,4,4,[0,1,2,3,4])
+    +efSlider('might',0,10,10,[0,2,4,6,8,10])
+    +'</div>';
+
   html+='<div class="edit-card-grid">';
   if(!slice.length){
     html+='<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--text-muted);font-size:13px;">No cards found</div>';
@@ -1322,6 +1344,20 @@ function buildPageNums(cur,total){
   if(cur<=4) return [1,2,3,4,5,'…',total];
   if(cur>=total-3) return [1,'…',total-4,total-3,total-2,total-1,total];
   return [1,'…',cur-1,cur,cur+1,'…',total];
+}
+function updateEditRange(n){
+  const lo=parseInt(document.getElementById('erlo-'+n).value);
+  const hi=parseInt(document.getElementById('erhi-'+n).value);
+  const max=parseInt(document.getElementById('erhi-'+n).max);
+  const lf=Math.min(lo,hi),hf=Math.max(lo,hi);
+  if(n==='energy')EF.energy=[lf,hf];
+  else if(n==='power')EF.power=[lf,hf];
+  else if(n==='might')EF.might=[lf,hf];
+  const lbl=document.getElementById('erv-'+n);
+  if(lbl)lbl.textContent=(lf===0&&hf===max)?'Any':lf===hf?String(lf):`${lf} – ${hf}`;
+  const f=document.getElementById('erf-'+n);
+  if(f){f.style.left=(lf/max*100)+'%';f.style.width=((hf-lf)/max*100)+'%';}
+  EF.page=1;renderEditSearch();
 }
 function setEditType(t){EF.type=t;EF.page=1;renderEditSearch();}
 function setEditDom(d){EF.dom=EF.dom===d?'':d;EF.page=1;renderEditSearch();}

@@ -117,7 +117,7 @@ select option{background:#1e1e2a;}
 .rb-rune-rainbow{display:inline-block;width:16px;height:16px;border-radius:50%;background:conic-gradient(var(--fury),var(--bodyc),var(--calm),var(--mind),var(--chaos),var(--order),var(--fury));vertical-align:middle;margin:0 2px;flex-shrink:0;}
 .rb-stat-icon{width:14px;height:14px;vertical-align:middle;margin:0 1px;color:var(--text-soft);display:inline-block;}
 .dg{display:grid;grid-template-columns:repeat(auto-fill,minmax(265px,1fr));gap:12px;}
-.dc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.25rem;transition:all 0.2s;position:relative;overflow:hidden;}
+.dc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.25rem;transition:all 0.2s;position:relative;overflow:hidden;cursor:pointer;}
 .dc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:0;transition:opacity 0.2s;}
 .dc:hover{border-color:var(--border-hover);transform:translateY(-2px);background:var(--surface2);}
 .dc:hover::before{opacity:1;}
@@ -321,6 +321,7 @@ select option{background:#1e1e2a;}
 .show-all-versions-label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;white-space:nowrap;user-select:none;}
 .show-all-versions-label input{accent-color:var(--accent);width:14px;height:14px;cursor:pointer;}
 .edit-all-versions-label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;user-select:none;padding:2px 0 4px;}
+.edit-ranges{display:flex;gap:1rem;flex-wrap:wrap;padding:4px 0 2px;}
 .edit-all-versions-label input{accent-color:var(--accent);width:13px;height:13px;cursor:pointer;}
 .spinner{display:flex;align-items:center;justify-content:center;padding:4rem;gap:12px;color:var(--text-muted);font-size:14px;}
 .spin{width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp 0.7s linear infinite;flex-shrink:0;}
