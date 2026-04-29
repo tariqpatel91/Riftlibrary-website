@@ -2327,6 +2327,7 @@ function renderCards(){
   g.innerHTML=display.map(c=>{
     const domPills=c.doms.map(d=>`<span class="pill ${d}">${d[0].toUpperCase()+d.slice(1)}</span>`).join('');
     const safeId=c.id.replace(/'/g,"\\'");
+    const owned=collOwned[c.id]||0;
     return`<div class="ct ct-img" onclick="openCardModal('${safeId}')">
       ${c.imageUrl
         ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
@@ -2335,10 +2336,24 @@ function renderCards(){
       ${c.cost!==null?`<div class="cost">${c.cost}</div>`:''}
       <div class="ct-name">${c.name}</div>
       <div class="ct-sub">${domPills}<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>
+      <div class="ct-coll">${buildCollRow(c.id,owned)}</div>
     </div>`;
   }).join('');
 }
 
+function buildCollRow(cardId,owned){
+  const s=cardId.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  return `<button class="ct-coll-add" onclick="event.stopPropagation();gridCollChange('${s}',1,this)">＋${owned>0?` ×${owned}`:''}</button>`
+    +(owned>0?`<button class="ct-coll-rem" onclick="event.stopPropagation();gridCollChange('${s}',-1,this)">−</button>`:'');
+}
+function gridCollChange(cardId,delta,btn){
+  const cur=collOwned[cardId]||0;
+  const next=Math.max(0,Math.min(3,cur+delta));
+  if(next===0) delete collOwned[cardId]; else collOwned[cardId]=next;
+  persistColl();saveCardToCloud(cardId);
+  const row=btn.closest('.ct-coll');
+  if(row) row.innerHTML=buildCollRow(cardId,next);
+}
 /* ── CARD TEXT RENDERER ──────────────────────────── */
 const RB_RUNE_URLS={
   fury: 'https://static0.fextralifeimages.com/file/riftbound/4/46/Fury.png',
