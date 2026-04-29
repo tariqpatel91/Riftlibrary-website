@@ -2171,16 +2171,23 @@ function toggleDom(btn){
   btn.classList.toggle('on',CF.doms.has(d));renderCards();
 }
 function updateRange(n){
-  const lo=parseInt(document.getElementById('rlo-'+n).value);
-  const hi=parseInt(document.getElementById('rhi-'+n).value);
-  const max=parseInt(document.getElementById('rhi-'+n).max);
-  const lf=Math.min(lo,hi),hf=Math.max(lo,hi);
-  if(n==='energy')CF.energy=[lf,hf];
-  if(n==='power') CF.power=[lf,hf];
-  if(n==='might') CF.might=[lf,hf];
-  document.getElementById('rv-'+n).textContent=(lf===0&&hf===max)?'Any':lf===hf?String(lf):`${lf} – ${hf}`;
+  const loEl=document.getElementById('rlo-'+n);
+  const hiEl=document.getElementById('rhi-'+n);
+  const max=parseInt(hiEl.max);
+  let lo=parseInt(loEl.value);
+  let hi=parseInt(hiEl.value);
+  // Clamp: lo can't exceed hi, hi can't go below lo
+  if(lo>hi){loEl.value=hi;lo=hi;}
+  if(hi<lo){hiEl.value=lo;hi=lo;}
+  // Z-index: give lo higher z-index when at max so it stays draggable
+  loEl.style.zIndex=lo>=hi?3:1;
+  hiEl.style.zIndex=lo>=hi?1:3;
+  if(n==='energy')CF.energy=[lo,hi];
+  if(n==='power') CF.power=[lo,hi];
+  if(n==='might') CF.might=[lo,hi];
+  document.getElementById('rv-'+n).textContent=(lo===0&&hi===max)?'Any':lo===hi?String(lo):`${lo} – ${hi}`;
   const f=document.getElementById('rf-'+n);
-  f.style.left=(lf/max*100)+'%';f.style.width=((hf-lf)/max*100)+'%';
+  f.style.left=(lo/max*100)+'%';f.style.width=((hi-lo)/max*100)+'%';
   renderCards();
 }
 function resetAll(){
@@ -2781,7 +2788,7 @@ function renderCollection(){
   const SET_ORDER=['UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
   const orderedSets=[...SET_ORDER.filter(s=>setMap[s]),...Object.keys(setMap).filter(s=>!SET_ORDER.includes(s))];
 
-  let html=`<div class="ph"><h1>My Collection</h1><p>Track your Riftbound card collection</p></div>`;
+  let html=`<div class="ph"><h1 style="text-decoration:line-through;">My Collection</h1><p>Track your Riftbound card collection</p></div>`;
 
   // overall mini stat bar
   const overallPct=totalUnique?Math.round(totalOwned/totalUnique*100):0;
@@ -2834,13 +2841,12 @@ function renderCollection(){
     ${CF2.set?`<button class="coll-pill" onclick="setCollSet('')" style="font-size:11px;">✕ Show all sets</button>`:''}
   </div>`;
 
-  // filter source
-  let source=allUnique;
+  // filter source — use per-set cards (not allUnique) when a set is selected so promos appear
+  let source=CF2.set&&setMap[CF2.set]?[...setMap[CF2.set].cards.values()]:allUnique;
   if(CF2.q) source=source.filter(c=>c.name.toLowerCase().includes(CF2.q)||c.txt.toLowerCase().includes(CF2.q));
   if(CF2.type) source=source.filter(c=>c.type===CF2.type||(CF2.type==='Champion'&&(c.supertype||'').toLowerCase().includes('champion')));
   if(CF2.dom) source=source.filter(c=>c.doms.includes(CF2.dom));
   if(CF2.rar) source=source.filter(c=>c.rarity===CF2.rar);
-  if(CF2.set) source=source.filter(c=>c.set===CF2.set);
   if(CF2.show==='owned') source=source.filter(c=>collOwned[c.id]);
   if(CF2.show==='missing') source=source.filter(c=>!collOwned[c.id]);
   if(CF2.show==='complete') source=source.filter(c=>(collOwned[c.id]||0)>=3);
