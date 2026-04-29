@@ -2328,14 +2328,16 @@ function renderCards(){
     const domPills=c.doms.map(d=>`<span class="pill ${d}">${d[0].toUpperCase()+d.slice(1)}</span>`).join('');
     const safeId=c.id.replace(/'/g,"\\'");
     const owned=collOwned[c.id]||0;
-    return`<div class="ct ct-img" onclick="openCardModal('${safeId}')">
+    const isBF=c.type==='Battlefield';
+    const imgWrapClass=isBF?'ct-img-wrap bf-img-wrap':'ct-img-wrap';
+    return`<div class="ct ct-img${isBF?' ct-bf':''}" onclick="openCardModal('${safeId}')">
       ${c.imageUrl
-        ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
-        :`<div class="ct-img-wrap no-img"><div class="ct-img-placeholder" style="background:var(--surface3);display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`
+        ?`<div class="${imgWrapClass}"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
+        :`<div class="${imgWrapClass} no-img"><div class="ct-img-placeholder" style="background:var(--surface3);display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`
       }
       ${c.cost!==null?`<div class="cost">${c.cost}</div>`:''}
       <div class="ct-name">${c.name}</div>
-      <div class="ct-sub">${domPills}<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>
+      <div class="ct-sub">${domPills}${domPills?`<span style="color:var(--text-muted);margin:0 2px;">·</span>`:''}${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>
       <div class="ct-coll">${buildCollRow(c.id,owned)}</div>
     </div>`;
   }).join('');
