@@ -145,7 +145,7 @@
       <div class="ranges">
         <div class="rg">
           <div class="rh"><span class="rl">ENERGY</span><span class="rv" id="rv-energy">Any</span></div>
-          <div class="rt"><div class="rf" id="rf-energy"></div>
+          <div class="rt" onmousedown="pickThumb(event,'energy')" ontouchstart="pickThumb(event,'energy')"><div class="rf" id="rf-energy"></div>
             <input type="range" class="rng" id="rlo-energy" min="0" max="12" value="0" oninput="updateRange('energy')">
             <input type="range" class="rng" id="rhi-energy" min="0" max="12" value="12" oninput="updateRange('energy')">
           </div>
@@ -153,7 +153,7 @@
         </div>
         <div class="rg">
           <div class="rh"><span class="rl">POWER</span><span class="rv" id="rv-power">Any</span></div>
-          <div class="rt"><div class="rf" id="rf-power"></div>
+          <div class="rt" onmousedown="pickThumb(event,'power')" ontouchstart="pickThumb(event,'power')"><div class="rf" id="rf-power"></div>
             <input type="range" class="rng" id="rlo-power" min="0" max="4" value="0" oninput="updateRange('power')">
             <input type="range" class="rng" id="rhi-power" min="0" max="4" value="4" oninput="updateRange('power')">
           </div>
@@ -161,7 +161,7 @@
         </div>
         <div class="rg">
           <div class="rh"><span class="rl">MIGHT</span><span class="rv" id="rv-might">Any</span></div>
-          <div class="rt"><div class="rf" id="rf-might"></div>
+          <div class="rt" onmousedown="pickThumb(event,'might')" ontouchstart="pickThumb(event,'might')"><div class="rf" id="rf-might"></div>
             <input type="range" class="rng" id="rlo-might" min="0" max="10" value="0" oninput="updateRange('might')">
             <input type="range" class="rng" id="rhi-might" min="0" max="10" value="10" oninput="updateRange('might')">
           </div>

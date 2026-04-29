@@ -2262,24 +2262,30 @@ function toggleDom(btn){
   const d=btn.dataset.dom;CF.doms.has(d)?CF.doms.delete(d):CF.doms.add(d);
   btn.classList.toggle('on',CF.doms.has(d));renderCards();
 }
+// Called on mousedown/touchstart on the .rt container — picks the correct thumb before browser drag starts
+function pickThumb(e,n){
+  const loEl=document.getElementById('rlo-'+n);
+  const hiEl=document.getElementById('rhi-'+n);
+  const max=parseInt(hiEl.max);
+  const lo=parseInt(loEl.value);
+  const hi=parseInt(hiEl.value);
+  const rect=e.currentTarget.getBoundingClientRect();
+  const clientX=e.touches?e.touches[0].clientX:e.clientX;
+  const pct=Math.max(0,Math.min(1,(clientX-rect.left)/rect.width));
+  if(Math.abs(pct-lo/max)<=Math.abs(pct-hi/max)){
+    loEl.style.zIndex=3;hiEl.style.zIndex=1;
+  }else{
+    loEl.style.zIndex=1;hiEl.style.zIndex=3;
+  }
+}
 function updateRange(n){
   const loEl=document.getElementById('rlo-'+n);
   const hiEl=document.getElementById('rhi-'+n);
   const max=parseInt(hiEl.max);
   let lo=parseInt(loEl.value);
   let hi=parseInt(hiEl.value);
-  // Clamp
   if(lo>hi){loEl.value=hi;lo=hi;}
   if(hi<lo){hiEl.value=lo;hi=lo;}
-  // When thumbs overlap: lo on top only if at max (drag left); otherwise hi on top (drag right)
-  if(lo>=hi){
-    const atMax=lo>=max;
-    loEl.style.zIndex=atMax?3:1;
-    hiEl.style.zIndex=atMax?1:3;
-  }else{
-    loEl.style.zIndex=1;
-    hiEl.style.zIndex=3;
-  }
   if(n==='energy')CF.energy=[lo,hi];
   if(n==='power') CF.power=[lo,hi];
   if(n==='might') CF.might=[lo,hi];
@@ -3017,7 +3023,7 @@ function renderCollection(){
   const allUnique=[...globalSeen.values()].sort((a,b)=>a.name.localeCompare(b.name));
   const totalUnique=allUnique.length;
   const totalOwned=allUnique.filter(c=>collOwned[c.id]).length;
-  const totalComplete=allUnique.filter(c=>(collOwned[c.id]||0)>=15).length;
+  const totalPlaysets=Object.values(collOwned).reduce((sum,n)=>sum+Math.floor(n/3),0);
   const totalWanted=Object.keys(collWanted).length;
   const totalCopies=Object.values(collOwned).reduce((a,v)=>a+v,0);
 
@@ -3033,7 +3039,7 @@ function renderCollection(){
     <div style="display:flex;gap:20px;flex-wrap:wrap;flex:1;">
       <div><span style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--accent);">${overallPct}%</span><span style="font-size:12px;color:var(--text-muted);margin-left:6px;">overall</span></div>
       <div><span style="font-weight:700;">${totalOwned}</span><span style="font-size:12px;color:var(--text-muted);"> / ${totalUnique} unique owned</span></div>
-      <div><span style="font-weight:700;color:var(--calm);">${totalComplete}</span><span style="font-size:12px;color:var(--text-muted);"> playsets</span></div>
+      <div><span style="font-weight:700;color:var(--calm);">${totalPlaysets}</span><span style="font-size:12px;color:var(--text-muted);"> playsets</span></div>
       <div><span style="font-weight:700;">${totalCopies}</span><span style="font-size:12px;color:var(--text-muted);"> total copies</span></div>
       <div><span style="font-weight:700;color:var(--chaos);">${totalWanted}</span><span style="font-size:12px;color:var(--text-muted);"> wishlisted</span></div>
     </div>
@@ -3048,7 +3054,7 @@ function renderCollection(){
     const setCards=[...sd.cards.values()];
     const setTotal=setCards.length;
     const setOwned=setCards.filter(c=>collOwned[c.id]).length;
-    const setComplete=setCards.filter(c=>(collOwned[c.id]||0)>=15).length;
+    const setComplete=setCards.filter(c=>(collOwned[c.id]||0)>=3).length;
     const setPct=setTotal?Math.round(setOwned/setTotal*100):0;
     const isActive=CF2.set===sid;
     const releaseYear=setCards[0]?'':'' ;
@@ -3085,7 +3091,7 @@ function renderCollection(){
   if(CF2.rar) source=source.filter(c=>c.rarity===CF2.rar);
   if(CF2.show==='owned') source=source.filter(c=>collOwned[c.id]);
   if(CF2.show==='missing') source=source.filter(c=>!collOwned[c.id]);
-  if(CF2.show==='complete') source=source.filter(c=>(collOwned[c.id]||0)>=15);
+  if(CF2.show==='complete') source=source.filter(c=>(collOwned[c.id]||0)>=3);
   if(CF2.show==='wanted') source=source.filter(c=>collWanted[c.id]);
 
   const rarityGroups={Legendary:0,Epic:0,Rare:0,Uncommon:0,Common:0};
@@ -3138,14 +3144,14 @@ function renderCollection(){
     source.forEach(c=>{
       const owned=collOwned[c.id]||0;
       const wanted=!!collWanted[c.id];
-      const isComplete=owned>=15;
+      const isComplete=owned>=3;
       const cls=isComplete?'complete':owned>0?'owned':wanted?'wanted':'';
       const si=c.id.replace(/'/g,"\\'");
-      const ownedLabel=owned>15?'15+':String(owned);
-      html+=`<div class="coll-card ${cls}" title="${c.name}">
+      const ownedLabel=owned>=15?'15+':String(owned);
+      html+=`<div class="coll-card ${cls}" title="${c.name}" onclick="setCollOwned('${si}',1)">
         ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
         <div class="coll-card-overlay"></div>
-        ${isComplete?`<div class="coll-card-badge coll-badge-complete">✓ ×15</div>`:owned>0?`<div class="coll-card-badge coll-badge-owned">×${ownedLabel}</div>`:wanted?'<div class="coll-card-badge coll-badge-wanted">♥</div>':''}
+        ${owned>0?`<div class="coll-card-badge coll-badge-owned">×${ownedLabel}</div>`:wanted?'<div class="coll-card-badge coll-badge-wanted">♥</div>':''}
         <button class="coll-wanted-btn${wanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${wanted?'Remove from wishlist':'Add to wishlist'}">♥</button>
         <div class="coll-card-actions">
           <button class="coll-copy-btn coll-copy-minus" onclick="event.stopPropagation();setCollOwned('${si}',-1)" title="Remove copy">−</button>
@@ -3160,7 +3166,7 @@ function renderCollection(){
     html+=`<div class="coll-list-view">`;
     source.forEach(c=>{
       const owned=collOwned[c.id]||0;
-      const isComplete=owned>=15;
+      const isComplete=owned>=3;
       const cls=isComplete?'complete':owned>0?'owned':'';
       const si=c.id.replace(/'/g,"\\'");
       const rarCol=rarColors[c.rarity]||'var(--text-muted)';

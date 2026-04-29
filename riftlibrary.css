@@ -800,18 +800,17 @@ select option{background:#1e1e2a;}
 .coll-card-no-img{display:flex;align-items:center;justify-content:center;height:100%;padding:8px;text-align:center;font-size:10px;color:var(--text-muted);}
 .coll-card-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.0);transition:background 0.15s;}
 .coll-card:hover .coll-card-overlay{background:rgba(0,0,0,0.35);}
-.coll-card-actions{position:absolute;bottom:0;left:0;right:0;padding:6px;display:flex;align-items:center;justify-content:center;gap:4px;opacity:0;transition:opacity 0.15s;background:linear-gradient(transparent,rgba(0,0,0,0.85));}
-.coll-card:hover .coll-card-actions{opacity:1;}
-.coll-copy-btn{width:26px;height:26px;border-radius:50%;border:none;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform 0.1s,background 0.1s;}
-.coll-copy-btn:hover{transform:scale(1.15);}
-.coll-copy-minus{background:rgba(220,38,38,0.85);color:#fff;}
-.coll-copy-plus{background:rgba(200,168,75,0.9);color:#000;}
-.coll-copy-count{font-size:13px;font-weight:800;color:#fff;min-width:18px;text-align:center;text-shadow:0 1px 3px rgba(0,0,0,0.8);}
+.coll-card-actions{position:absolute;bottom:18px;left:0;right:0;padding:5px 6px;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(0,0,0,0.82);backdrop-filter:blur(2px);}
+.coll-copy-btn{width:28px;height:28px;border-radius:50%;border:none;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform 0.1s,background 0.1s;flex-shrink:0;}
+.coll-copy-btn:hover{transform:scale(1.2);}
+.coll-copy-minus{background:rgba(220,38,38,0.9);color:#fff;}
+.coll-copy-plus{background:rgba(200,168,75,0.95);color:#000;}
+.coll-copy-count{font-size:12px;font-weight:800;color:#fff;min-width:28px;text-align:center;text-shadow:0 1px 3px rgba(0,0,0,0.9);}
 .coll-card-badge{position:absolute;top:6px;right:6px;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;line-height:1.4;}
 .coll-badge-owned{background:var(--accent);color:#000;}
 .coll-badge-complete{background:var(--calm);color:#000;}
 .coll-badge-wanted{background:var(--chaos);color:#fff;}
-.coll-card-name{position:absolute;bottom:0;left:0;right:0;padding:28px 6px 6px;font-size:10px;font-weight:600;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.9);background:linear-gradient(transparent,rgba(0,0,0,0.75));pointer-events:none;}
+.coll-card-name{position:absolute;bottom:0;left:0;right:0;padding:3px 6px;font-size:10px;font-weight:600;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.9);background:rgba(0,0,0,0.7);pointer-events:none;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;height:18px;line-height:12px;}
 .coll-wanted-btn{position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,0.6);color:var(--chaos);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;opacity:0;}
 .coll-card:hover .coll-wanted-btn{opacity:1;}
 .coll-wanted-btn.active{opacity:1;background:var(--chaos);color:#fff;}
