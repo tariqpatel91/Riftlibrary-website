@@ -1187,7 +1187,7 @@ function renderEditSearch(){
     if(EF.subtype==='Action') source=source.filter(c=>c.txt.toLowerCase().includes('[action]'));
     else if(EF.subtype==='Reaction') source=source.filter(c=>c.txt.toLowerCase().includes('[reaction]'));
     else if(EF.subtype==='Champion') source=source.filter(c=>c.supertype==='Champion');
-    else if(EF.subtype==='Signature Card') source=source.filter(c=>c.isSignature);
+    else if(EF.subtype==='Signature Card') source=source.filter(c=>c.supertype==='Signature');
     else if(EF.subtype==='Token') source=source.filter(c=>c.type==='Token'||c.supertype==='Token');
   }
   if(EF.variant){
@@ -2287,7 +2287,7 @@ function renderCards(){
       if(CF.subtype==='Action'){if(!c.txt.toLowerCase().includes('[action]'))return false;}
       else if(CF.subtype==='Reaction'){if(!c.txt.toLowerCase().includes('[reaction]'))return false;}
       else if(CF.subtype==='Champion'){if(c.supertype!=='Champion')return false;}
-      else if(CF.subtype==='Signature Card'){if(!c.isSignature)return false;}
+      else if(CF.subtype==='Signature Card'){if(c.supertype!=='Signature')return false;}
       else if(CF.subtype==='Token'){if(c.type!=='Token'&&c.supertype!=='Token')return false;}
     }
     if(CF.variant){
