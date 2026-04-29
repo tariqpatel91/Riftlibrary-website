@@ -2255,7 +2255,7 @@ function resetFilters(){
     const el=document.getElementById('dv-'+k);if(el)el.textContent='All';
     const dd=document.getElementById('dd-'+k);if(dd)dd.querySelectorAll('.cs-dopt').forEach((o,i)=>o.classList.toggle('active',i===0));
   });
-  document.querySelectorAll('#cs-dom-pills .edit-dom-pill').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('#cs-dom-pills .dom-btn').forEach(b=>b.classList.remove('on'));
   renderCards();
 }
 function setCFType(t){
@@ -2380,6 +2380,8 @@ function openCardModal(cardId){
   ].filter(Boolean).join('');
   const deckDeck=myDecks.find(d=>d.id===activeDeckId);
   const inDeck=deckDeck?(deckDeck.cards||[]).find(x=>x.id===c.id):null;
+  const owned=collOwned[c.id]||0;
+  const sid=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 
   document.getElementById('card-modal-body').innerHTML=`
     <div class="cm-layout">
@@ -2387,6 +2389,10 @@ function openCardModal(cardId){
         ${c.imageUrl
           ?`<img src="${c.imageUrl}" alt="${c.name}" class="cm-img">`
           :`<div class="cm-img cm-img-empty"><span style="color:var(--text-muted);">No image</span></div>`}
+        <div class="cm-coll-row">
+          <button class="cm-coll-btn cm-coll-add" onclick="cmCollChange('${sid}',1)" title="Add to collection">＋ Add to Collection${owned>0?` (${owned})`:''}</button>
+          ${owned>0?`<button class="cm-coll-btn cm-coll-remove" onclick="cmCollChange('${sid}',-1)" title="Remove from collection">− Remove</button>`:''}
+        </div>
       </div>
       <div class="cm-info-col">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;">
@@ -2405,6 +2411,22 @@ function openCardModal(cardId){
       </div>
     </div>`;
   document.getElementById('card-modal').classList.add('open');
+}
+function cmCollChange(cardId,delta){
+  setCollOwned(cardId,delta);
+  const owned=collOwned[cardId]||0;
+  const addBtn=document.querySelector('.cm-coll-add');
+  const removeBtn=document.querySelector('.cm-coll-remove');
+  if(addBtn) addBtn.textContent=`＋ Add to Collection${owned>0?` (${owned})`:''}`;
+  if(owned>0){
+    if(!removeBtn){
+      const row=document.querySelector('.cm-coll-row');
+      if(row){const b=document.createElement('button');b.className='cm-coll-btn cm-coll-remove';b.title='Remove from collection';b.textContent='− Remove';b.onclick=()=>cmCollChange(cardId,-1);row.appendChild(b);}
+    }
+  } else {
+    if(removeBtn) removeBtn.remove();
+  }
+  toast(delta>0?'Added to collection':'Removed from collection');
 }
 function closeCardModal(){document.getElementById('card-modal').classList.remove('open');}
 
