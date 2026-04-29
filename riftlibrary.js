@@ -381,7 +381,10 @@ function mapCard(c){
     name:c.name,
     type:cls.type||'Unit',
     supertype:cls.supertype||'',
-    variant:(cls.finish||cls.variant||meta.variant||(c.name.match(/\(([^)]+)\)\s*$/)||[])[1]||'Standard'),
+    isSignature:meta.signature||false,
+    isAltArt:meta.alternate_art||false,
+    isOvernumbered:meta.overnumbered||false,
+    variant:(meta.alternate_art?'Alt Art':meta.overnumbered?'Overnumbered':(cls.rarity==='Promo'?'Promo':'Standard')),
     dom,doms,
     cost:attr.energy??null,
     might:attr.might??null,
@@ -2237,8 +2240,19 @@ function renderCards(){
     if(CF.legend&&!c.name.startsWith(CF.legend))return false;
     if(CF.rar&&c.rarity!==CF.rar)return false;
     if(CF.set&&c.set!==CF.set)return false;
-    if(CF.subtype&&!(c.supertype||'').toLowerCase().includes(CF.subtype.toLowerCase()))return false;
-    if(CF.variant){if(CF.variant==='Standard'?c.variant!=='Standard':c.variant!==CF.variant)return false;}
+    if(CF.subtype){
+      if(CF.subtype==='Action'){if(!c.txt.toLowerCase().includes('[action]'))return false;}
+      else if(CF.subtype==='Reaction'){if(!c.txt.toLowerCase().includes('[reaction]'))return false;}
+      else if(CF.subtype==='Champion'){if(c.supertype!=='Champion')return false;}
+      else if(CF.subtype==='Signature'){if(!c.isSignature)return false;}
+      else if(CF.subtype==='Token'){if(c.type!=='Token'&&c.supertype!=='Token')return false;}
+    }
+    if(CF.variant){
+      if(CF.variant==='Alt Art'){if(!c.isAltArt)return false;}
+      else if(CF.variant==='Overnumbered'){if(!c.isOvernumbered)return false;}
+      else if(CF.variant==='Promo'){if(c.rarity!=='Promo')return false;}
+      else if(CF.variant==='Standard'){if(c.isAltArt||c.isOvernumbered||c.rarity==='Promo')return false;}
+    }
     if(CF.doms.size>0&&!CF.doms.has(c.dom))return false;
     if(c.cost!==null&&(c.cost<CF.energy[0]||c.cost>CF.energy[1]))return false;
     if(c.power!==null&&(c.power<CF.power[0]||c.power>CF.power[1]))return false;
