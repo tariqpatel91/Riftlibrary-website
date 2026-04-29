@@ -1275,10 +1275,13 @@ function renderEditSearch(){
     const lv=EF[n][0],hv=EF[n][1];
     const label=(lv===0&&hv===max)?'Any':lv===hv?String(lv):`${lv} – ${hv}`;
     const fl=lv/max*100,fw=(hv-lv)/max*100;
+    // Bake correct z-index into HTML so re-renders preserve thumb order
+    const loZ=(lv>=hv&&lv>=max)?3:1;
+    const hiZ=(lv>=hv&&lv>=max)?1:3;
     return `<div class="rg"><div class="rh"><span class="rl">${n.toUpperCase()}</span><span class="rv" id="erv-${n}">${label}</span></div>`
       +`<div class="rt" onmousedown="pickEditThumb(event,'${n}')" ontouchstart="pickEditThumb(event,'${n}')"><div class="rf" id="erf-${n}" style="left:${fl}%;width:${fw}%"></div>`
-      +`<input type="range" class="rng" id="erlo-${n}" min="0" max="${max}" value="${lv}" oninput="updateEditRange('${n}')">`
-      +`<input type="range" class="rng" id="erhi-${n}" min="0" max="${max}" value="${hv}" oninput="updateEditRange('${n}')">`
+      +`<input type="range" class="rng" id="erlo-${n}" style="z-index:${loZ}" min="0" max="${max}" value="${lv}" oninput="updateEditRange('${n}')">`
+      +`<input type="range" class="rng" id="erhi-${n}" style="z-index:${hiZ}" min="0" max="${max}" value="${hv}" oninput="updateEditRange('${n}')">`
       +`</div><div class="rticks">${ticks.map(t=>`<span>${t}</span>`).join('')}</div></div>`;
   }
   html+='<div class="edit-ranges">'
@@ -1358,6 +1361,10 @@ function updateEditRange(n){
   let hi=parseInt(hiEl.value);
   if(lo>hi){loEl.value=hi;lo=hi;}
   if(hi<lo){hiEl.value=lo;hi=lo;}
+  // Update z-index NOW (before re-render destroys these elements)
+  const atMax=lo>=max;
+  if(lo>=hi){loEl.style.zIndex=atMax?3:1;hiEl.style.zIndex=atMax?1:3;}
+  else{loEl.style.zIndex=1;hiEl.style.zIndex=3;}
   if(n==='energy')EF.energy=[lo,hi];
   else if(n==='power')EF.power=[lo,hi];
   else if(n==='might')EF.might=[lo,hi];
@@ -3149,7 +3156,17 @@ function setCollOwned(id,delta){
   persistColl();saveCardToCloud(id);renderCollection();
 }
 function toggleCollWanted(id){
-  if(collWanted[id]) delete collWanted[id]; else collWanted[id]=true;
+  // Migrate legacy boolean; default desired quantity = 3
+  const cur=collWanted[id];
+  if(cur&&cur!==true&&cur>0) delete collWanted[id];
+  else if(!cur||cur===true) collWanted[id]=3;
+  else delete collWanted[id];
+  persistColl();saveCardToCloud(id);renderCollection();
+}
+function setCollWanted(id,delta){
+  const cur=(collWanted[id]&&collWanted[id]!==true)?collWanted[id]:collWanted[id]?3:0;
+  const next=Math.max(1,Math.min(15,cur+delta));
+  collWanted[id]=next;
   persistColl();saveCardToCloud(id);renderCollection();
 }
 function setCollSet(s){CF2.set=CF2.set===s?'':s;renderCollection();}
@@ -3305,23 +3322,40 @@ function renderCollection(){
     html+=`<div class="coll-grid">`;
     source.forEach(c=>{
       const owned=collOwned[c.id]||0;
-      const wanted=!!collWanted[c.id];
+      const wantedRaw=collWanted[c.id];
+      const isWanted=wantedRaw&&wantedRaw!==false;
+      const wantedCount=(wantedRaw===true)?3:(isWanted?wantedRaw:0);
       const isComplete=owned>=3;
-      const cls=isComplete?'complete':owned>0?'owned':wanted?'wanted':'';
+      const cls=isComplete?'complete':owned>0?'owned':isWanted?'wanted':'';
       const si=c.id.replace(/'/g,"\\'");
       const ownedLabel=owned>=15?'15+':String(owned);
-      html+=`<div class="coll-card ${cls}" title="${c.name}">
-        ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
-        <div class="coll-half coll-half-left" onclick="setCollOwned('${si}',-1)"></div>
-        <div class="coll-half coll-half-right" onclick="setCollOwned('${si}',1)"></div>
-        ${owned>0?`<div class="coll-card-badge coll-badge-owned">×${ownedLabel}</div>`:''}
-        <div class="coll-card-actions">
-          <button class="coll-copy-btn coll-copy-minus" onclick="event.stopPropagation();setCollOwned('${si}',-1)" title="Remove copy">−</button>
-          <button class="coll-copy-btn coll-wishlist-btn${wanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${wanted?'Remove from wishlist':'Add to wishlist'}">♥</button>
-          <button class="coll-copy-btn coll-copy-plus" onclick="event.stopPropagation();setCollOwned('${si}',1)" title="Add copy">+</button>
-        </div>
-        <div class="coll-card-name">${c.name}</div>
-      </div>`;
+      const inWishlistView=CF2.show==='wanted';
+      if(inWishlistView){
+        const need=Math.max(0,wantedCount-owned);
+        html+=`<div class="coll-card wanted-card ${isComplete?'complete':owned>0?'owned':''}" title="${c.name}">
+          ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
+          <div class="coll-card-badge coll-badge-wanted">♥ ×${wantedCount}</div>
+          <div class="coll-card-actions">
+            <button class="coll-copy-btn coll-copy-minus" onclick="event.stopPropagation();setCollWanted('${si}',-1)" title="Want fewer">−</button>
+            <span class="coll-copy-count" style="font-size:10px;min-width:32px;">${owned}/${wantedCount}</span>
+            <button class="coll-copy-btn coll-copy-plus" onclick="event.stopPropagation();setCollWanted('${si}',1)" title="Want more">+</button>
+          </div>
+          <div class="coll-card-name" style="${need>0?'color:#f87171;':'color:var(--calm);'}">${need>0?`Need ${need}`:'✓ Done'}</div>
+        </div>`;
+      } else {
+        html+=`<div class="coll-card ${cls}" title="${c.name}">
+          ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
+          <div class="coll-half coll-half-left" onclick="setCollOwned('${si}',-1)"></div>
+          <div class="coll-half coll-half-right" onclick="setCollOwned('${si}',1)"></div>
+          ${owned>0?`<div class="coll-card-badge coll-badge-owned">×${ownedLabel}</div>`:''}
+          <div class="coll-card-actions">
+            <button class="coll-copy-btn coll-copy-minus" onclick="event.stopPropagation();setCollOwned('${si}',-1)" title="Remove copy">−</button>
+            <button class="coll-copy-btn coll-wishlist-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>
+            <button class="coll-copy-btn coll-copy-plus" onclick="event.stopPropagation();setCollOwned('${si}',1)" title="Add copy">+</button>
+          </div>
+          <div class="coll-card-name">${c.name}</div>
+        </div>`;
+      }
     });
     html+=`</div>`;
   } else {
