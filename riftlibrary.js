@@ -15,7 +15,7 @@ const BANNED_CARDS=new Set(['Called Shot','Draven, Vanquisher','Draven - Vanquis
 function baseName(n){return(n||'').replace(/\s*\([^)]*\)\s*$/,'').trim();}
 let myEvents=JSON.parse(localStorage.getItem('rl_myEvents')||'[]');
 let activeEvtTab='all';
-function persistMyEvents(){localStorage.setItem('rl_myEvents',JSON.stringify(myEvents));}
+function persistMyEvents(){localStorage.setItem('rl_myEvents',JSON.stringify(myEvents));saveEventsToCloud();}
 function switchEvtTab(t){activeEvtTab=t;renderEvents();}
 function createMyEvent(){
   const name=(document.getElementById('mevt-name')||{}).value||'';
@@ -34,6 +34,7 @@ function deleteMyEvent(id){
   myEvents=myEvents.filter(x=>x.id!==id);persistMyEvents();renderEvents();
 }
 function addRQToMyEvents(idx){
+  if(!currentUser){openAuthModal('login');toast('Please log in to save events.');return;}
   const rq=RQ_EVENTS[idx];if(!rq)return;
   if(myEvents.some(e=>e.name===rq.city+' Regional Qualifier')){toast('Already in My Events');return;}
   myEvents.push({id:Date.now(),name:rq.city+' Regional Qualifier',date:rq.sortDate,time:'',location:rq.city+', '+rq.region,paidEntry:false,hotelBooked:false,flightBooked:false});
@@ -56,8 +57,8 @@ let cardsTabView='visual';
 let deckSortMode='alpha'; // 'alpha' or 'energy'
 let authToken=null;
 const AF={doms:new Set()};
-const CF={type:'',set:'',rar:'',legend:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false};
-const EF={type:'',dom:'',page:1,showAllVersions:false};
+const CF={type:'',set:'',rar:'',legend:'',subtype:'',variant:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false};
+const EF={type:'',dom:'',set:'',subtype:'',variant:'',rar:'',energy:[0,12],power:[0,4],might:[0,10],page:1,showAllVersions:false};
 function getEditPer(){return 18;}
 const EDIT_PER=24;
 
@@ -317,7 +318,10 @@ function loadStorage(){
     if(!myDecks.length)myDecks=[];
   }catch(e){myDecks=[];}
 }
-function persist(){try{localStorage.setItem('rl_decks',JSON.stringify(myDecks));localStorage.setItem('rl_nid',String(nextId));}catch(e){}}
+function persist(){
+  if(activeDeckId){const d=myDecks.find(x=>String(x.id)===String(activeDeckId));if(d)d.updated_at=new Date().toISOString();}
+  try{localStorage.setItem('rl_decks',JSON.stringify(myDecks));localStorage.setItem('rl_nid',String(nextId));}catch(e){}
+}
 function wr(d){return d.wins+d.losses>0?Math.round(d.wins/(d.wins+d.losses)*100):0;}
 function wrc(w){return w>=55?'wg':w>=45?'wm':'wb';}
 function pills(doms){return(doms||[]).map(d=>`<span class="pill ${d.toLowerCase()}">${d[0].toUpperCase()+d.slice(1).toLowerCase()}</span>`).join('');}
@@ -377,6 +381,10 @@ function mapCard(c){
     name:c.name,
     type:cls.type||'Unit',
     supertype:cls.supertype||'',
+    isSignature:meta.signature||false,
+    isAltArt:meta.alternate_art||false,
+    isOvernumbered:meta.overnumbered||false,
+    variant:(meta.alternate_art?'Alt Art':meta.overnumbered?'Overnumbered':(cls.rarity==='Promo'?'Promo':'Standard')),
     dom,doms,
     cost:attr.energy??null,
     might:attr.might??null,
@@ -428,6 +436,7 @@ function goto(p,el){
 
 /* ── DECKS ──────────────────────────────────────── */
 function renderDecks(){
+  const g=document.getElementById('dg');
   const q=document.getElementById('ds').value.toLowerCase();
   const fl=document.getElementById('dsl').value;
   const fd=document.getElementById('dsd').value.toLowerCase();
@@ -437,8 +446,7 @@ function renderDecks(){
     if(fd&&!(d.domains||[]).includes(fd))return false;
     return true;
   });
-  const g=document.getElementById('dg');
-  if(!list.length){g.innerHTML=`<div class="es"><h3>No decks yet</h3><p>Create your first deck above.</p></div>`;return;}
+  if(!list.length){g.innerHTML=`<div class="es" style="grid-column:1/-1;"><h3>No decks yet</h3><p>Create your first deck above.</p></div>`;return;}
   g.innerHTML=list.map(d=>{
     const totalC=(d.cards||[]).reduce((a,c)=>a+c.cnt,0)||0;
     const w=wr(d);
@@ -448,7 +456,7 @@ function renderDecks(){
     const dcAvatar=dcImg
       ?`<div class="dc-avatar"><img src="${dcImg}" alt="${d.legend}"></div>`
       :`<div class="dc-avatar dc-avatar-empty"></div>`;
-    return `<div class="dc">
+    return `<div class="dc" onclick="openDD('${d.id}')">
       <div class="dt">
         <div style="display:flex;align-items:center;gap:10px;">
           ${dcAvatar}
@@ -466,8 +474,8 @@ function renderDecks(){
         <span class="${wrc(w)}"><strong>${w}%</strong> WR</span>
       </div>
       <div class="da">
-        <button class="btn btn-sm btn-g" onclick="openDD(${d.id})">View</button>
-        <button class="btn btn-sm btn-d" onclick="delDeck(${d.id})">Delete</button>
+        <button class="btn btn-sm btn-g" onclick="event.stopPropagation();openDD('${d.id}')">View</button>
+        <button class="btn btn-sm btn-d" onclick="event.stopPropagation();delDeck('${d.id}')">Delete</button>
       </div>
     </div>`;
   }).join('');
@@ -487,8 +495,8 @@ function populateDeckSelectors(){
 }
 
 function openDD(id){
-  const d=myDecks.find(x=>x.id===id);if(!d)return;
-  activeDeckId=id;
+  const d=myDecks.find(x=>String(x.id)===String(id));if(!d)return;
+  activeDeckId=d.id;
   if(!d.sideboard) d.sideboard=[];
   if(!d.results)   d.results=[];
   document.getElementById('dl').style.display='none';
@@ -768,12 +776,12 @@ function buildCardsListView(d){
     +section('BATTLEFIELDS',`${bfCards.length}/3`,bfBody)
     +section('MAIN DECK',`${totalMain}/40`,mainBody)
     +section('RUNES',`${runes.length}/12`,runeBody)
-    +section('SIDEBOARD',`${sbTotal}/15`,sbBody)
+    +section('SIDEBOARD',`${sbTotal}/8`,sbBody)
     +`</div>`;
 }
 
 function switchDDTab(tab){
-  if(tab!=='edit'){EF.type='';EF.dom='';EF.page=1;EF.showAllVersions=false;const hzb=document.getElementById('hero-zone-bar');if(hzb)hzb.innerHTML='';}
+  if(tab!=='edit'){EF.type='';EF.dom='';EF.set='';EF.subtype='';EF.variant='';EF.rar='';EF.energy=[0,12];EF.power=[0,4];EF.might=[0,10];EF.page=1;EF.showAllVersions=false;const hzb=document.getElementById('hero-zone-bar');if(hzb)hzb.innerHTML='';}
   activeDDTab=tab;
   renderDeckDetail();
   if(tab==='edit'){setTimeout(()=>{renderEditSearch();renderEditPreview();},10);}
@@ -1034,7 +1042,7 @@ function buildSideboardPanel(d){
   var clearBtn=sb.length?'<button class="btn btn-sm btn-d" onclick="clearSideboard('+d.id+')">Clear</button>':'';
   return '<div class="sb-layout">'
     +'<div><div class="sb-panel">'
-    +'<div class="sb-panel-title"><span>Sideboard <span style="color:var(--text-muted);font-weight:400;font-size:12px;">('+sbTotal+'/15)</span></span>'+clearBtn+'</div>'
+    +'<div class="sb-panel-title"><span>Sideboard <span style="color:var(--text-muted);font-weight:400;font-size:12px;">('+sbTotal+'/8)</span></span>'+clearBtn+'</div>'
     +rows
     +'<div class="sb-add-wrap">'
     +'<div class="sb-add-search"><span class="sb-add-si">⌕</span>'
@@ -1055,7 +1063,7 @@ function adjustSB(deckId,cardId,delta){
   const entry=d.sideboard.find(c=>c.id===cardId);
   if(entry){
     if(delta>0&&entry.cnt>=3){toast('Max 3 copies');return;}
-    if(delta>0){const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);if(sbTotal>=15){toast('Sideboard is full (15 cards max)');return;}}
+    if(delta>0){const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}}
     entry.cnt=Math.max(0,entry.cnt+delta);
     if(entry.cnt===0) d.sideboard=d.sideboard.filter(c=>c.id!==cardId);
   }
@@ -1120,7 +1128,7 @@ function addToSB(deckId,cardId,cardName,cardType){
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   if(!d.sideboard) d.sideboard=[];
   const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
-  if(sbTotal>=15){toast('Sideboard is full (15 cards max)');return;}
+  if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}
   const deckIdx=(d.cards||[]).findIndex(c=>c.id===cardId);
   if(deckIdx<0){toast('Card not found in main deck');return;}
   d.cards[deckIdx].cnt--;
@@ -1140,7 +1148,7 @@ function addDirectToSB(deckId,cardId,cardName,cardType){
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   if(!d.sideboard) d.sideboard=[];
   const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
-  if(sbTotal>=15){toast('Sideboard is full (15 cards max)');return;}
+  if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}
   const existing=d.sideboard.find(c=>c.id===cardId);
   if(existing){if(existing.cnt>=3){toast('Max 3 copies');return;}existing.cnt++;}
   else d.sideboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
@@ -1173,6 +1181,28 @@ function renderEditSearch(){
   if(EF.type==='Champion') source=source.filter(c=>(c.supertype||'').toLowerCase().includes('champion')&&c.type!=='Legend');
   else if(EF.type) source=source.filter(c=>c.type===EF.type||c.supertype===EF.type);
   if(EF.dom) source=source.filter(c=>c.doms.includes(EF.dom));
+  if(EF.set) source=source.filter(c=>c.set===EF.set);
+  if(EF.rar) source=source.filter(c=>c.rarity===EF.rar);
+  if(EF.subtype){
+    if(EF.subtype==='Action') source=source.filter(c=>c.txt.toLowerCase().includes('[action]'));
+    else if(EF.subtype==='Reaction') source=source.filter(c=>c.txt.toLowerCase().includes('[reaction]'));
+    else if(EF.subtype==='Champion') source=source.filter(c=>c.supertype==='Champion');
+    else if(EF.subtype==='Signature Card') source=source.filter(c=>c.supertype==='Signature');
+    else if(EF.subtype==='Token') source=source.filter(c=>c.type==='Token'||c.supertype==='Token');
+  }
+  if(EF.variant){
+    if(EF.variant==='Alt Art') source=source.filter(c=>c.isAltArt);
+    else if(EF.variant==='Overnumbered') source=source.filter(c=>c.isOvernumbered);
+    else if(EF.variant==='Promo') source=source.filter(c=>c.rarity==='Promo');
+    else if(EF.variant==='Artist Signed') source=source.filter(c=>c.isSignature);
+    else if(EF.variant==='Standard') source=source.filter(c=>!c.isAltArt&&!c.isOvernumbered&&c.rarity!=='Promo'&&!c.isSignature);
+  }
+  source=source.filter(c=>{
+    if(c.cost!==null&&(c.cost<EF.energy[0]||c.cost>EF.energy[1]))return false;
+    if(c.power!==null&&(c.power<EF.power[0]||c.power>EF.power[1]))return false;
+    if(c.might!==null&&(c.might<EF.might[0]||c.might>EF.might[1]))return false;
+    return true;
+  });
   if(!EF.showAllVersions){
     const RR={Legendary:5,Epic:4,Rare:3,Uncommon:2,Common:1,Showcase:0,Promo:0};
     const seen=new Map();
@@ -1211,6 +1241,23 @@ function renderEditSearch(){
   });
   html+='</div>';
 
+  const ESETS=['','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
+  const ERARS=['','Legendary','Epic','Rare','Uncommon','Common','Promo'];
+  const ESUBTYPES=['','Action','Reaction','Champion','Token','Signature Card'];
+  const EVARIANTS=['','Standard','Alt Art','Overnumbered','Promo','Artist Signed'];
+
+  function efDrop(field,val,label,opts,labelMap){
+    let h=`<div class="ef-drop-wrap"><button class="ef-drop-btn" onclick="toggleEFDrop('efd-${field}',this)"><span class="ef-dv-lbl">${label}</span><span class="ef-dv-val">${val||'All'}</span><span class="caret">⌄</span></button><div class="ef-dropdown" id="efd-${field}">`;
+    opts.forEach(o=>{const l=labelMap?labelMap[o]:(o||'All');h+=`<div class="ef-dopt${(val===o)?' active':''}" onclick="setEF('${field}','${o}',this)">${l}</div>`;});
+    h+='</div></div>';return h;
+  }
+  html+='<div class="ef-drop-row">';
+  html+=efDrop('set',EF.set,'Set',ESETS);
+  html+=efDrop('subtype',EF.subtype,'Subtype',ESUBTYPES);
+  html+=efDrop('variant',EF.variant,'Art Variants',EVARIANTS);
+  html+=efDrop('rar',EF.rar,'Rarity',ERARS);
+  html+='</div>';
+
   const qEsc=savedVal.replace(/"/g,'&quot;');
   html+='<div class="edit-search-wrap">'
     +'<span class="edit-si">⌕</span>'
@@ -1218,6 +1265,22 @@ function renderEditSearch(){
     +(savedVal?'<button class="edit-search-clear" onclick="document.getElementById(\'edit-search-inp\').value=\'\';EF.page=1;renderEditSearch()">×</button>':'')
     +'</div>'
     +`<label class="edit-all-versions-label"><input type="checkbox"${EF.showAllVersions?' checked':''} onchange="setEditShowAll(this.checked)"> Show all versions</label>`;
+
+  function efSlider(n,lo,hi,max,ticks){
+    const lv=EF[n][0],hv=EF[n][1];
+    const label=(lv===0&&hv===max)?'Any':lv===hv?String(lv):`${lv} – ${hv}`;
+    const fl=lv/max*100,fw=(hv-lv)/max*100;
+    return `<div class="rg"><div class="rh"><span class="rl">${n.toUpperCase()}</span><span class="rv" id="erv-${n}">${label}</span></div>`
+      +`<div class="rt"><div class="rf" id="erf-${n}" style="left:${fl}%;width:${fw}%"></div>`
+      +`<input type="range" class="rng" id="erlo-${n}" min="0" max="${max}" value="${lv}" oninput="updateEditRange('${n}')">`
+      +`<input type="range" class="rng" id="erhi-${n}" min="0" max="${max}" value="${hv}" oninput="updateEditRange('${n}')">`
+      +`</div><div class="rticks">${ticks.map(t=>`<span>${t}</span>`).join('')}</div></div>`;
+  }
+  html+='<div class="edit-ranges">'
+    +efSlider('energy',0,12,12,[0,2,4,6,8,10,12])
+    +efSlider('power',0,4,4,[0,1,2,3,4])
+    +efSlider('might',0,10,10,[0,2,4,6,8,10])
+    +'</div>';
 
   html+='<div class="edit-card-grid">';
   if(!slice.length){
@@ -1282,10 +1345,35 @@ function buildPageNums(cur,total){
   if(cur>=total-3) return [1,'…',total-4,total-3,total-2,total-1,total];
   return [1,'…',cur-1,cur,cur+1,'…',total];
 }
+function updateEditRange(n){
+  const lo=parseInt(document.getElementById('erlo-'+n).value);
+  const hi=parseInt(document.getElementById('erhi-'+n).value);
+  const max=parseInt(document.getElementById('erhi-'+n).max);
+  const lf=Math.min(lo,hi),hf=Math.max(lo,hi);
+  if(n==='energy')EF.energy=[lf,hf];
+  else if(n==='power')EF.power=[lf,hf];
+  else if(n==='might')EF.might=[lf,hf];
+  const lbl=document.getElementById('erv-'+n);
+  if(lbl)lbl.textContent=(lf===0&&hf===max)?'Any':lf===hf?String(lf):`${lf} – ${hf}`;
+  const f=document.getElementById('erf-'+n);
+  if(f){f.style.left=(lf/max*100)+'%';f.style.width=((hf-lf)/max*100)+'%';}
+  EF.page=1;renderEditSearch();
+}
 function setEditType(t){EF.type=t;EF.page=1;renderEditSearch();}
 function setEditDom(d){EF.dom=EF.dom===d?'':d;EF.page=1;renderEditSearch();}
 function setEditPage(p){EF.page=p;renderEditSearch();}
 function setEditShowAll(v){EF.showAllVersions=v;EF.page=1;renderEditSearch();}
+function setEF(field,val,el){
+  EF[field]=val;EF.page=1;
+  const wrap=el.closest('.ef-drop-wrap');
+  if(wrap){wrap.querySelectorAll('.ef-dopt').forEach(o=>o.classList.remove('active'));el.classList.add('active');}
+  renderEditSearch();
+}
+function toggleEFDrop(id,btn){
+  document.querySelectorAll('.ef-dropdown').forEach(d=>{if(d.id!==id){d.classList.remove('open');const b=d.previousElementSibling;if(b)b.classList.remove('open');}});
+  const dd=document.getElementById(id);if(!dd)return;
+  dd.classList.toggle('open');btn.classList.toggle('open');
+}
 
 /* ── DRAG AND DROP ───────────────────────────────── */
 function editLibDragStart(id,name,type){_DRAG={src:'library',id,n:name,t:type};}
@@ -1564,7 +1652,7 @@ function renderEditPreview(targetEl){
   // Sideboard section — card image grid like main deck
   const sb=d.sideboard||[];
   const sbTotal=sb.reduce((a,c)=>a+c.cnt,0);
-  html+=`<div class="deck-section deck-sb-section"><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">Sideboard <span class="ds-count">(${sbTotal}/15)</span></div>`;
+  html+=`<div class="deck-section deck-sb-section"><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">Sideboard <span class="ds-count">(${sbTotal}/8)</span></div>`;
   if(!sb.length){
     html+=`<div style="font-size:12px;color:var(--text-muted);">${isEdit?'None — hover a card and use "Add to sideboard"':'Add cards in the Edit tab'}</div>`;
   } else {
@@ -1667,7 +1755,7 @@ function dcmSideboard(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   if(!d.sideboard) d.sideboard=[];
   const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
-  if(sbTotal>=15){toast('Sideboard is full (15 cards max)');closeDeckCardMenu();return;}
+  if(sbTotal>=8){toast('Sideboard is full (8 cards max)');closeDeckCardMenu();return;}
   const deckIdx=(d.cards||[]).findIndex(c=>c.id===_DCM.id);
   if(deckIdx<0){closeDeckCardMenu();return;}
   d.cards[deckIdx].cnt--;
@@ -1708,7 +1796,7 @@ function removeChampionZone(){
 function addBattlefield(preferSlot,cardId,cardName){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   if(!d.battlefields) d.battlefields=[null,null,null];
-  // Find free slot; if preferSlot given and free, use it
+  if(d.battlefields.some(s=>s&&s.id===cardId)){toast('Only 1 copy of each battlefield allowed');return;}
   let slot=-1;
   if(preferSlot>=0&&preferSlot<3&&!d.battlefields[preferSlot]) slot=preferSlot;
   if(slot<0) slot=d.battlefields.findIndex(s=>s===null);
@@ -1729,7 +1817,8 @@ function bfZoneDrop(e,slotIdx){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d){_DRAG=null;return;}
   if(_DRAG.t!=='Battlefield'){toast('Only Battlefield cards can go in battlefield zones');_DRAG=null;return;}
   if(!d.battlefields) d.battlefields=[null,null,null];
-  if(d.battlefields[slotIdx]){toast('Battlefield zone '+( slotIdx+1)+' already has a card — remove it first');_DRAG=null;return;}
+  if(d.battlefields[slotIdx]){toast('Battlefield zone '+(slotIdx+1)+' already has a card — remove it first');_DRAG=null;return;}
+  if(d.battlefields.some(s=>s&&s.id===_DRAG.id)){toast('Only 1 copy of each battlefield allowed');_DRAG=null;return;}
   d.battlefields[slotIdx]={id:_DRAG.id,n:_DRAG.n};
   persist();renderEditSearch();renderEditPreview();
   _DRAG=null;
@@ -1758,7 +1847,10 @@ function saveDeckTitle(deckId,val){
   }
   if(currentUser) saveToCloud(deckId);
 }
-function closeDeckDetail(){document.getElementById('dl').style.display='';document.getElementById('dd').style.display='none';activeDeckId=null;activeDDTab='cards';renderDecks();}
+function closeDeckDetail(){
+  if(currentUser&&activeDeckId) saveToCloud(activeDeckId);
+  document.getElementById('dl').style.display='';document.getElementById('dd').style.display='none';activeDeckId=null;activeDDTab='cards';renderDecks();
+}
 
 function copyDeckLink(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
@@ -2114,7 +2206,7 @@ function exportDeck(type){
       ${champRow?`<div class="section-title">Champion Zone</div><table><thead><tr><th>#</th><th>Card Name</th></tr></thead><tbody>${champRow}</tbody></table>`:''}
       ${runeRows?`<div class="section-title">Runes (${runes.length}/12)</div><table><thead><tr><th>#</th><th>Card Name</th></tr></thead><tbody>${runeRows}</tbody></table>`:''}
       ${bfRows?`<div class="section-title">Battlefields</div><table><thead><tr><th>#</th><th>Card Name</th></tr></thead><tbody>${bfRows}</tbody></table>`:''}
-      ${sbRows?`<div class="section-title">Sideboard (${sbCnt}/15)</div><table><thead><tr><th>#</th><th>Card Name</th></tr></thead><tbody>${sbRows}</tbody></table>`:''}
+      ${sbRows?`<div class="section-title">Sideboard (${sbCnt}/8)</div><table><thead><tr><th>#</th><th>Card Name</th></tr></thead><tbody>${sbRows}</tbody></table>`:''}
       <div style="margin-top:24px;font-size:11px;color:#999;">Generated by RiftLibrary</div>
     </body></html>`;
     w.document.write(html);w.document.close();
@@ -2123,11 +2215,11 @@ function exportDeck(type){
 }
 function delDeck(id){
   if(!confirm('Delete this deck?'))return;
-  var deck=myDecks.find(function(d){return d.id===id;});
+  var deck=myDecks.find(function(d){return String(d.id)===String(id);});
   var cloudId=deck&&deck.cloud_id;
-  myDecks=myDecks.filter(function(d){return d.id!==id;});
+  myDecks=myDecks.filter(function(d){return String(d.id)!==String(id);});
   persist();renderDecks();toast('Deck deleted');
-  if(currentUser&&cloudId) api('DELETE','/api/decks/'+cloudId).catch(function(){});
+  if(currentUser&&cloudId) _sb.from('decks').delete().eq('id',cloudId).then(({error})=>{ if(error) console.warn('Delete failed',error); });
 }
 
 /* ── CARD FILTERS ────────────────────────────────── */
@@ -2194,7 +2286,7 @@ function resetAll(){
   if(VIEW==='cards')resetFilters();else resetArtistFilters();
 }
 function resetFilters(){
-  CF.type='';CF.set='';CF.rar='';CF.legend='';CF.doms.clear();CF.energy=[0,12];CF.power=[0,4];CF.might=[0,10];
+  CF.type='';CF.set='';CF.rar='';CF.legend='';CF.subtype='';CF.variant='';CF.doms.clear();CF.energy=[0,12];CF.power=[0,4];CF.might=[0,10];
   document.getElementById('cs').value='';
   ['energy','power','might'].forEach(n=>{
     const max=parseInt(document.getElementById('rhi-'+n).max);
@@ -2202,12 +2294,19 @@ function resetFilters(){
     document.getElementById('rv-'+n).textContent='Any';
     const f=document.getElementById('rf-'+n);f.style.left='0%';f.style.width='100%';
   });
-  ['set','rar'].forEach(k=>{
-    document.getElementById('dv-'+k).textContent='All';
-    document.getElementById('dd-'+k).querySelectorAll('.cs-dopt').forEach((o,i)=>o.classList.toggle('active',i===0));
+  ['set','rar','type','subtype','variant'].forEach(k=>{
+    const el=document.getElementById('dv-'+k);if(el)el.textContent='All';
+    const dd=document.getElementById('dd-'+k);if(dd)dd.querySelectorAll('.cs-dopt').forEach((o,i)=>o.classList.toggle('active',i===0));
   });
-  document.querySelectorAll('.cs-type-tab').forEach(b=>b.classList.toggle('on',b.dataset.type===''));
-  document.querySelectorAll('#cs-dom-pills .edit-dom-pill').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('#cs-dom-pills .dom-btn').forEach(b=>b.classList.remove('on'));
+  renderCards();
+}
+function setCFType(t){
+  CF.type=t;CF.legend='';
+  const el=document.getElementById('dv-type');
+  if(el){const labels={'':"All",'Unit':'Unit','Spell':'Spell','Gear':'Gear','Legend':'Legend','Rune':'Rune','Battlefield':'Battlefield','banned':'Banned'};el.textContent=labels[t]||t;}
+  const dd=document.getElementById('dd-type');
+  if(dd)dd.querySelectorAll('.cs-dopt').forEach(o=>o.classList.toggle('active',o.dataset.val===t));
   renderCards();
 }
 
@@ -2228,6 +2327,20 @@ function renderCards(){
     if(CF.legend&&!c.name.startsWith(CF.legend))return false;
     if(CF.rar&&c.rarity!==CF.rar)return false;
     if(CF.set&&c.set!==CF.set)return false;
+    if(CF.subtype){
+      if(CF.subtype==='Action'){if(!c.txt.toLowerCase().includes('[action]'))return false;}
+      else if(CF.subtype==='Reaction'){if(!c.txt.toLowerCase().includes('[reaction]'))return false;}
+      else if(CF.subtype==='Champion'){if(c.supertype!=='Champion')return false;}
+      else if(CF.subtype==='Signature Card'){if(c.supertype!=='Signature')return false;}
+      else if(CF.subtype==='Token'){if(c.type!=='Token'&&c.supertype!=='Token')return false;}
+    }
+    if(CF.variant){
+      if(CF.variant==='Alt Art'){if(!c.isAltArt)return false;}
+      else if(CF.variant==='Overnumbered'){if(!c.isOvernumbered)return false;}
+      else if(CF.variant==='Promo'){if(c.rarity!=='Promo')return false;}
+      else if(CF.variant==='Artist Signed'){if(!c.isSignature)return false;}
+      else if(CF.variant==='Standard'){if(c.isAltArt||c.isOvernumbered||c.rarity==='Promo'||c.isSignature)return false;}
+    }
     if(CF.doms.size>0&&!CF.doms.has(c.dom))return false;
     if(c.cost!==null&&(c.cost<CF.energy[0]||c.cost>CF.energy[1]))return false;
     if(c.power!==null&&(c.power<CF.power[0]||c.power>CF.power[1]))return false;
@@ -2257,18 +2370,35 @@ function renderCards(){
   g.innerHTML=display.map(c=>{
     const domPills=c.doms.map(d=>`<span class="pill ${d}">${d[0].toUpperCase()+d.slice(1)}</span>`).join('');
     const safeId=c.id.replace(/'/g,"\\'");
-    return`<div class="ct ct-img" onclick="openCardModal('${safeId}')">
+    const owned=collOwned[c.id]||0;
+    const isBF=c.type==='Battlefield';
+    return`<div class="ct ct-img${isBF?' ct-bf':''}" onclick="openCardModal('${safeId}')">
       ${c.imageUrl
         ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
         :`<div class="ct-img-wrap no-img"><div class="ct-img-placeholder" style="background:var(--surface3);display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`
       }
       ${c.cost!==null?`<div class="cost">${c.cost}</div>`:''}
       <div class="ct-name">${c.name}</div>
-      <div class="ct-sub">${domPills}<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>
+      <div class="ct-sub">${domPills}${domPills?`<span style="color:var(--text-muted);margin:0 2px;">·</span>`:''}${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>
+      <div class="ct-coll">${buildCollRow(c.id,owned)}</div>
     </div>`;
   }).join('');
 }
 
+function buildCollRow(cardId,owned){
+  const s=cardId.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  return `<button class="ct-coll-add" onclick="event.stopPropagation();gridCollChange('${s}',1,this)">${owned>0?`(${owned}) `:''}+ Add to Collection</button>`
+    +(owned>0?`<button class="ct-coll-rem" onclick="event.stopPropagation();gridCollChange('${s}',-1,this)">−</button>`:'');
+}
+function gridCollChange(cardId,delta,btn){
+  const cur=collOwned[cardId]||0;
+  const next=Math.max(0,cur+delta);
+  if(next===0) delete collOwned[cardId]; else collOwned[cardId]=next;
+  persistColl();saveCardToCloud(cardId);
+  toast(delta>0?'Added to collection':'Removed from collection');
+  const row=btn.closest('.ct-coll');
+  if(row) row.innerHTML=buildCollRow(cardId,next);
+}
 /* ── CARD TEXT RENDERER ──────────────────────────── */
 const RB_RUNE_URLS={
   fury: 'https://static0.fextralifeimages.com/file/riftbound/4/46/Fury.png',
@@ -2310,6 +2440,8 @@ function openCardModal(cardId){
   ].filter(Boolean).join('');
   const deckDeck=myDecks.find(d=>d.id===activeDeckId);
   const inDeck=deckDeck?(deckDeck.cards||[]).find(x=>x.id===c.id):null;
+  const owned=collOwned[c.id]||0;
+  const sid=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 
   document.getElementById('card-modal-body').innerHTML=`
     <div class="cm-layout">
@@ -2317,6 +2449,10 @@ function openCardModal(cardId){
         ${c.imageUrl
           ?`<img src="${c.imageUrl}" alt="${c.name}" class="cm-img">`
           :`<div class="cm-img cm-img-empty"><span style="color:var(--text-muted);">No image</span></div>`}
+        <div class="cm-coll-row">
+          <button class="cm-coll-btn cm-coll-add" onclick="cmCollChange('${sid}',1)" title="Add to collection">${owned>0?`(${owned}) `:''}+ Add to Collection</button>
+          ${owned>0?`<button class="cm-coll-btn cm-coll-remove" onclick="cmCollChange('${sid}',-1)" title="Remove from collection">− Remove</button>`:''}
+        </div>
       </div>
       <div class="cm-info-col">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;">
@@ -2335,6 +2471,22 @@ function openCardModal(cardId){
       </div>
     </div>`;
   document.getElementById('card-modal').classList.add('open');
+}
+function cmCollChange(cardId,delta){
+  setCollOwned(cardId,delta);
+  const owned=collOwned[cardId]||0;
+  const addBtn=document.querySelector('.cm-coll-add');
+  const removeBtn=document.querySelector('.cm-coll-remove');
+  if(addBtn) addBtn.textContent=`${owned>0?`(${owned}) `:''}+ Add to Collection`;
+  if(owned>0){
+    if(!removeBtn){
+      const row=document.querySelector('.cm-coll-row');
+      if(row){const b=document.createElement('button');b.className='cm-coll-btn cm-coll-remove';b.title='Remove from collection';b.textContent='− Remove';b.onclick=()=>cmCollChange(cardId,-1);row.appendChild(b);}
+    }
+  } else {
+    if(removeBtn) removeBtn.remove();
+  }
+  toast(delta>0?'Added to collection':'Removed from collection');
 }
 function closeCardModal(){document.getElementById('card-modal').classList.remove('open');}
 
@@ -2404,7 +2556,7 @@ function openArtistModal(artistName){
 function closeArtistModal(){document.getElementById('artist-modal').classList.remove('open');}
 
 /* ── MODAL ──────────────────────────────────────── */
-function openModal(){document.getElementById('modal').classList.add('open');autoD();}
+function openModal(){if(!currentUser){openAuthModal('login');toast('Please log in to create decks.');return;}document.getElementById('modal').classList.add('open');autoD();}
 function closeModal(){document.getElementById('modal').classList.remove('open');}
 function autoD(){const auto=LD[document.getElementById('mleg').value]||[];document.querySelectorAll('.dtog').forEach(el=>el.classList.toggle('sel',auto.includes(el.classList[1])));}
 function togD(el){if(!el.classList.contains('sel')&&document.querySelectorAll('.dtog.sel').length>=2){toast('Max 2 domains');return;}el.classList.toggle('sel');}
@@ -2426,6 +2578,7 @@ function createDeck(){
 document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
 
 function openImportDeckModal(){
+  if(!currentUser){openAuthModal('login');toast('Please log in to import decks.');return;}
   document.getElementById('import-deck-modal').style.display='flex';
   document.getElementById('import-deck-name').value='';
   document.getElementById('import-deck-text').value='';
@@ -2478,55 +2631,132 @@ function importDeckFromText(){
     },[]);
   }
 
-  const sbIdx=raw.search(/^Sideboard[:\s]/im);
-  const mainEntries=parseLines(sbIdx>=0?raw.slice(0,sbIdx):raw);
-  const sbEntries=parseLines(sbIdx>=0?raw.slice(sbIdx):'' );
+  // Detect sectioned format (has headers like "Legend:", "MainDeck:", etc.)
+  const SECTION_RE=/^(Legend|Champion|MainDeck|Main Deck|Battlefields?|Runes?|Sideboard)\s*:/im;
+  const isSectioned=SECTION_RE.test(raw);
 
   const deckCards=[];
   const runes=[];
   const battlefields=[null,null,null];
   let bfSlot=0;
   let matched=0;const unmatched=[];
+  const sb=[];
+  let importedLegendName=null;
+  let importedChampion=null;
 
-  mainEntries.forEach(({cnt,name})=>{
-    const found=findCard(name);
-    if(!found){unmatched.push(name);return;}
-    matched++;
-    const t=found.type||'';
-    const tl=t.toLowerCase();
-    if(t==='Battlefield'||tl==='battlefield'){
-      if(bfSlot<3) battlefields[bfSlot++]={id:found.id,n:found.name,t:'Battlefield'};
-    } else if(t==='Rune'||tl==='rune'||found.name.toLowerCase().includes(' rune')){
-      for(let i=0;i<cnt;i++) runes.push({id:found.id,n:found.name,t:t||'Rune'});
-    } else {
+  if(isSectioned){
+    // Split raw text into named sections
+    const sectionMap={};
+    let currentSection=null;
+    raw.split('\n').forEach(line=>{
+      const hdr=line.match(/^(Legend|Champion|MainDeck|Main Deck|Battlefields?|Runes?|Sideboard)\s*:/i);
+      if(hdr){currentSection=hdr[1].toLowerCase().replace(/\s+/g,'').replace(/s$/,'');sectionMap[currentSection]=[];}
+      else if(currentSection&&line.trim()) sectionMap[currentSection].push(line);
+    });
+
+    const parseSec=(key)=>parseLines((sectionMap[key]||[]).join('\n'));
+
+    // Legend
+    parseSec('legend').forEach(({name})=>{
+      const found=findCard(name)||findCard(name.split(',')[0].trim());
+      if(found&&found.type==='Legend') importedLegendName=found.name;
+    });
+
+    // Champion
+    parseSec('champion').forEach(({name})=>{
+      const found=findCard(name);
+      if(found){matched++;importedChampion={id:found.id,n:found.name};}
+      else unmatched.push(name);
+    });
+
+    // MainDeck
+    parseSec('maindeck').forEach(({cnt,name})=>{
+      const found=findCard(name);
+      if(!found){unmatched.push(name);return;}
+      matched++;
+      const t=found.type||'';
+      if(t==='Legend') return; // legend handled separately
+      if(t==='Champion') return; // champion handled separately
       deckCards.push({id:found.id,n:found.name,t,cnt});
-    }
-  });
+    });
 
-  // Auto-add the legend card from the dropdown — same as + New Deck
-  const selectedLegend=document.getElementById('import-mleg').value;
+    // Battlefields
+    parseSec('battlefield').forEach(({name})=>{
+      const found=findCard(name);
+      if(!found){unmatched.push(name);return;}
+      matched++;
+      if(bfSlot<3) battlefields[bfSlot++]={id:found.id,n:found.name,t:'Battlefield'};
+    });
+
+    // Runes
+    parseSec('rune').forEach(({cnt,name})=>{
+      const found=findCard(name);
+      if(!found){unmatched.push(name);return;}
+      matched++;
+      for(let i=0;i<cnt;i++) runes.push({id:found.id,n:found.name,t:found.type||'Rune'});
+    });
+
+    // Sideboard
+    parseSec('sideboard').forEach(({cnt,name})=>{
+      const found=findCard(name);
+      if(!found){unmatched.push(name);return;}
+      matched++;
+      sb.push({id:found.id,n:found.name,t:found.type||'',cnt});
+    });
+
+  } else {
+    // Legacy flat format — original behavior
+    const sbIdx=raw.search(/^Sideboard[:\s]/im);
+    const mainEntries=parseLines(sbIdx>=0?raw.slice(0,sbIdx):raw);
+    const sbEntries=parseLines(sbIdx>=0?raw.slice(sbIdx):'');
+
+    mainEntries.forEach(({cnt,name})=>{
+      const found=findCard(name);
+      if(!found){unmatched.push(name);return;}
+      matched++;
+      const t=found.type||'';
+      const tl=t.toLowerCase();
+      if(t==='Battlefield'||tl==='battlefield'){
+        if(bfSlot<3) battlefields[bfSlot++]={id:found.id,n:found.name,t:'Battlefield'};
+      } else if(t==='Rune'||tl==='rune'||found.name.toLowerCase().includes(' rune')){
+        for(let i=0;i<cnt;i++) runes.push({id:found.id,n:found.name,t:t||'Rune'});
+      } else {
+        deckCards.push({id:found.id,n:found.name,t,cnt});
+      }
+    });
+
+    sbEntries.forEach(({cnt,name})=>{
+      const found=findCard(name);
+      if(!found){unmatched.push(name);return;}
+      sb.push({id:found.id,n:found.name,t:found.type||'',cnt});
+    });
+  }
+
+  // Use legend from section header if found, otherwise fall back to dropdown
+  const selectedLegend=importedLegendName||document.getElementById('import-mleg').value;
   const legendCardObj=CARDS.find(c=>c.type==='Legend'&&c.name===selectedLegend);
   if(legendCardObj&&!deckCards.find(c=>c.id===legendCardObj.id)){
     deckCards.unshift({id:legendCardObj.id,n:legendCardObj.name,t:legendCardObj.type,cnt:1});
   }
 
-  const sb=[];
-  sbEntries.forEach(({cnt,name})=>{
-    const found=findCard(name);
-    if(!found){unmatched.push(name);return;}
-    sb.push({id:found.id,n:found.name,t:found.type||'',cnt});
-  });
-
   const format=document.getElementById('import-mfmt').value||'Constructed';
   const domains=[...document.querySelectorAll('.idtog.sel')].map(e=>e.classList[1]);
   const deck={id:nextId++,name:deckName,legend:selectedLegend,domains,format,
-    wins:0,losses:0,desc:'',cards:deckCards,champion:null,
-    runes,battlefields,sideboard:sb};
+    wins:0,losses:0,desc:'',cards:deckCards,champion:importedChampion||null,
+    runes,battlefields,sideboard:sb,updated_at:new Date().toISOString()};
   myDecks.unshift(deck);persist();closeImportDeckModal();renderDecks();
+  const parts=[];
+  if(isSectioned){
+    parts.push(importedChampion?`champion: ${importedChampion.n}`:'champion: none found');
+    parts.push(`runes: ${runes.length}`);
+    parts.push(`battlefields: ${battlefields.filter(Boolean).length}`);
+    parts.push(`sideboard: ${sb.reduce((a,c)=>a+c.cnt,0)}`);
+  }
+  const detail=parts.length?` (${parts.join(', ')})`:'';
   if(unmatched.length){
-    toast(`Imported — ${matched} matched. NOT FOUND: ${unmatched.join(', ')}`);
+    toast(`Imported${detail} — NOT FOUND: ${unmatched.join(', ')}`);
   } else {
-    toast(`Deck imported — ${matched} cards matched.`);
+    toast(`Deck imported — ${matched} matched${detail}`);
   }
   if(currentUser) setTimeout(()=>saveToCloud(deck.id),100);
 }
@@ -2631,17 +2861,18 @@ function renderEvents(){
     }).join('');
     function schedFlag(ev){
       const t=(ev.name+' '+ev.desc).toLowerCase();
-      if(t.includes('australia')||t.includes('sydney')||t.includes('apac')||t.includes('melbourne')||t.includes('brisbane')) return'🇦🇺';
-      if(t.includes('china')||t.includes('chinese')) return'🇨🇳';
-      if(t.includes('south korea')||t.includes('korea')||t.includes('daejeon')||t.includes('seoul')) return'🇰🇷';
-      if(t.includes('sweden')||t.includes('stockholm')) return'🇸🇪';
-      if(t.includes('netherlands')||t.includes('utrecht')||t.includes('amsterdam')) return'🇳🇱';
-      if(t.includes('spain')||t.includes('barcelona')||t.includes('madrid')) return'🇪🇸';
-      if(t.includes('singapore')) return'🇸🇬';
-      if(t.includes('canada')||t.includes('vancouver')||t.includes('toronto')) return'🇨🇦';
-      if(t.includes('japan')||t.includes('tokyo')) return'🇯🇵';
-      if(t.includes('brazil')||t.includes('são paulo')) return'🇧🇷';
-      if(t.includes('atlanta')||t.includes('hartford')||t.includes('los angeles')||t.includes('indianapolis')||t.includes('philadelphia')||t.includes('indy')||t.includes('pax')||t.includes('gen con')||t.includes('momocon')||t.includes('usa')||t.includes('united states')||t.includes('america')) return'🇺🇸';
+      const fi=(code)=>`<img src="https://flagcdn.com/w20/${code}.png" style="width:20px;height:14px;object-fit:cover;border-radius:2px;vertical-align:middle;box-shadow:0 1px 2px rgba(0,0,0,0.35);" alt="${code}">`;
+      if(t.includes('australia')||t.includes('sydney')||t.includes('apac')||t.includes('melbourne')||t.includes('brisbane')) return fi('au');
+      if(t.includes('china')||t.includes('chinese')) return fi('cn');
+      if(t.includes('south korea')||t.includes('korea')||t.includes('daejeon')||t.includes('seoul')) return fi('kr');
+      if(t.includes('sweden')||t.includes('stockholm')) return fi('se');
+      if(t.includes('netherlands')||t.includes('utrecht')||t.includes('amsterdam')) return fi('nl');
+      if(t.includes('spain')||t.includes('barcelona')||t.includes('madrid')) return fi('es');
+      if(t.includes('singapore')) return fi('sg');
+      if(t.includes('canada')||t.includes('vancouver')||t.includes('toronto')) return fi('ca');
+      if(t.includes('japan')||t.includes('tokyo')) return fi('jp');
+      if(t.includes('brazil')||t.includes('são paulo')) return fi('br');
+      if(t.includes('atlanta')||t.includes('hartford')||t.includes('los angeles')||t.includes('indianapolis')||t.includes('philadelphia')||t.includes('indy')||t.includes('pax')||t.includes('gen con')||t.includes('momocon')||t.includes('usa')||t.includes('united states')||t.includes('america')) return fi('us');
       return'';
     }
     const schedHTML=SCHEDULE_2026.map(month=>{
@@ -2739,13 +2970,13 @@ function persistColl(){
 }
 function setCollOwned(id,delta){
   const cur=collOwned[id]||0;
-  const next=Math.max(0,Math.min(3,cur+delta));
+  const next=Math.max(0,cur+delta);
   if(next===0) delete collOwned[id]; else collOwned[id]=next;
-  persistColl();renderCollection();
+  persistColl();saveCardToCloud(id);renderCollection();
 }
 function toggleCollWanted(id){
   if(collWanted[id]) delete collWanted[id]; else collWanted[id]=true;
-  persistColl();renderCollection();
+  persistColl();saveCardToCloud(id);renderCollection();
 }
 function setCollSet(s){CF2.set=CF2.set===s?'':s;renderCollection();}
 
@@ -3031,49 +3262,28 @@ window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=se
 })();
 
 /* ═══════════════════════════════════════════════════════════════
-   AUTH + CLOUD SYNC ENGINE
+   AUTH + CLOUD SYNC (Supabase)
    ═══════════════════════════════════════════════════════════════ */
 
-const API_BASE = window.location.hostname === 'localhost' || window.location.protocol === 'file:'
-  ? 'http://localhost:3000'
-  : 'https://riftlibrary-api.up.railway.app';
-
-function getToken()  { return authToken || localStorage.getItem('rl_auth_token'); }
-function setToken(t) { authToken = t; if(t) localStorage.setItem('rl_auth_token',t); else localStorage.removeItem('rl_auth_token'); }
-
-async function api(method, path, body) {
-  const headers = { 'Content-Type': 'application/json' };
-  const token = getToken();
-  if (token) headers['Authorization'] = 'Bearer ' + token;
-  const res = await fetch(API_BASE + path, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(data.error || 'Request failed'), { status: res.status, data });
-  return data;
-}
+const SUPABASE_URL  = 'https://rxolycfdleetydbbehep.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ4b2x5Y2ZkbGVldHlkYmJlaGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTg1NjIsImV4cCI6MjA5Mjg3NDU2Mn0.d2iPG_2hPAwpjbX466-4ZAb1hO83CEtP4tg-M-ky_BA';
+const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 async function initAuth() {
-  const hash = window.location.hash;
-  if (hash.includes('auth_token=')) {
-    const token = hash.split('auth_token=')[1].split('&')[0];
-    setToken(token);
-    window.location.hash = '';
-  }
-
-  const token = getToken();
-  if (!token) { renderAuthNav(null); return; }
-
-  try {
-    const user = await api('GET', '/auth/me');
-    currentUser = user;
-    renderAuthNav(user);
+  const { data: { session } } = await _sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    renderAuthNav(currentUser);
     syncCloudDecks();
-  } catch (e) {
-    if (e.status === 401) { setToken(null); renderAuthNav(null); }
+  } else {
+    renderAuthNav(null);
   }
+  _sb.auth.onAuthStateChange((_event, session) => {
+    const wasLoggedIn = !!currentUser;
+    currentUser = session ? session.user : null;
+    renderAuthNav(currentUser);
+    if (currentUser && !wasLoggedIn) syncCloudDecks();
+  });
 }
 
 function renderAuthNav(user) {
@@ -3094,16 +3304,18 @@ function renderAuthNav(user) {
     area.appendChild(loginBtn);
     area.appendChild(signupBtn);
   } else {
-    var initials = (user.username || 'U').slice(0,2).toUpperCase();
+    var meta = user.user_metadata || {};
+    var name = meta.username || meta.full_name || user.email.split('@')[0];
+    var initials = name.slice(0,2).toUpperCase();
     var wrap = document.createElement('div');
     wrap.className = 'auth-drop-wrap';
     var pill = document.createElement('div');
     pill.className = 'auth-user-pill';
     pill.onclick = toggleUserDrop;
-    if (user.avatar_url) {
+    if (meta.avatar_url) {
       var img = document.createElement('img');
       img.className = 'auth-avatar';
-      img.src = user.avatar_url;
+      img.src = meta.avatar_url;
       img.alt = '';
       pill.appendChild(img);
     } else {
@@ -3115,7 +3327,7 @@ function renderAuthNav(user) {
     }
     var uname = document.createElement('span');
     uname.className = 'auth-user-name';
-    uname.textContent = user.username;
+    uname.textContent = name;
     pill.appendChild(uname);
     wrap.appendChild(pill);
     var drop = document.createElement('div');
@@ -3177,21 +3389,51 @@ function showAuthError(msg)   { const el=document.getElementById('auth-error'); 
 function showAuthSuccess(msg) { const el=document.getElementById('auth-success'); el.textContent=msg; el.classList.add('show'); document.getElementById('auth-error').classList.remove('show'); }
 function clearAuthMessages()  { document.getElementById('auth-error').classList.remove('show'); document.getElementById('auth-success').classList.remove('show'); }
 
+function checkPasswordStrength() {
+  const pw = document.getElementById('reg-password').value;
+  const bar = document.getElementById('pw-strength-bar');
+  const fill = document.getElementById('pw-strength-fill');
+  const label = document.getElementById('pw-strength-label');
+  if (!pw) { bar.style.display='none'; label.textContent=''; return; }
+  bar.style.display = 'block';
+  let score = 0;
+  if (pw.length >= 8)  score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const levels = [{w:'20%',c:'#ef4444',t:'Weak'},{w:'40%',c:'#f97316',t:'Fair'},{w:'60%',c:'#eab308',t:'Good'},{w:'80%',c:'#22c55e',t:'Strong'},{w:'100%',c:'#16a34a',t:'Very strong'}];
+  const lvl = levels[Math.min(score-1, 4)] || levels[0];
+  fill.style.width = lvl.w; fill.style.background = lvl.c;
+  label.style.color = lvl.c; label.textContent = lvl.t;
+  checkPasswordMatch();
+}
+
+function checkPasswordMatch() {
+  const pw  = document.getElementById('reg-password').value;
+  const pw2 = document.getElementById('reg-password-confirm').value;
+  const label = document.getElementById('pw-match-label');
+  if (!pw2) { label.textContent=''; return; }
+  if (pw === pw2) { label.style.color='#22c55e'; label.textContent='✓ Passwords match'; }
+  else            { label.style.color='#ef4444'; label.textContent='✗ Passwords do not match'; }
+}
+
 async function submitRegister() {
   const username = document.getElementById('reg-username').value.trim();
   const email    = document.getElementById('reg-email').value.trim();
   const password = document.getElementById('reg-password').value;
-  if (!username || !email || !password) { showAuthError('All fields required'); return; }
-
+  const confirm  = document.getElementById('reg-password-confirm').value;
+  if (!username || !email || !password || !confirm) { showAuthError('All fields required'); return; }
+  if (password !== confirm) { showAuthError('Passwords do not match'); return; }
+  if (password.length < 8) { showAuthError('Password must be at least 8 characters'); return; }
+  if (!/[A-Z]/.test(password)) { showAuthError('Password must contain at least one uppercase letter'); return; }
+  if (!/[0-9]/.test(password)) { showAuthError('Password must contain at least one number'); return; }
   const btn = document.querySelector('#auth-form-register .auth-submit');
   btn.textContent = 'Creating account…'; btn.disabled = true;
   try {
-    const res = await api('POST', '/auth/register', { username, email, password });
-    setToken(res.token);
-    currentUser = res.user;
-    renderAuthNav(res.user);
-    showAuthSuccess('Account created! Welcome, ' + res.user.username + ' 🎉');
-    setTimeout(() => { closeAuthModal(); syncCloudDecks(); }, 1200);
+    const { error } = await _sb.auth.signUp({ email, password, options: { data: { username } } });
+    if (error) throw error;
+    showAuthSuccess('Check your email to confirm your account!');
   } catch (e) {
     showAuthError(e.message || 'Registration failed');
   } finally { btn.textContent = 'Create account'; btn.disabled = false; }
@@ -3201,16 +3443,15 @@ async function submitLogin() {
   const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
   if (!email || !password) { showAuthError('Email and password required'); return; }
-
   const btn = document.querySelector('#auth-form-login .auth-submit');
   btn.textContent = 'Logging in…'; btn.disabled = true;
   try {
-    const res = await api('POST', '/auth/login', { email, password });
-    setToken(res.token);
-    currentUser = res.user;
-    renderAuthNav(res.user);
+    const { data, error } = await _sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    currentUser = data.user;
+    renderAuthNav(data.user);
     closeAuthModal();
-    toast('Welcome back, ' + res.user.username + '!');
+    toast('Welcome back!');
     syncCloudDecks();
   } catch (e) {
     showAuthError(e.message || 'Login failed');
@@ -3218,82 +3459,153 @@ async function submitLogin() {
 }
 
 function oauthLogin(provider) {
-  window.location.href = API_BASE + '/auth/' + provider;
+  _sb.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.href } });
 }
 
 async function logOut() {
-  try { await api('POST', '/auth/logout'); } catch {}
-  setToken(null);
+  await _sb.auth.signOut();
   currentUser = null;
+  myDecks = [];
+  myEvents = [];
+  collOwned = {}; collWanted = {};
   renderAuthNav(null);
+  if(document.getElementById('page-decks').classList.contains('active')) renderDecks();
+  if(document.getElementById('page-events').classList.contains('active')) renderEvents();
+  if(document.getElementById('page-collection').classList.contains('active')) renderCollection();
   toast('Logged out');
 }
 
 async function syncCloudDecks() {
   if (!currentUser) return;
   try {
-    const cloudDecks = await api('GET', '/api/decks');
-    const cloudMap = {};
-    cloudDecks.forEach(d => { cloudMap[d.id] = d; });
+    const { data: cloudDecks, error } = await _sb.from('decks').select('*').eq('user_id', currentUser.id);
+    if (error) throw error;
     cloudDecks.forEach(cd => {
-      const localIdx = myDecks.findIndex(d => d.id === cd.id || d.cloud_id === cd.id);
+      const localIdx = myDecks.findIndex(d => d.cloud_id === cd.id);
       const merged = cloudToLocal(cd);
       if (localIdx >= 0) {
-        const localDeck = myDecks[localIdx];
-        if (!localDeck.updated_at || new Date(cd.updated_at) > new Date(localDeck.updated_at)) {
+        if (!myDecks[localIdx].updated_at || new Date(cd.updated_at) > new Date(myDecks[localIdx].updated_at)) {
+          // Preserve local integer ID so onclick attributes stay valid
+          merged.id = myDecks[localIdx].id;
           myDecks[localIdx] = merged;
         }
       } else {
+        // Assign a stable local integer ID to any new cloud deck
+        merged.id = nextId++;
         myDecks.unshift(merged);
       }
     });
-    const localOnlyDecks = myDecks.filter(d => !d.cloud_id && d.cards && d.cards.length > 0);
+    const localOnlyDecks = myDecks.filter(d => !d.cloud_id);
     for (const local of localOnlyDecks) {
       try {
-        const created = await api('POST', '/api/decks', localToCloud(local));
+        const { data: created, error: e2 } = await _sb.from('decks').insert(localToCloud(local)).select().single();
+        if (e2) throw e2;
         const idx = myDecks.findIndex(d => d.id === local.id);
-        if (idx >= 0) { myDecks[idx].cloud_id = created.id; myDecks[idx].id = created.id; }
+        if (idx >= 0) myDecks[idx].cloud_id = created.id;
       } catch (e) { console.warn('Failed to push local deck:', e); }
     }
     persist();
     if (document.getElementById('page-decks').classList.contains('active')) renderDecks();
     toast('Decks synced ☁');
-  } catch (e) {
-    console.warn('Sync failed:', e);
-    if (e.status === 401) { setToken(null); currentUser = null; renderAuthNav(null); }
-  }
+  } catch (e) { console.warn('Sync failed:', e); }
+  loadEventsFromCloud();
+  loadCollectionFromCloud();
 }
 
 function cloudToLocal(cd) {
+  const d = cd.data || {};
   return {
-    id:           cd.id,
-    cloud_id:     cd.id,
-    name:         cd.name,
-    legend:       cd.legend,
-    domains:      cd.domains || [],
-    format:       cd.format || 'Constructed',
-    wins:         cd.wins || 0,
-    losses:       cd.losses || 0,
-    desc:         cd.description || '',
-    updated_at:   cd.updated_at,
-    sideboardNotes: cd.sideboard_notes || '',
-    sideboard:    (cd.sideboard || []).map(c => ({ id:c.card_id, n:c.card_name, t:c.card_type, cnt:c.quantity })),
-    results:      [],
-    cards:        (cd.cards || []).map(c => ({ id:c.card_id, n:c.card_name, t:c.card_type, cnt:c.quantity })),
+    id:             cd.id,  // overwritten by caller to preserve local integer id
+    cloud_id:       cd.id,
+    name:           cd.name,
+    legend:         cd.legend,
+    domains:        d.domains      || [],
+    format:         d.format       || 'Constructed',
+    wins:           cd.wins        || 0,
+    losses:         cd.losses      || 0,
+    desc:           d.desc         || '',
+    updated_at:     cd.updated_at,
+    sideboardNotes: d.sideboardNotes || '',
+    sideboard:      d.sideboard    || [],
+    results:        d.results      || [],
+    cards:          d.cards        || [],
+    battlefields:   d.battlefields || [null, null, null],
+    champion:       d.champion     || null,
+    runes:          d.runes        || [],
   };
 }
 
 function localToCloud(local) {
   return {
-    name:        local.name,
-    legend:      local.legend,
-    domains:     local.domains || [],
-    format:      local.format || 'Constructed',
-    description: local.desc || '',
-    cards:       (local.cards || []).map(c => ({ card_id:c.id, card_name:c.n, card_type:c.t, quantity:c.cnt })),
-    sideboard:   (local.sideboard || []).map(c => ({ card_id:c.id, card_name:c.n, card_type:c.t, quantity:c.cnt })),
-    sideboard_notes: local.sideboardNotes || '',
+    user_id: currentUser.id,
+    name:    local.name,
+    legend:  local.legend,
+    wins:    local.wins   || 0,
+    losses:  local.losses || 0,
+    data: {
+      domains:        local.domains        || [],
+      format:         local.format         || 'Constructed',
+      desc:           local.desc           || '',
+      cards:          local.cards          || [],
+      sideboard:      local.sideboard      || [],
+      sideboardNotes: local.sideboardNotes || '',
+      results:        local.results        || [],
+      battlefields:   local.battlefields   || [null, null, null],
+      champion:       local.champion       || null,
+      runes:          local.runes          || [],
+    },
   };
+}
+
+async function saveEventsToCloud() {
+  if (!currentUser) return;
+  try {
+    for (const evt of myEvents) {
+      const row = { user_id: currentUser.id, name: evt.name, date: evt.date, time: evt.time||'', location: evt.location||'', paid_entry: evt.paidEntry||false, hotel_booked: evt.hotelBooked||false, flight_booked: evt.flightBooked||false };
+      if (evt.cloud_id) {
+        await _sb.from('my_events').update(row).eq('id', evt.cloud_id);
+      } else {
+        const { data, error } = await _sb.from('my_events').insert(row).select().single();
+        if (!error && data) { evt.cloud_id = data.id; localStorage.setItem('rl_myEvents', JSON.stringify(myEvents)); }
+      }
+    }
+  } catch(e) { console.warn('Events cloud save failed:', e); }
+}
+
+async function loadEventsFromCloud() {
+  if (!currentUser) return;
+  try {
+    const { data, error } = await _sb.from('my_events').select('*').eq('user_id', currentUser.id);
+    if (error || !data || !data.length) return;
+    myEvents = data.map(cd => ({ id: cd.id, cloud_id: cd.id, name: cd.name, date: cd.date, time: cd.time||'', location: cd.location||'', paidEntry: cd.paid_entry||false, hotelBooked: cd.hotel_booked||false, flightBooked: cd.flight_booked||false }));
+    localStorage.setItem('rl_myEvents', JSON.stringify(myEvents));
+    if (document.getElementById('page-events').classList.contains('active')) renderEvents();
+  } catch(e) { console.warn('Events cloud load failed:', e); }
+}
+
+async function saveCardToCloud(cardId) {
+  if (!currentUser) return;
+  try {
+    const owned = collOwned[cardId] || 0;
+    const wanted = !!collWanted[cardId];
+    if (owned === 0 && !wanted) {
+      await _sb.from('collection').delete().eq('user_id', currentUser.id).eq('card_id', cardId);
+    } else {
+      await _sb.from('collection').upsert({ user_id: currentUser.id, card_id: cardId, owned, wanted, updated_at: new Date().toISOString() }, { onConflict: 'user_id,card_id' });
+    }
+  } catch(e) { console.warn('Collection cloud save failed:', e); }
+}
+
+async function loadCollectionFromCloud() {
+  if (!currentUser) return;
+  try {
+    const { data, error } = await _sb.from('collection').select('*').eq('user_id', currentUser.id);
+    if (error || !data || !data.length) return;
+    collOwned = {}; collWanted = {};
+    data.forEach(row => { if (row.owned > 0) collOwned[row.card_id] = row.owned; if (row.wanted) collWanted[row.card_id] = true; });
+    persistColl();
+    if (document.getElementById('page-collection').classList.contains('active')) renderCollection();
+  } catch(e) { console.warn('Collection cloud load failed:', e); }
 }
 
 async function saveToCloud(deckId) {
@@ -3301,12 +3613,14 @@ async function saveToCloud(deckId) {
   const deck = myDecks.find(d => d.id === deckId);
   if (!deck) return;
   try {
+    const payload = localToCloud(deck);
     if (deck.cloud_id) {
-      await api('PUT', '/api/decks/' + deck.cloud_id, localToCloud(deck));
+      const { error } = await _sb.from('decks').update(payload).eq('id', deck.cloud_id);
+      if (error) throw error;
     } else {
-      const created = await api('POST', '/api/decks', localToCloud(deck));
+      const { data: created, error } = await _sb.from('decks').insert(payload).select().single();
+      if (error) throw error;
       deck.cloud_id = created.id;
-      deck.id = created.id;
       persist();
     }
   } catch (e) { console.warn('Cloud save failed:', e); }

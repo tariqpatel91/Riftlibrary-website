@@ -16,8 +16,6 @@
     <button class="nl" onclick="goto('decks',this)">Decks</button>
     <button class="nl" onclick="goto('collection',this)">Collection</button>
     <button class="nl" onclick="goto('events',this)">Events</button>
-    <button class="nl" onclick="goto('statistics',this)">Statistics</button>
-    <button class="nl" onclick="goto('play',this)">⚔ Play</button>
   </div>
   <div class="auth-btn-wrap" id="auth-nav-area">
     <!-- Populated by JS: shows Login button or user pill -->
@@ -64,9 +62,52 @@
           <button class="cs-drop-btn" onclick="toggleDrop('dd-set',this)"><span class="dv-lbl">Set</span><span class="dv-val" id="dv-set">All</span><span class="caret">⌄</span></button>
           <div class="cs-dropdown" id="dd-set">
             <div class="cs-dopt active" onclick="setDrop('set','','All',this)">All</div>
-            <div class="cs-dopt" onclick="setDrop('set','OGN','Origins',this)">Origins</div>
-            <div class="cs-dopt" onclick="setDrop('set','SFD','Spiritforged',this)">Spiritforged</div>
             <div class="cs-dopt" onclick="setDrop('set','UNL','Unleashed',this)">Unleashed</div>
+            <div class="cs-dopt" onclick="setDrop('set','SFD','Spiritforged',this)">Spiritforged</div>
+            <div class="cs-dopt" onclick="setDrop('set','SFD-NN','Spiritforged | Nexus Night',this)">Spiritforged | Nexus Night</div>
+            <div class="cs-dopt" onclick="setDrop('set','ARC','Arcane Box Set',this)">Arcane Box Set</div>
+            <div class="cs-dopt" onclick="setDrop('set','OGN','Origins',this)">Origins</div>
+            <div class="cs-dopt" onclick="setDrop('set','OGS','Proving Grounds',this)">Proving Grounds</div>
+            <div class="cs-dopt" onclick="setDrop('set','OGN-NN','Origins | Nexus Night',this)">Origins | Nexus Night</div>
+            <div class="cs-dopt" onclick="setDrop('set','WRLD25','Worlds Bundle 2025',this)">Worlds Bundle 2025</div>
+            <div class="cs-dopt" onclick="setDrop('set','OPP','Organized Play Promos',this)">Organized Play Promos</div>
+            <div class="cs-dopt" onclick="setDrop('set','JDG','Judge Promos',this)">Judge Promos</div>
+            <div class="cs-dopt" onclick="setDrop('set','PR','Promos',this)">Promos</div>
+          </div>
+        </div>
+        <div class="cs-drop-wrap" id="dw-type">
+          <button class="cs-drop-btn" onclick="toggleDrop('dd-type',this)"><span class="dv-lbl">Type</span><span class="dv-val" id="dv-type">All</span><span class="caret">⌄</span></button>
+          <div class="cs-dropdown" id="dd-type">
+            <div class="cs-dopt active" data-val="" onclick="setCFType('')">All</div>
+            <div class="cs-dopt" data-val="Unit" onclick="setCFType('Unit')">Unit</div>
+            <div class="cs-dopt" data-val="Spell" onclick="setCFType('Spell')">Spell</div>
+            <div class="cs-dopt" data-val="Gear" onclick="setCFType('Gear')">Gear</div>
+            <div class="cs-dopt" data-val="Legend" onclick="setCFType('Legend')">Legend</div>
+            <div class="cs-dopt" data-val="Rune" onclick="setCFType('Rune')">Rune</div>
+            <div class="cs-dopt" data-val="Battlefield" onclick="setCFType('Battlefield')">Battlefield</div>
+            <div class="cs-dopt" data-val="banned" onclick="setCFType('banned')" style="color:var(--fury);">⛔ Banned</div>
+          </div>
+        </div>
+        <div class="cs-drop-wrap" id="dw-subtype">
+          <button class="cs-drop-btn" onclick="toggleDrop('dd-subtype',this)"><span class="dv-lbl">Subtype</span><span class="dv-val" id="dv-subtype">All</span><span class="caret">⌄</span></button>
+          <div class="cs-dropdown" id="dd-subtype">
+            <div class="cs-dopt active" onclick="setDrop('subtype','','All',this)">All</div>
+            <div class="cs-dopt" onclick="setDrop('subtype','Action','Action',this)">Action</div>
+            <div class="cs-dopt" onclick="setDrop('subtype','Reaction','Reaction',this)">Reaction</div>
+            <div class="cs-dopt" onclick="setDrop('subtype','Champion','Champion',this)">Champion</div>
+            <div class="cs-dopt" onclick="setDrop('subtype','Token','Token',this)">Token</div>
+            <div class="cs-dopt" onclick="setDrop('subtype','Signature Card','Signature Card',this)">Signature Card</div>
+          </div>
+        </div>
+        <div class="cs-drop-wrap" id="dw-variant">
+          <button class="cs-drop-btn" onclick="toggleDrop('dd-variant',this)"><span class="dv-lbl">Art Variants</span><span class="dv-val" id="dv-variant">All</span><span class="caret">⌄</span></button>
+          <div class="cs-dropdown" id="dd-variant">
+            <div class="cs-dopt active" onclick="setDrop('variant','','All',this)">All</div>
+            <div class="cs-dopt" onclick="setDrop('variant','Standard','Standard',this)">Standard</div>
+            <div class="cs-dopt" onclick="setDrop('variant','Alt Art','Alt Art',this)">Alt Art</div>
+            <div class="cs-dopt" onclick="setDrop('variant','Overnumbered','Overnumbered',this)">Overnumbered</div>
+            <div class="cs-dopt" onclick="setDrop('variant','Promo','Promo',this)">Promo</div>
+            <div class="cs-dopt" onclick="setDrop('variant','Artist Signed','Artist Signed',this)">Artist Signed</div>
           </div>
         </div>
         <div class="cs-drop-wrap" id="dw-rar">
@@ -77,6 +118,7 @@
             <div class="cs-dopt" onclick="setDrop('rar','Uncommon','Uncommon',this)">Uncommon</div>
             <div class="cs-dopt" onclick="setDrop('rar','Rare','Rare',this)">Rare</div>
             <div class="cs-dopt" onclick="setDrop('rar','Epic','Epic',this)">Epic</div>
+            <div class="cs-dopt" onclick="setDrop('rar','Legendary','Legendary',this)">Legendary</div>
           </div>
         </div>
         <!-- artist sort (hidden until artists view) -->
@@ -89,28 +131,16 @@
       </div>
     </div>
 
-    <!-- type tabs -->
-    <div class="cs-type-row">
-      <button class="cs-type-tab on" data-type="" onclick="setCFType('')">All</button>
-      <button class="cs-type-tab" data-type="Champion" onclick="setCFType('Champion')">Champion</button>
-      <button class="cs-type-tab" data-type="Unit" onclick="setCFType('Unit')">Unit</button>
-      <button class="cs-type-tab" data-type="Spell" onclick="setCFType('Spell')">Spell</button>
-      <button class="cs-type-tab" data-type="Gear" onclick="setCFType('Gear')">Gear</button>
-      <button class="cs-type-tab" data-type="Legend" onclick="setCFType('Legend')">Legend</button>
-      <button class="cs-type-tab" data-type="Rune" onclick="setCFType('Rune')">Rune</button>
-      <button class="cs-type-tab" data-type="Battlefield" onclick="setCFType('Battlefield')">Battlefield</button>
-      <button class="cs-type-tab banned-type-tab" data-type="banned" onclick="setCFType('banned')">⛔ Banned</button>
-    </div>
 
     <!-- cards bottom: domain pills + range sliders -->
     <div class="cs-btm" id="cards-btm">
-      <div class="cs-dom-pills" id="cs-dom-pills">
-        <button class="edit-dom-pill fury"  data-dom="fury"  onclick="toggleDom(this)">Fury</button>
-        <button class="edit-dom-pill chaos" data-dom="chaos" onclick="toggleDom(this)">Chaos</button>
-        <button class="edit-dom-pill calm"  data-dom="calm"  onclick="toggleDom(this)">Calm</button>
-        <button class="edit-dom-pill mind"  data-dom="mind"  onclick="toggleDom(this)">Mind</button>
-        <button class="edit-dom-pill body"  data-dom="body"  onclick="toggleDom(this)">Body</button>
-        <button class="edit-dom-pill order" data-dom="order" onclick="toggleDom(this)">Order</button>
+      <div class="cs-doms" id="cs-dom-pills">
+        <button class="dom-btn" data-dom="fury"  onclick="toggleDom(this)" title="Fury"><img src="https://static0.fextralifeimages.com/file/riftbound/4/46/Fury.png" alt="Fury"></button>
+        <button class="dom-btn" data-dom="chaos" onclick="toggleDom(this)" title="Chaos"><img src="https://static0.fextralifeimages.com/file/riftbound/8/8f/Chaos.png" alt="Chaos"></button>
+        <button class="dom-btn" data-dom="calm"  onclick="toggleDom(this)" title="Calm"><img src="https://static0.fextralifeimages.com/file/riftbound/2/20/Calm.png" alt="Calm"></button>
+        <button class="dom-btn" data-dom="mind"  onclick="toggleDom(this)" title="Mind"><img src="https://static0.fextralifeimages.com/file/riftbound/e/e5/Mind2.png" alt="Mind"></button>
+        <button class="dom-btn" data-dom="body"  onclick="toggleDom(this)" title="Body"><img src="https://static0.fextralifeimages.com/file/riftbound/e/e9/Body.png" alt="Body"></button>
+        <button class="dom-btn" data-dom="order" onclick="toggleDom(this)" title="Order"><img src="https://static0.fextralifeimages.com/file/riftbound/5/58/Order.png" alt="Order"></button>
       </div>
       <div class="ranges">
         <div class="rg">
@@ -397,8 +427,15 @@
       </div>
       <div class="auth-field">
         <label>Password</label>
-        <input type="password" id="reg-password" placeholder="Min 8 characters" autocomplete="new-password"
-               onkeydown="if(event.key==='Enter')submitRegister()">
+        <input type="password" id="reg-password" placeholder="Min 8 characters" autocomplete="new-password" oninput="checkPasswordStrength()">
+        <div id="pw-strength-bar" style="margin-top:6px;height:4px;border-radius:2px;background:var(--bg3);overflow:hidden;display:none;"><div id="pw-strength-fill" style="height:100%;width:0;transition:width 0.3s,background 0.3s;border-radius:2px;"></div></div>
+        <div id="pw-strength-label" style="font-size:11px;margin-top:3px;color:var(--text-muted);"></div>
+      </div>
+      <div class="auth-field">
+        <label>Confirm Password</label>
+        <input type="password" id="reg-password-confirm" placeholder="Re-enter your password" autocomplete="new-password"
+               onkeydown="if(event.key==='Enter')submitRegister()" oninput="checkPasswordMatch()">
+        <div id="pw-match-label" style="font-size:11px;margin-top:3px;"></div>
       </div>
       <button class="auth-submit" onclick="submitRegister()">Create account</button>
       <div class="auth-switch">Already have an account? <a onclick="switchAuthTab('login')">Log in</a></div>
@@ -494,6 +531,7 @@
   <div id="articles-detail" style="display:none;"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="riftlibrary.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" onerror="console.warn('PeerJS failed to load — Play tab will not work offline.')"></script>
 <script src="riftlibrary-play.js"></script>
