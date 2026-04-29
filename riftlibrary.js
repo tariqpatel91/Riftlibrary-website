@@ -2251,7 +2251,8 @@ function renderCards(){
       if(CF.variant==='Alt Art'){if(!c.isAltArt)return false;}
       else if(CF.variant==='Overnumbered'){if(!c.isOvernumbered)return false;}
       else if(CF.variant==='Promo'){if(c.rarity!=='Promo')return false;}
-      else if(CF.variant==='Standard'){if(c.isAltArt||c.isOvernumbered||c.rarity==='Promo')return false;}
+      else if(CF.variant==='Signature'){if(!c.isSignature)return false;}
+      else if(CF.variant==='Standard'){if(c.isAltArt||c.isOvernumbered||c.rarity==='Promo'||c.isSignature)return false;}
     }
     if(CF.doms.size>0&&!CF.doms.has(c.dom))return false;
     if(c.cost!==null&&(c.cost<CF.energy[0]||c.cost>CF.energy[1]))return false;
