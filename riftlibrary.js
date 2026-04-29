@@ -2343,14 +2343,15 @@ function renderCards(){
 
 function buildCollRow(cardId,owned){
   const s=cardId.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-  return `<button class="ct-coll-add" onclick="event.stopPropagation();gridCollChange('${s}',1,this)">＋${owned>0?` ×${owned}`:''}</button>`
+  return `<button class="ct-coll-add" onclick="event.stopPropagation();gridCollChange('${s}',1,this)">${owned>0?`(${owned}) `:''}+ Add to Collection</button>`
     +(owned>0?`<button class="ct-coll-rem" onclick="event.stopPropagation();gridCollChange('${s}',-1,this)">−</button>`:'');
 }
 function gridCollChange(cardId,delta,btn){
   const cur=collOwned[cardId]||0;
-  const next=Math.max(0,Math.min(3,cur+delta));
+  const next=Math.max(0,cur+delta);
   if(next===0) delete collOwned[cardId]; else collOwned[cardId]=next;
   persistColl();saveCardToCloud(cardId);
+  toast(delta>0?'Added to collection':'Removed from collection');
   const row=btn.closest('.ct-coll');
   if(row) row.innerHTML=buildCollRow(cardId,next);
 }
@@ -2405,7 +2406,7 @@ function openCardModal(cardId){
           ?`<img src="${c.imageUrl}" alt="${c.name}" class="cm-img">`
           :`<div class="cm-img cm-img-empty"><span style="color:var(--text-muted);">No image</span></div>`}
         <div class="cm-coll-row">
-          <button class="cm-coll-btn cm-coll-add" onclick="cmCollChange('${sid}',1)" title="Add to collection">＋ Add to Collection${owned>0?` (${owned})`:''}</button>
+          <button class="cm-coll-btn cm-coll-add" onclick="cmCollChange('${sid}',1)" title="Add to collection">${owned>0?`(${owned}) `:''}+ Add to Collection</button>
           ${owned>0?`<button class="cm-coll-btn cm-coll-remove" onclick="cmCollChange('${sid}',-1)" title="Remove from collection">− Remove</button>`:''}
         </div>
       </div>
@@ -2432,7 +2433,7 @@ function cmCollChange(cardId,delta){
   const owned=collOwned[cardId]||0;
   const addBtn=document.querySelector('.cm-coll-add');
   const removeBtn=document.querySelector('.cm-coll-remove');
-  if(addBtn) addBtn.textContent=`＋ Add to Collection${owned>0?` (${owned})`:''}`;
+  if(addBtn) addBtn.textContent=`${owned>0?`(${owned}) `:''}+ Add to Collection`;
   if(owned>0){
     if(!removeBtn){
       const row=document.querySelector('.cm-coll-row');
@@ -2925,7 +2926,7 @@ function persistColl(){
 }
 function setCollOwned(id,delta){
   const cur=collOwned[id]||0;
-  const next=Math.max(0,Math.min(3,cur+delta));
+  const next=Math.max(0,cur+delta);
   if(next===0) delete collOwned[id]; else collOwned[id]=next;
   persistColl();saveCardToCloud(id);renderCollection();
 }
