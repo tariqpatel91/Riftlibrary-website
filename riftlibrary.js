@@ -1194,7 +1194,8 @@ function renderEditSearch(){
     if(EF.variant==='Alt Art') source=source.filter(c=>c.isAltArt);
     else if(EF.variant==='Overnumbered') source=source.filter(c=>c.isOvernumbered);
     else if(EF.variant==='Promo') source=source.filter(c=>c.rarity==='Promo');
-    else if(EF.variant==='Standard') source=source.filter(c=>!c.isAltArt&&!c.isOvernumbered&&c.rarity!=='Promo');
+    else if(EF.variant==='Artist Signed') source=source.filter(c=>c.isSignature);
+    else if(EF.variant==='Standard') source=source.filter(c=>!c.isAltArt&&!c.isOvernumbered&&c.rarity!=='Promo'&&!c.isSignature);
   }
   if(!EF.showAllVersions){
     const RR={Legendary:5,Epic:4,Rare:3,Uncommon:2,Common:1,Showcase:0,Promo:0};
@@ -1237,7 +1238,7 @@ function renderEditSearch(){
   const ESETS=['','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
   const ERARS=['','Legendary','Epic','Rare','Uncommon','Common','Promo'];
   const ESUBTYPES=['','Action','Reaction','Champion','Token','Signature Card'];
-  const EVARIANTS=['','Standard','Alt Art','Overnumbered','Promo'];
+  const EVARIANTS=['','Standard','Alt Art','Overnumbered','Promo','Artist Signed'];
 
   function efDrop(field,val,label,opts,labelMap){
     let h=`<div class="ef-drop-wrap"><button class="ef-drop-btn" onclick="toggleEFDrop('efd-${field}',this)"><span class="ef-dv-lbl">${label}</span><span class="ef-dv-val">${val||'All'}</span><span class="caret">⌄</span></button><div class="ef-dropdown" id="efd-${field}">`;
@@ -2294,7 +2295,8 @@ function renderCards(){
       if(CF.variant==='Alt Art'){if(!c.isAltArt)return false;}
       else if(CF.variant==='Overnumbered'){if(!c.isOvernumbered)return false;}
       else if(CF.variant==='Promo'){if(c.rarity!=='Promo')return false;}
-      else if(CF.variant==='Standard'){if(c.isAltArt||c.isOvernumbered||c.rarity==='Promo')return false;}
+      else if(CF.variant==='Artist Signed'){if(!c.isSignature)return false;}
+      else if(CF.variant==='Standard'){if(c.isAltArt||c.isOvernumbered||c.rarity==='Promo'||c.isSignature)return false;}
     }
     if(CF.doms.size>0&&!CF.doms.has(c.dom))return false;
     if(c.cost!==null&&(c.cost<CF.energy[0]||c.cost>CF.energy[1]))return false;
