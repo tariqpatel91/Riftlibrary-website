@@ -2244,15 +2244,14 @@ function renderCards(){
       if(CF.subtype==='Action'){if(!c.txt.toLowerCase().includes('[action]'))return false;}
       else if(CF.subtype==='Reaction'){if(!c.txt.toLowerCase().includes('[reaction]'))return false;}
       else if(CF.subtype==='Champion'){if(c.supertype!=='Champion')return false;}
-      else if(CF.subtype==='Signature'){if(!c.isSignature)return false;}
+      else if(CF.subtype==='Signature Card'){if(!c.isSignature)return false;}
       else if(CF.subtype==='Token'){if(c.type!=='Token'&&c.supertype!=='Token')return false;}
     }
     if(CF.variant){
       if(CF.variant==='Alt Art'){if(!c.isAltArt)return false;}
       else if(CF.variant==='Overnumbered'){if(!c.isOvernumbered)return false;}
       else if(CF.variant==='Promo'){if(c.rarity!=='Promo')return false;}
-      else if(CF.variant==='Signature'){if(!c.isSignature)return false;}
-      else if(CF.variant==='Standard'){if(c.isAltArt||c.isOvernumbered||c.rarity==='Promo'||c.isSignature)return false;}
+      else if(CF.variant==='Standard'){if(c.isAltArt||c.isOvernumbered||c.rarity==='Promo')return false;}
     }
     if(CF.doms.size>0&&!CF.doms.has(c.dom))return false;
     if(c.cost!==null&&(c.cost<CF.energy[0]||c.cost>CF.energy[1]))return false;
