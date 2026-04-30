@@ -217,14 +217,6 @@ function startBoard(isFirst) {
   document.getElementById('play-board').style.display = 'flex';
   document.getElementById('my-name-label').textContent = GS.me.name;
   document.getElementById('opp-name-label').textContent = GS.opp.name || 'Opponent';
-  document.getElementById('board-title').textContent = GS.roomCode === 'SOLO' ? 'Solo Practice' : 'Room: ' + GS.roomCode;
-
-  // Set legend card image
-  if (GS.me.legend) {
-    const img = GS.me.legend.image || GS.me.legend.img || '';
-    const slot = document.getElementById('my-legend-slot');
-    if (slot && img) slot.innerHTML = `<img src="${img}" alt="${GS.me.legend.name||''}">`;
-  }
   renderFullBoard();
   updateTurnBadge();
   appendChat('System', 'Game started! ' + (GS.myTurn ? 'You go first.' : (GS.opp.name||'Opponent') + ' goes first.'));
@@ -239,8 +231,12 @@ function renderFullBoard() {
   document.getElementById('my-rune-count').textContent = GS.me.runes.length;
   renderMyHand();
   renderOppHand();
-  renderZone('battle-cards', [...GS.me.battle, ...GS.opp.battle]);
-  renderZone('support-cards', [...GS.me.support, ...GS.opp.support]);
+  renderZone('battle-cards', GS.me.battle);
+  renderZone('opp-base-cards', GS.opp.battle);
+  renderZone('support-cards', GS.me.support);
+  // Place legend/champion
+  if (GS.me.legend) renderZone('my-legend-cards', [GS.me.legend]);
+  if (GS.me.champion) renderZone('my-champion-cards', [GS.me.champion]);
   _updateCounts();
 }
 
@@ -253,10 +249,8 @@ function renderMyHand() {
 
 function renderOppHand() {
   const el = document.getElementById('opp-hand');
-  if (!el) return;
-  el.innerHTML = Array(GS.opp.handCount).fill(0).map(() =>
-    `<div class="opp-card-back"></div>`
-  ).join('');
+  if (el) el.innerHTML = Array(Math.min(GS.opp.handCount, 10)).fill(0).map(() =>
+    `<div class="opp-card-back"></div>`).join('');
   const cnt = document.getElementById('opp-hand-count');
   if (cnt) cnt.textContent = GS.opp.handCount;
 }
@@ -288,10 +282,8 @@ function _isMyCard(card) {
 }
 
 function _updateCounts() {
-  const mc = document.getElementById('my-counts');
-  if (mc) mc.textContent = `Deck: ${GS.me.deck.length} · Discard: ${GS.me.discard.length}`;
-  const oc = document.getElementById('opp-counts');
-  if (oc) oc.textContent = `Hand: ${GS.opp.handCount}`;
+  const tb = document.getElementById('my-hand-count');
+  if (tb) tb.textContent = GS.me.hand.length;
 }
 
 /* ── DRAG OVER (highlight drop zones) ── */
