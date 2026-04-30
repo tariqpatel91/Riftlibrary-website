@@ -210,18 +210,24 @@ function _shuffle(arr) {
 function startBoard(isFirst) {
   GS.myTurn = isFirst;
   GS.phase = 'main';
-  // Draw opening hand
   for (let i = 0; i < 5 && GS.me.deck.length; i++) {
     GS.me.hand.push(GS.me.deck.shift());
   }
   document.getElementById('play-lobby').style.display = 'none';
-  document.getElementById('play-board').style.display = '';
+  document.getElementById('play-board').style.display = 'flex';
   document.getElementById('my-name-label').textContent = GS.me.name;
   document.getElementById('opp-name-label').textContent = GS.opp.name || 'Opponent';
-  document.getElementById('board-title').textContent = 'Room: ' + GS.roomCode;
+  document.getElementById('board-title').textContent = GS.roomCode === 'SOLO' ? 'Solo Practice' : 'Room: ' + GS.roomCode;
+
+  // Set legend card image
+  if (GS.me.legend) {
+    const img = GS.me.legend.image || GS.me.legend.img || '';
+    const slot = document.getElementById('my-legend-slot');
+    if (slot && img) slot.innerHTML = `<img src="${img}" alt="${GS.me.legend.name||''}">`;
+  }
   renderFullBoard();
   updateTurnBadge();
-  appendChat('System', 'Game started! ' + (GS.myTurn ? 'You go first.' : GS.opp.name + ' goes first.'));
+  appendChat('System', 'Game started! ' + (GS.myTurn ? 'You go first.' : (GS.opp.name||'Opponent') + ' goes first.'));
 }
 
 /* ── RENDER ── */
@@ -233,8 +239,8 @@ function renderFullBoard() {
   document.getElementById('my-rune-count').textContent = GS.me.runes.length;
   renderMyHand();
   renderOppHand();
-  renderZone('battle-cards', [...GS.me.battle, ...GS.opp.battle], true);
-  renderZone('support-cards', [...GS.me.support, ...GS.opp.support], true);
+  renderZone('battle-cards', [...GS.me.battle, ...GS.opp.battle]);
+  renderZone('support-cards', [...GS.me.support, ...GS.opp.support]);
   _updateCounts();
 }
 
@@ -248,13 +254,14 @@ function renderMyHand() {
 function renderOppHand() {
   const el = document.getElementById('opp-hand');
   if (!el) return;
-  const count = GS.opp.handCount;
-  el.innerHTML = Array(count).fill(0).map(() =>
+  el.innerHTML = Array(GS.opp.handCount).fill(0).map(() =>
     `<div class="opp-card-back"></div>`
   ).join('');
+  const cnt = document.getElementById('opp-hand-count');
+  if (cnt) cnt.textContent = GS.opp.handCount;
 }
 
-function renderZone(rowId, cards, canDrag) {
+function renderZone(rowId, cards) {
   const el = document.getElementById(rowId);
   if (!el) return;
   el.innerHTML = cards.map(c => boardCardHTML(c, rowId)).join('');
@@ -267,9 +274,10 @@ function boardCardHTML(card, zone) {
   const bfClass = bf ? ' bf-card' : '';
   const mine = _isMyCard(card);
   const drag = mine ? `draggable="true" ondragstart="boardDragStart(event,'${card._uid}','${zone}')"` : '';
-  const click = mine ? `onclick="showBoardCardMenu(event,${JSON.stringify(JSON.stringify(card)).slice(1,-1)},'${zone}')"` : '';
+  const cardJson = JSON.stringify(card).replace(/'/g,"\\'").replace(/"/g,'&quot;');
+  const click = mine ? `onclick="showBoardCardMenu(event,'${cardJson}','${zone}')"` : '';
   return `<div class="board-card${exhausted}${bfClass}" ${drag} ${click} title="${card.name||''}" data-uid="${card._uid||''}">
-    ${img ? `<img src="${img}" alt="${card.name||''}">` : `<div style="padding:4px;font-size:9px;color:var(--text-muted);text-align:center;">${card.name||''}</div>`}
+    ${img ? `<img src="${img}" alt="${card.name||''}">` : `<div style="padding:4px;font-size:9px;color:rgba(255,255,255,0.5);text-align:center;word-break:break-word;">${card.name||'?'}</div>`}
   </div>`;
 }
 
@@ -280,10 +288,16 @@ function _isMyCard(card) {
 }
 
 function _updateCounts() {
-  document.getElementById('my-counts').textContent =
-    `Hand: ${GS.me.hand.length} · Deck: ${GS.me.deck.length} · Discard: ${GS.me.discard.length}`;
-  document.getElementById('opp-counts').textContent =
-    `Hand: ${GS.opp.handCount} · Battle: ${GS.opp.battle.length}`;
+  const mc = document.getElementById('my-counts');
+  if (mc) mc.textContent = `Deck: ${GS.me.deck.length} · Discard: ${GS.me.discard.length}`;
+  const oc = document.getElementById('opp-counts');
+  if (oc) oc.textContent = `Hand: ${GS.opp.handCount}`;
+}
+
+/* ── DRAG OVER (highlight drop zones) ── */
+function boardDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
 }
 
 /* ── DRAG & DROP ── */

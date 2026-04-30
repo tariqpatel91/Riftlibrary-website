@@ -301,86 +301,120 @@
 
   <!-- GAME BOARD (hidden until match starts) -->
   <div id="play-board" style="display:none;">
+
     <!-- Top bar -->
     <div id="board-topbar">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <span id="board-title" style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;"></span>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span id="board-title" style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;"></span>
         <span id="board-turn-badge"></span>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-sm btn-g" onclick="endTurn()" id="end-turn-btn">End Turn</button>
-          <button class="btn btn-sm" onclick="concede()">Concede</button>
-        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <span id="board-phase-indicator"></span>
-        <button class="btn btn-sm" onclick="toggleChat()">💬 Chat</button>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button class="btn btn-sm btn-g" onclick="endTurn()" id="end-turn-btn">End Turn</button>
+        <button class="btn btn-sm" onclick="toggleChat()">💬</button>
+        <button class="btn btn-sm" onclick="concede()">Concede</button>
       </div>
     </div>
 
-    <!-- Main board area -->
-    <div id="board-main">
-      <!-- Opponent side -->
-      <div id="opp-area" class="player-area opp">
-        <div class="pa-info">
-          <span id="opp-name-label" class="player-name"></span>
-          <div class="life-row">
-            <button class="life-btn" onclick="adjustLife('opp',-1)">−</button>
-            <span id="opp-life" class="life-count">20</span>
-            <button class="life-btn" onclick="adjustLife('opp',1)">+</button>
+    <!-- Arena: battlefield art background + all zones -->
+    <div id="board-arena">
+      <div id="board-bg"></div>
+      <div id="board-overlay"></div>
+
+      <!-- ── OPPONENT STRIP ── -->
+      <div id="opp-strip" class="player-strip opp-strip">
+        <!-- Left col: BF card + hand -->
+        <div class="strip-left">
+          <div id="opp-bf-slot" class="bf-slot-card">
+            <span class="bf-slot-lbl">Opponent<br>Battlefield</span>
           </div>
-          <div style="font-size:11px;color:var(--text-muted);" id="opp-counts"></div>
+          <div class="opp-hand-col">
+            <div id="opp-hand" class="card-row opp-hand-cards"></div>
+            <div class="hand-lbl">Hand (<span id="opp-hand-count">0</span>)</div>
+          </div>
         </div>
-        <div id="opp-hand-area" class="hand-zone opp-hand">
-          <div class="zone-lbl">Hand (<span id="opp-hand-count">0</span>)</div>
-          <div id="opp-hand" class="card-row"></div>
+        <!-- Center: empty (units are in the shared zone below) -->
+        <div class="strip-center"></div>
+        <!-- Right col: opp info -->
+        <div class="strip-right">
+          <div class="p-info-block">
+            <div id="opp-name-label" class="p-name"></div>
+            <div class="life-row">
+              <button class="life-btn" onclick="adjustLife('opp',-1)">−</button>
+              <span id="opp-life" class="life-count">20</span>
+              <button class="life-btn" onclick="adjustLife('opp',1)">+</button>
+            </div>
+            <div id="opp-counts" class="small-counts"></div>
+          </div>
         </div>
       </div>
 
-      <!-- Battle zone -->
-      <div id="battle-zone" class="zone" ondragover="event.preventDefault()" ondrop="dropToZone(event,'battle')">
-        <div class="zone-lbl">Battle Field</div>
-        <div id="battle-cards" class="card-row flexible"></div>
-      </div>
-
-      <!-- Support zone -->
-      <div id="support-zone" class="zone" ondragover="event.preventDefault()" ondrop="dropToZone(event,'support')">
-        <div class="zone-lbl">Support</div>
-        <div id="support-cards" class="card-row flexible"></div>
-      </div>
-
-      <!-- My side -->
-      <div id="my-area" class="player-area mine">
-        <div class="pa-info">
-          <span id="my-name-label" class="player-name"></span>
-          <div class="life-row">
-            <button class="life-btn" onclick="adjustLife('me',-1)">−</button>
-            <span id="my-life" class="life-count">20</span>
-            <button class="life-btn" onclick="adjustLife('me',1)">+</button>
-          </div>
-          <div style="font-size:11px;color:var(--text-muted);" id="my-counts"></div>
+      <!-- ── SHARED BATTLEFIELD UNITS ── -->
+      <div id="units-area">
+        <div id="units-zone-left" class="unit-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battle')">
+          <div class="zone-lbl">BF Units 1</div>
+          <div id="battle-cards" class="card-row"></div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-          <div class="mini-zone" id="my-deck-zone" onclick="drawCard()" title="Click to draw">
-            <div class="zone-lbl">Deck</div>
-            <div id="my-deck-count" class="mini-count">0</div>
-          </div>
-          <div class="mini-zone" id="my-disc-zone" onclick="viewDiscard()" title="View discard">
-            <div class="zone-lbl">Discard</div>
-            <div id="my-disc-count" class="mini-count">0</div>
-          </div>
-          <div class="mini-zone" id="my-runes-zone">
-            <div class="zone-lbl">Runes</div>
-            <div id="my-rune-count" class="mini-count">0</div>
-          </div>
-        </div>
-        <div class="hand-zone my-hand">
-          <div class="zone-lbl">Hand (<span id="my-hand-count">0</span>) — drag cards to field or click to play</div>
-          <div id="my-hand" class="card-row hand-cards"></div>
+        <div id="unit-zone-divider"></div>
+        <div id="units-zone-right" class="unit-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'support')">
+          <div class="zone-lbl">BF Units 2</div>
+          <div id="support-cards" class="card-row"></div>
         </div>
       </div>
-    </div>
 
-    <!-- Chat panel -->
+      <!-- ── MY STRIP ── -->
+      <div id="my-strip" class="player-strip my-strip">
+        <!-- Left col: BF card + legend + info -->
+        <div class="strip-left">
+          <div id="my-bf-slot" class="bf-slot-card">
+            <span class="bf-slot-lbl">Chosen<br>Battlefield</span>
+          </div>
+          <div id="my-legend-slot" class="legend-card-slot"></div>
+          <div class="p-info-block">
+            <div id="my-name-label" class="p-name"></div>
+            <div class="life-row">
+              <button class="life-btn" onclick="adjustLife('me',-1)">−</button>
+              <span id="my-life" class="life-count">20</span>
+              <button class="life-btn" onclick="adjustLife('me',1)">+</button>
+            </div>
+            <div id="my-counts" class="small-counts"></div>
+          </div>
+        </div>
+        <!-- Center: utility zones + hand -->
+        <div class="strip-center my-center">
+          <div class="util-zones">
+            <div class="mini-board-zone" id="my-runes-zone">
+              <div class="zone-lbl">Runes</div>
+              <div id="my-rune-count" class="mini-count">0</div>
+            </div>
+            <div class="mini-board-zone" id="my-disc-zone" onclick="viewDiscard()" style="cursor:pointer;">
+              <div class="zone-lbl">Discard</div>
+              <div id="my-disc-count" class="mini-count">0</div>
+            </div>
+            <div class="mini-board-zone">
+              <div class="zone-lbl">Base</div>
+            </div>
+          </div>
+          <div class="my-hand-wrap">
+            <div class="hand-lbl">Hand (<span id="my-hand-count">0</span>)</div>
+            <div id="my-hand" class="card-row hand-cards"></div>
+          </div>
+        </div>
+        <!-- Right col: deck pile -->
+        <div class="strip-right">
+          <div id="my-deck-zone" class="deck-pile-vis" onclick="drawCard()" title="Click to draw a card">
+            <div class="deck-stack">
+              <div class="deck-back s3"></div>
+              <div class="deck-back s2"></div>
+              <div class="deck-back s1"></div>
+            </div>
+            <div id="my-deck-count" class="deck-count-lbl">0</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /board-arena -->
+
+    <!-- Chat panel (slides up from bottom) -->
     <div id="chat-panel" style="display:none;">
       <div id="chat-msgs"></div>
       <div style="display:flex;gap:6px;padding:8px;">
@@ -389,8 +423,11 @@
       </div>
     </div>
 
-    <!-- Card detail tooltip -->
-    <div id="card-detail-overlay" style="display:none;"></div>
+  </div><!-- /play-board -->
+
+  <!-- Discard overlay -->
+  <div id="discard-overlay">
+    <div id="discard-box"></div>
   </div>
 </div>
 
