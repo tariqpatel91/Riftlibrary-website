@@ -3,7 +3,7 @@
 
 const GS = {
   me:  {name:'', life:20, hand:[], deck:[], discard:[], runes:[], runeIdx:0,
-         battle:[], support:[], legend:null, champion:null},
+         battle:[], support:[], bfLeft:[], bfRight:[], legend:null, champion:null},
   opp: {name:'', life:20, handCount:0, battle:[], support:[], legend:null, champion:null},
   myTurn: false,
   phase: 'waiting',
@@ -231,10 +231,17 @@ function renderFullBoard() {
   document.getElementById('my-rune-count').textContent = GS.me.runes.length;
   renderMyHand();
   renderOppHand();
+  // Center BASE: my units at bottom half, opp units at top half
   renderZone('battle-cards', GS.me.battle);
   renderZone('opp-base-cards', GS.opp.battle);
+  // Other zones
   renderZone('support-cards', GS.me.support);
-  // Place legend/champion
+  renderZone('my-bf-left-cards', GS.me.bfLeft || []);
+  renderZone('my-bf-right-cards', GS.me.bfRight || []);
+  // Hide base hint once units are placed
+  const hint = document.getElementById('base-hint');
+  if (hint) hint.style.display = (GS.me.battle.length || GS.opp.battle.length) ? 'none' : '';
+  // Legend/champion
   if (GS.me.legend) renderZone('my-legend-cards', [GS.me.legend]);
   if (GS.me.champion) renderZone('my-champion-cards', [GS.me.champion]);
   _updateCounts();
