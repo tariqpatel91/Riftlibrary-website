@@ -21,7 +21,7 @@ let _bcMenuClose = null;
 /* ── DECK SELECTORS ── */
 function populateDeckSelectors() {
   const decks = (JSON.parse(localStorage.getItem('rl_decks') || '[]'));
-  ['host-deck-sel','join-deck-sel'].forEach(id => {
+  ['host-deck-sel','join-deck-sel','solo-deck-sel'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     sel.innerHTML = '<option value="">— choose a deck —</option>';
@@ -32,6 +32,21 @@ function populateDeckSelectors() {
       sel.appendChild(opt);
     });
   });
+}
+
+/* ── SOLO PRACTICE ── */
+function startSolo() {
+  const deckEl = document.getElementById('solo-deck-sel');
+  const statusEl = document.getElementById('solo-status');
+  if (!deckEl.value) { statusEl.textContent = 'Please select a deck first.'; return; }
+  statusEl.textContent = '';
+  GS.me.name = 'You';
+  GS.opp.name = 'Practice Dummy';
+  GS._isHost = false;
+  GS._conn = null;
+  GS.roomCode = 'SOLO';
+  _loadDeckIntoState(deckEl.value);
+  startBoard(true);
 }
 
 /* ── HOST ── */
@@ -435,20 +450,24 @@ function viewDiscard() {
 
 function endTurn() {
   if (!GS.myTurn) { showToast("It's not your turn!"); return; }
-  // Untap own cards
   GS.me.battle.forEach(c=>c._exhausted=false);
   GS.me.support.forEach(c=>c._exhausted=false);
-  GS.myTurn = false;
-  _send({ type:'end_turn' });
+  if (GS.roomCode === 'SOLO') {
+    // solo: immediately flip back
+    appendChat('System', 'New turn — draw a card?');
+  } else {
+    GS.myTurn = false;
+    _send({ type:'end_turn' });
+  }
   updateTurnBadge();
   renderFullBoard();
-  appendChat('System', 'You ended your turn.');
 }
 
 function concede() {
-  if (!confirm('Concede the game?')) return;
-  _send({ type:'concede' });
-  appendChat('System', 'You conceded.');
+  const label = GS.roomCode === 'SOLO' ? 'Exit practice session?' : 'Concede the game?';
+  if (!confirm(label)) return;
+  if (GS.roomCode !== 'SOLO') _send({ type:'concede' });
+  appendChat('System', GS.roomCode === 'SOLO' ? 'Practice ended.' : 'You conceded.');
   leaveBoard();
 }
 
