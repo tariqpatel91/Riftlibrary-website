@@ -637,6 +637,37 @@ function openShareToTeamModal(){
   document.body.appendChild(m);
 }
 
+async function publishDeckToPublic(deckId){
+  const d=myDecks.find(x=>String(x.id)===String(deckId));
+  if(!d){toast('Deck not found');return;}
+  const author=(prompt('Publish under what author name?','Anonymous')||'').trim()||'Anonymous';
+  const description=(prompt('Short description (optional):','')||'').trim();
+  const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
+  const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
+  const payload={
+    name:d.name, legend:d.legend, legend_img:dcLegFull?dcLegFull.imageUrl:'',
+    format:d.format||'', domains:d.domains||[], cards:d.cards||[],
+    card_count:(d.cards||[]).reduce((a,c)=>a+c.cnt,0),
+    author, description, created_at:new Date().toISOString()
+  };
+  try{
+    const {error}=await _sb.from('public_decks').insert([payload]);
+    if(error) throw error;
+    toast('Deck published to Public Decks!');
+  }catch(e){
+    toast('Could not publish: '+(e.message||'unknown error'));
+  }
+}
+
+function publishDeckToTeam(deckId){
+  const d=myDecks.find(x=>String(x.id)===String(deckId));
+  if(!d){toast('Deck not found');return;}
+  if(teamDecklists.find(x=>x.deckId===d.id)){toast('Already shared with team');return;}
+  teamDecklists.unshift({id:Date.now(),deckId:d.id,name:d.name,legend:d.legend,ts:new Date().toISOString()});
+  localStorage.setItem('rl_team_decklists',JSON.stringify(teamDecklists));
+  toast('Deck shared with team!');
+}
+
 function _doShareToTeam(){
   const sel=document.getElementById('share-team-deck-sel');
   if(!sel) return;
@@ -689,7 +720,10 @@ function renderDecks(){
         <span class="${wrc(w)}"><strong>${w}%</strong> WR</span>
       </div>
       <div class="da">
-        <button class="btn btn-sm btn-g" onclick="event.stopPropagation();openDD('${d.id}')">View</button>
+        <div class="da-left">
+          <button class="btn btn-sm btn-p" onclick="event.stopPropagation();publishDeckToPublic('${d.id}')">Publish to Public</button>
+          <button class="btn btn-sm btn-g" onclick="event.stopPropagation();publishDeckToTeam('${d.id}')">Publish to Team</button>
+        </div>
         <button class="btn btn-sm btn-d" onclick="event.stopPropagation();delDeck('${d.id}')">Delete</button>
       </div>
     </div>`;
@@ -3647,15 +3681,13 @@ function renderCollection(){
           <div class="coll-card-name" style="${need>0?'color:#f87171;':'color:var(--calm);'}">${need>0?`Need ${need}`:'✓ Done'}</div>
         </div>`;
       } else {
-        const binderBtn=activeBinder
+        const binderRemoveBtn=activeBinder
           ?`<button class="coll-binder-btn remove" onclick="event.stopPropagation();removeCardFromBinder('${si}',${activeBinder.id})" title="Remove from binder">📁✕</button>`
-          :(rlBinders.length?`<button class="coll-binder-btn" onclick="event.stopPropagation();addCardToBinder('${si}',${rlBinders.length===1?rlBinders[0].id:'null'})" title="Add to binder">📁+</button>`:'');
+          :'';
         html+=`<div class="coll-card ${cls}${isWanted?' wishlisted':''}" title="${c.name}">
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
           <button class="coll-wishlist-top-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>
-          ${binderBtn}
-          <div class="coll-half coll-half-left" onclick="setCollOwned('${si}',-1)"></div>
-          <div class="coll-half coll-half-right" onclick="setCollOwned('${si}',1)"></div>
+          ${binderRemoveBtn}
           ${owned>0?`<div class="coll-card-badge coll-badge-owned">×${ownedLabel}</div>`:''}
           <div class="coll-card-actions">
             <button class="coll-copy-btn coll-copy-minus" onclick="event.stopPropagation();setCollOwned('${si}',-1)" title="Remove copy">−</button>

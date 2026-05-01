@@ -133,7 +133,8 @@ select option{background:#1e1e2a;}
 .df{display:flex;gap:14px;font-size:12px;color:var(--text-muted);border-top:1px solid var(--border);padding-top:10px;}
 .df strong{color:var(--text-soft);font-weight:500;}
 .wg{color:var(--calm);}.wm{color:#f5c842;}.wb{color:var(--fury);}
-.da{display:flex;gap:6px;margin-top:10px;}
+.da{display:flex;gap:6px;margin-top:10px;align-items:center;justify-content:space-between;}
+.da-left{display:flex;gap:6px;flex-wrap:wrap;}
 .es{text-align:center;padding:4rem 2rem;color:var(--text-muted);}
 .es h3{font-family:'Syne',sans-serif;font-size:18px;color:var(--text-soft);margin-bottom:8px;font-weight:600;}
 .bb{display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-muted);font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;margin-bottom:1.5rem;padding:0;}
@@ -861,10 +862,11 @@ select option{background:#1e1e2a;}
 .coll-half{position:absolute;top:0;bottom:36px;width:50%;z-index:1;cursor:pointer;}
 .coll-half-left{left:0;}
 .coll-half-right{right:0;}
-/* Wishlist heart — top-left corner of card, always visible */
-.coll-wishlist-top-btn{position:absolute;top:6px;left:6px;z-index:3;width:28px;height:28px;border-radius:50%;border:1.5px solid rgba(220,38,100,0.5);background:rgba(0,0,0,0.65);color:rgba(244,114,182,0.6);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;line-height:1;padding:0;}
-.coll-wishlist-top-btn:hover{background:rgba(220,38,100,0.35);color:#f472b6;transform:scale(1.15);}
-.coll-wishlist-top-btn.active{background:rgba(220,38,100,0.85);color:#fff;border-color:#f472b6;}
+/* Wishlist heart — centered at top of card, always visible */
+.coll-wishlist-top-btn{position:absolute;top:6px;left:50%;transform:translateX(-50%);z-index:3;width:30px;height:30px;border-radius:50%;border:1.5px solid rgba(220,38,100,0.5);background:rgba(0,0,0,0.65);color:rgba(244,114,182,0.7);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;line-height:1;padding:0;}
+.coll-wishlist-top-btn:hover{background:rgba(236,72,153,0.4);color:#f472b6;transform:translateX(-50%) scale(1.15);}
+.coll-wishlist-top-btn.active{background:#ec4899;color:#fff;border-color:#ec4899;box-shadow:0 0 12px rgba(236,72,153,0.6);}
+.coll-wishlist-top-btn.active:hover{transform:translateX(-50%) scale(1.15);background:#f472b6;}
 /* Wishlisted cards keep grey art, just show pink border */
 .coll-card.wishlisted{border-color:#f472b6 !important;}
 /* Wishlist view cards always full color */
