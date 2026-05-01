@@ -36,6 +36,10 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,18,0.96);backdrop-fil
 .body{background:var(--body-bg);color:var(--bodyc);}
 .order{background:var(--order-bg);color:var(--order);}
 .filters{display:flex;gap:8px;margin-bottom:1.5rem;flex-wrap:wrap;}
+.deck-subtabs{display:flex;gap:4px;margin-bottom:1.5rem;border-bottom:1px solid var(--border);padding-bottom:0;}
+.dst{padding:8px 20px;font-size:13px;font-weight:600;font-family:'Syne',sans-serif;background:none;border:none;border-bottom:2px solid transparent;color:var(--text-muted);cursor:pointer;transition:all 0.2s;margin-bottom:-1px;border-radius:6px 6px 0 0;}
+.dst:hover{color:var(--text);background:var(--surface2);}
+.dst.on{color:var(--accent);border-bottom-color:var(--accent);background:none;}
 .sw{position:relative;flex:1;min-width:160px;}
 .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;pointer-events:none;}
 input[type=text]{width:100%;padding:9px 12px 9px 34px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);border:1px solid var(--border);border-radius:9px;color:var(--text);outline:none;transition:border-color 0.15s;}
@@ -857,16 +861,44 @@ select option{background:#1e1e2a;}
 .coll-half{position:absolute;top:0;bottom:36px;width:50%;z-index:1;cursor:pointer;}
 .coll-half-left{left:0;}
 .coll-half-right{right:0;}
-/* Wishlist heart — bigger hitbox, always pink when active regardless of card state */
-.coll-wishlist-btn{background:rgba(220,38,100,0.2);color:#f472b6;border:1px solid rgba(220,38,100,0.35);width:36px!important;height:36px!important;font-size:16px!important;}
-.coll-wishlist-btn:hover{background:rgba(220,38,100,0.45)!important;transform:scale(1.15);}
-.coll-wishlist-btn.active{background:var(--chaos)!important;color:#fff!important;border-color:var(--chaos)!important;}
-/* Wishlisted unowned cards show full color, not grey */
-.coll-card.wanted{filter:none!important;opacity:0.9!important;border-color:#f472b6;}
+/* Wishlist heart — top-left corner of card, always visible */
+.coll-wishlist-top-btn{position:absolute;top:6px;left:6px;z-index:3;width:28px;height:28px;border-radius:50%;border:1.5px solid rgba(220,38,100,0.5);background:rgba(0,0,0,0.65);color:rgba(244,114,182,0.6);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;line-height:1;padding:0;}
+.coll-wishlist-top-btn:hover{background:rgba(220,38,100,0.35);color:#f472b6;transform:scale(1.15);}
+.coll-wishlist-top-btn.active{background:rgba(220,38,100,0.85);color:#fff;border-color:#f472b6;}
+/* Wishlisted cards keep grey art, just show pink border */
+.coll-card.wishlisted{border-color:#f472b6 !important;}
 /* Wishlist view cards always full color */
 .coll-card.wanted-card{filter:none!important;opacity:1!important;}
 /* remove old standalone wishlist btn */
 .coll-wanted-btn{display:none;}
+.coll-wishlist-btn{display:none;}
+
+/* ── BINDER SIDEBAR ─────────────────────────────── */
+.coll-layout{display:flex;gap:16px;align-items:flex-start;}
+.coll-binder-sidebar{width:190px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:12px;overflow:hidden;position:sticky;top:68px;}
+.coll-main{flex:1;min-width:0;}
+.cbs-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;}
+.cbs-new-btn{width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface3);color:var(--accent);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all 0.15s;}
+.cbs-new-btn:hover{background:var(--accent);color:#000;}
+.cbs-item{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 12px;background:none;border:none;color:var(--text);font-size:12px;cursor:pointer;text-align:left;transition:background 0.15s;gap:6px;}
+.cbs-item:hover{background:var(--surface3);}
+.cbs-item.active{background:rgba(200,168,75,0.12);color:var(--accent);}
+.cbs-label{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cbs-count{font-size:10px;font-weight:700;color:var(--text-muted);background:var(--surface3);padding:1px 5px;border-radius:8px;flex-shrink:0;}
+.cbs-item.active .cbs-count{background:rgba(200,168,75,0.2);color:var(--accent);}
+.cbs-item-wrap{position:relative;}
+.cbs-item-wrap .cbs-item{padding-right:48px;}
+.cbs-actions{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;gap:2px;opacity:0;transition:opacity 0.15s;}
+.cbs-item-wrap:hover .cbs-actions{opacity:1;}
+.cbs-act-btn{width:18px;height:18px;border-radius:4px;border:none;background:var(--surface3);color:var(--text-muted);font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.1s;}
+.cbs-act-btn:hover{background:var(--surface);color:var(--text);}
+.cbs-act-del:hover{background:rgba(220,38,38,0.3);color:#f87171;}
+/* Binder button on cards */
+.coll-binder-btn{position:absolute;top:6px;right:6px;z-index:3;width:26px;height:26px;border-radius:6px;border:1.5px solid rgba(200,168,75,0.4);background:rgba(0,0,0,0.65);color:rgba(200,168,75,0.7);font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;padding:0;}
+.coll-binder-btn:hover{background:rgba(200,168,75,0.25);color:var(--accent);transform:scale(1.1);}
+.coll-binder-btn.remove{border-color:rgba(220,38,38,0.4);color:rgba(248,113,113,0.7);}
+.coll-binder-btn.remove:hover{background:rgba(220,38,38,0.25);color:#f87171;}
+@media(max-width:700px){.coll-layout{flex-direction:column;}.coll-binder-sidebar{width:100%;position:static;}}
 
 /* ── TEAM TAB ───────────────────────────────────── */
 .team-header{display:flex;align-items:center;gap:14px;padding:16px 20px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;margin-bottom:1rem;}
