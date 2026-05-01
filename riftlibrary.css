@@ -1188,8 +1188,8 @@ select option{background:#1e1e2a;}
 .bz-hand-fan{display:flex;justify-content:center;gap:3px;flex-wrap:nowrap;margin-bottom:4px;}
 .opp-card-back{width:32px;height:46px;border-radius:4px;background:linear-gradient(145deg,#0c1a3a,#060e20);border:1px solid rgba(180,140,50,0.3);flex-shrink:0;}
 
-/* ── Floating hand fan overlay ── */
-.hand-fan-overlay{position:absolute;bottom:14px;left:60%;transform:translateX(-50%);display:flex;justify-content:center;align-items:flex-end;height:130px;pointer-events:none;z-index:20;}
+/* ── Floating hand fan overlay (anchored to the right of the BASE, never overlapping the deck cluster) ── */
+.hand-fan-overlay{position:absolute;bottom:14px;right:220px;left:auto;transform:none;display:flex;justify-content:flex-end;align-items:flex-end;height:160px;pointer-events:none;z-index:20;max-width:calc(100vw - 460px);}
 .hand-fan-overlay .board-card{pointer-events:auto;width:90px;height:124px;margin:0 -22px;transform-origin:bottom center;transition:transform 0.18s ease,box-shadow 0.18s,margin 0.18s;box-shadow:0 6px 14px rgba(0,0,0,0.6);}
 .hand-fan-overlay .board-card:hover{transform:translateY(-46px) scale(1.18);z-index:50;box-shadow:0 16px 36px rgba(0,0,0,0.85),0 0 18px rgba(232,212,122,0.55);margin:0 6px;}
 

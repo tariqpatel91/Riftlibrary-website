@@ -372,20 +372,16 @@ function _onBoardHover(e) {
 function _onBoardHoverOut(e) {
   const card = e.target.closest(_HOVER_SEL);
   if (!card) return;
-  // Moving to a child of the same card → don't hide
   if (e.relatedTarget && card.contains(e.relatedTarget)) return;
-  // Moving from one card directly to another → handled by next mouseover
   _hoveredCard = null;
-  const p = document.getElementById('card-hover-preview');
-  if (p) p.classList.remove('show');
+  _hideCardPreview();
 }
 function _showCardPreview(img, name, sourceEl) {
   const p = document.getElementById('card-hover-preview');
   if (!p) return;
   p.innerHTML = img
-    ? `<img src="${img}" alt="${name}">`
+    ? `<img src="${img}" alt="${name}" style="width:100%;height:100%;object-fit:cover;display:block;">`
     : `<div class="nohover-name">${name||'?'}</div>`;
-  // Position near the source element, keeping inside the viewport
   const rect = sourceEl.getBoundingClientRect();
   const w = 280, h = 392;
   let left = rect.right + 14;
@@ -394,9 +390,19 @@ function _showCardPreview(img, name, sourceEl) {
   let top = rect.top + rect.height / 2 - h / 2;
   if (top < 8) top = 8;
   if (top + h > window.innerHeight - 8) top = window.innerHeight - h - 8;
-  p.style.left = left + 'px';
-  p.style.top  = top + 'px';
+  // Force-set styles so any leftover inline state from other pages can't suppress the preview
+  p.style.cssText =
+    `position:fixed;left:${left}px;top:${top}px;width:${w}px;height:${h}px;` +
+    `border-radius:14px;overflow:hidden;border:2px solid rgba(232,184,85,0.85);` +
+    `box-shadow:0 18px 48px rgba(0,0,0,0.85),0 0 28px rgba(200,154,58,0.45);` +
+    `z-index:9999;pointer-events:none;background:#0a1428;display:block;`;
   p.classList.add('show');
+}
+function _hideCardPreview() {
+  const p = document.getElementById('card-hover-preview');
+  if (!p) return;
+  p.classList.remove('show');
+  p.style.display = 'none';
 }
 // Bind once
 if (typeof window !== 'undefined' && !window._cardHoverBound) {
