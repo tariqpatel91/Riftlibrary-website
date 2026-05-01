@@ -264,6 +264,7 @@ function renderFullBoard() {
   _setText('my-deck-count', GS.me.deck.length);
   _setText('my-disc-count', GS.me.discard.length);
   _setText('my-rune-count', GS.me.runes.length);
+  renderTrashTop();
   renderMyHand();
   renderOppHand();
   // Center BASE: my units at bottom half, opp units at top half
@@ -300,6 +301,26 @@ function renderMyHand() {
   }).join('');
 }
 
+function renderTrashTop() {
+  const slot = document.getElementById('trash-top');
+  if (!slot) return;
+  const top = GS.me.discard.length ? GS.me.discard[GS.me.discard.length - 1] : null;
+  if (top) {
+    slot.classList.add('has-card');
+    const img = top.image || top.img || '';
+    slot.innerHTML = img
+      ? `<img src="${img}" alt="${top.name||''}">`
+      : `<div style="font-size:9px;color:rgba(255,255,255,0.6);text-align:center;padding:4px;">${top.name||'?'}</div>`;
+    slot.setAttribute('data-img', img);
+    slot.setAttribute('data-name', top.name || '');
+  } else {
+    slot.classList.remove('has-card');
+    slot.innerHTML = '🗑';
+    slot.removeAttribute('data-img');
+    slot.removeAttribute('data-name');
+  }
+}
+
 function renderOppHand() {
   const el = document.getElementById('opp-hand');
   if (el) el.innerHTML = Array(Math.min(GS.opp.handCount, 10)).fill(0).map(() =>
@@ -323,9 +344,54 @@ function boardCardHTML(card, zone) {
   const drag = mine ? `draggable="true" ondragstart="boardDragStart(event,'${card._uid}','${zone}')"` : '';
   const cardJson = JSON.stringify(card).replace(/'/g,"\\'").replace(/"/g,'&quot;');
   const click = mine ? `onclick="showBoardCardMenu(event,'${cardJson}','${zone}')"` : '';
-  return `<div class="board-card${exhausted}${bfClass}" ${drag} ${click} title="${card.name||''}" data-uid="${card._uid||''}">
-    ${img ? `<img src="${img}" alt="${card.name||''}">` : `<div style="padding:4px;font-size:9px;color:rgba(255,255,255,0.5);text-align:center;word-break:break-word;">${card.name||'?'}</div>`}
+  const safeName = (card.name||'').replace(/"/g,'&quot;');
+  return `<div class="board-card${exhausted}${bfClass}" ${drag} ${click} title="${safeName}" data-uid="${card._uid||''}" data-img="${img}" data-name="${safeName}">
+    ${img ? `<img src="${img}" alt="${safeName}">` : `<div style="padding:4px;font-size:9px;color:rgba(255,255,255,0.5);text-align:center;word-break:break-word;">${card.name||'?'}</div>`}
   </div>`;
+}
+
+/* ── Card hover preview ────────────────────────── */
+let _hoverPreviewTimer = null;
+function _onBoardHover(e) {
+  const target = e.target.closest('[data-img], [data-name]');
+  if (!target) return;
+  const img = target.getAttribute('data-img');
+  const name = target.getAttribute('data-name') || '';
+  if (!img && !name) return;
+  if (_hoverPreviewTimer) clearTimeout(_hoverPreviewTimer);
+  _hoverPreviewTimer = setTimeout(() => _showCardPreview(img, name, target), 80);
+}
+function _onBoardHoverOut(e) {
+  if (e.target.closest('[data-img], [data-name]')) {
+    if (_hoverPreviewTimer) clearTimeout(_hoverPreviewTimer);
+    const p = document.getElementById('card-hover-preview');
+    if (p) p.classList.remove('show');
+  }
+}
+function _showCardPreview(img, name, sourceEl) {
+  const p = document.getElementById('card-hover-preview');
+  if (!p) return;
+  p.innerHTML = img
+    ? `<img src="${img}" alt="${name}">`
+    : `<div class="nohover-name">${name||'?'}</div>`;
+  // Position near the source element, keeping inside the viewport
+  const rect = sourceEl.getBoundingClientRect();
+  const w = 280, h = 392;
+  let left = rect.right + 14;
+  if (left + w > window.innerWidth - 8) left = rect.left - w - 14;
+  if (left < 8) left = 8;
+  let top = rect.top + rect.height / 2 - h / 2;
+  if (top < 8) top = 8;
+  if (top + h > window.innerHeight - 8) top = window.innerHeight - h - 8;
+  p.style.left = left + 'px';
+  p.style.top  = top + 'px';
+  p.classList.add('show');
+}
+// Bind once
+if (typeof window !== 'undefined' && !window._cardHoverBound) {
+  window._cardHoverBound = true;
+  document.addEventListener('mouseover', _onBoardHover);
+  document.addEventListener('mouseout',  _onBoardHoverOut);
 }
 
 function _isMyCard(card) {

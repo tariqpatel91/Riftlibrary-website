@@ -377,7 +377,7 @@
 
       </div><!-- /board-grid -->
 
-      <!-- ── BOTTOM ROW ── -->
+      <!-- ── BOTTOM ROW: rune deck | runes | main deck | trash ── -->
       <div id="bottom-row">
         <div class="bz bz-deck" id="rune-deck-zone" onclick="playRune()" title="Click to play 1 rune (tapped)">
           <div class="bz-deck-stack">
@@ -390,10 +390,6 @@
           <div id="support-cards" class="bz-cards"></div>
           <span class="bz-lbl">RUNES</span>
         </div>
-      </div>
-
-      <!-- ── BOTTOM-RIGHT CLUSTER: tiny main deck + trash ── -->
-      <div id="bottom-corner">
         <div class="bz bz-deck bz-mini" id="my-deck-zone" onclick="drawCard()" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'deck')" title="Click to draw — drop a card here to put it on top">
           <div class="bz-deck-stack mini-stack">
             <div class="bz-card-back lol-back"></div>
@@ -402,7 +398,7 @@
           <span class="bz-lbl">DECK</span>
         </div>
         <div class="bz bz-mini" id="trash-zone" onclick="viewDiscard()" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'trash')" title="Discard pile — drop a card here to discard">
-          <div class="bz-icon" style="font-size:18px;">🗑</div>
+          <div id="trash-top" class="trash-top"></div>
           <div id="my-disc-count" class="bz-deck-count">0</div>
           <span class="bz-lbl">TRASH</span>
         </div>
@@ -413,6 +409,9 @@
       <div id="my-hand-count" style="display:none;"></div>
 
     </div><!-- /board-arena -->
+
+    <!-- Floating card hover preview -->
+    <div id="card-hover-preview"></div>
 
     <!-- Chat panel -->
     <div id="chat-panel" style="display:none;">
