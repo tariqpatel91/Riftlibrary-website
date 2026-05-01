@@ -18,7 +18,13 @@ let activeEvtTab='all';
 let myTeam=JSON.parse(localStorage.getItem('rl_team')||'null');
 let teamAnnouncements=JSON.parse(localStorage.getItem('rl_team_announcements')||'[]');
 let teamDecklists=JSON.parse(localStorage.getItem('rl_team_decklists')||'[]');
-let activeTeamTab='announcements';
+let activeTeamTab='all';
+let teamPhotos=JSON.parse(localStorage.getItem('rl_team_photos')||'[]');
+function persistTeamPhotos(){localStorage.setItem('rl_team_photos',JSON.stringify(teamPhotos));}
+function setTeamCover(){const u=prompt('Cover photo URL:',myTeam&&myTeam.cover||'');if(u===null||!myTeam)return;myTeam.cover=u.trim();persistTeam();renderTeam();}
+function setTeamAvatar(){const u=prompt('Team profile picture URL:',myTeam&&myTeam.img||'');if(u===null||!myTeam)return;myTeam.img=u.trim();persistTeam();renderTeam();}
+function addTeamPhoto(){const u=prompt('Photo URL:');if(!u)return;teamPhotos.unshift({id:Date.now(),url:u.trim(),ts:new Date().toISOString()});persistTeamPhotos();renderTeam();}
+function deleteTeamPhoto(id){teamPhotos=teamPhotos.filter(p=>p.id!==id);persistTeamPhotos();renderTeam();}
 function persistMyEvents(){localStorage.setItem('rl_myEvents',JSON.stringify(myEvents));saveEventsToCloud();}
 function switchEvtTab(t){activeEvtTab=t;renderEvents();}
 function createMyEvent(){
@@ -2680,7 +2686,6 @@ function renderCards(){
   g.innerHTML=display.map(c=>{
     const domPills=c.doms.map(d=>`<span class="pill ${d}">${d[0].toUpperCase()+d.slice(1)}</span>`).join('');
     const safeId=c.id.replace(/'/g,"\\'");
-    const owned=collOwned[c.id]||0;
     const isBF=c.type==='Battlefield';
     return`<div class="ct ct-img${isBF?' ct-bf':''}" onclick="openCardModal('${safeId}')">
       ${c.imageUrl
@@ -2690,7 +2695,6 @@ function renderCards(){
       ${c.cost!==null?`<div class="cost">${c.cost}</div>`:''}
       <div class="ct-name">${c.name}</div>
       <div class="ct-sub">${domPills}${domPills?`<span style="color:var(--text-muted);margin:0 2px;">·</span>`:''}${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>
-      <div class="ct-coll">${buildCollRow(c.id,owned)}</div>
     </div>`;
   }).join('');
 }
@@ -3205,28 +3209,32 @@ function renderTeam(){
     </div>`;
     return;
   }
-  let html=`<div class="team-header">
-    ${myTeam.img?`<img src="${myTeam.img}" class="team-avatar" alt="team" onerror="this.style.display='none'">`:''}
-    <div class="${myTeam.img?'':'team-avatar-placeholder'}"></div>
-    <div>
-      <div class="team-name">${myTeam.name}</div>
-      <div style="font-size:12px;color:var(--text-muted);">${1+myTeam.members.length} member${myTeam.members.length?'s':''}</div>
+  const memberCount=1+myTeam.members.length;
+  let html=`<div class="fb-profile">
+    <div class="fb-cover" style="${myTeam.cover?`background-image:url('${myTeam.cover.replace(/'/g,"\\'")}');`:''}">
+      <button class="fb-cover-edit" onclick="setTeamCover()">📷 ${myTeam.cover?'Edit':'Add'} Cover</button>
     </div>
-    <button class="btn btn-g" style="margin-left:auto;font-size:12px;padding:6px 14px;" onclick="if(confirm('Disband this team?')){myTeam=null;localStorage.removeItem('rl_team');renderTeam();}">Disband</button>
-  </div>
-  <div class="team-members-row">
-    <span class="team-member-chip team-member-you">👑 You</span>
-    ${myTeam.members.map(m=>`<span class="team-member-chip">${m} <button class="team-chip-remove" onclick="removeTeamMember('${m.replace(/'/g,"\\'")}')" title="Remove">×</button></span>`).join('')}
-    <div class="team-add-row">
-      <input id="tm-add-member" type="text" placeholder="Add friend by name…" onkeydown="if(event.key==='Enter')addTeamMember()">
-      <button class="btn btn-g" onclick="addTeamMember()" style="font-size:12px;padding:5px 12px;">Add</button>
+    <div class="fb-profile-head">
+      <div class="fb-avatar-wrap">
+        ${myTeam.img?`<img src="${myTeam.img}" class="fb-avatar" alt="team" onerror="this.style.display='none'">`:`<div class="fb-avatar fb-avatar-placeholder">${myTeam.name[0].toUpperCase()}</div>`}
+        <button class="fb-avatar-edit" onclick="setTeamAvatar()" title="Change profile picture">📷</button>
+      </div>
+      <div class="fb-profile-info">
+        <div class="fb-team-name">${myTeam.name}</div>
+        <div class="fb-team-meta">${memberCount} member${memberCount!==1?'s':''}</div>
+      </div>
+      <div class="fb-profile-actions">
+        <button class="btn btn-g" style="font-size:12px;padding:6px 14px;" onclick="if(confirm('Disband this team?')){myTeam=null;localStorage.removeItem('rl_team');renderTeam();}">Disband</button>
+      </div>
     </div>
-  </div>
-  <div class="team-tabs">
-    <button class="team-tab-btn${activeTeamTab==='announcements'?' on':''}" onclick="switchTeamTab('announcements')">📢 Announcements</button>
-    <button class="team-tab-btn${activeTeamTab==='decklists'?' on':''}" onclick="switchTeamTab('decklists')">📋 Decklists</button>
+    <div class="fb-tabs">
+      <button class="fb-tab-btn${activeTeamTab==='all'?' on':''}" onclick="switchTeamTab('all')">All</button>
+      <button class="fb-tab-btn${activeTeamTab==='about'?' on':''}" onclick="switchTeamTab('about')">About</button>
+      <button class="fb-tab-btn${activeTeamTab==='friends'?' on':''}" onclick="switchTeamTab('friends')">Friends</button>
+      <button class="fb-tab-btn${activeTeamTab==='photos'?' on':''}" onclick="switchTeamTab('photos')">Photos</button>
+    </div>
   </div>`;
-  if(activeTeamTab==='announcements'){
+  if(activeTeamTab==='all'){
     html+=`<div class="team-section">
       <div class="team-compose">
         <textarea id="tm-post-text" placeholder="Write an announcement for your team…"></textarea>
@@ -3244,7 +3252,7 @@ function renderTeam(){
       });
     }
     html+=`</div>`;
-  }else{
+  }else if(activeTeamTab==='about'){
     html+=`<div class="team-section">`;
     if(myDecks.length){
       html+=`<div class="team-share-row">
@@ -3268,6 +3276,41 @@ function renderTeam(){
           <button class="team-post-del" onclick="unshareTeamDecklist(${td.id})" title="Remove">×</button>
         </div>`;
       });
+    }
+    html+=`</div>`;
+  }else if(activeTeamTab==='friends'){
+    html+=`<div class="team-section">
+      <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:12px;">Friends · ${memberCount}</div>
+      <div class="fb-friends-grid">
+        <div class="fb-friend-card">
+          <div class="fb-friend-avatar fb-friend-you">👑</div>
+          <div class="fb-friend-name">You</div>
+          <div class="fb-friend-role">Team Owner</div>
+        </div>
+        ${myTeam.members.map(m=>`<div class="fb-friend-card">
+          <div class="fb-friend-avatar">${m[0].toUpperCase()}</div>
+          <div class="fb-friend-name">${m}</div>
+          <button class="btn btn-g" style="font-size:11px;padding:4px 10px;margin-top:6px;" onclick="removeTeamMember('${m.replace(/'/g,"\\'")}')">Remove</button>
+        </div>`).join('')}
+      </div>
+      <div class="team-add-row" style="margin-top:14px;">
+        <input id="tm-add-member" type="text" placeholder="Add friend by name…" onkeydown="if(event.key==='Enter')addTeamMember()">
+        <button class="btn btn-p" onclick="addTeamMember()" style="font-size:12px;padding:6px 14px;">Add Friend</button>
+      </div>
+    </div>`;
+  }else if(activeTeamTab==='photos'){
+    html+=`<div class="team-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;">Photos · ${teamPhotos.length}</div>
+        <button class="btn btn-p" onclick="addTeamPhoto()" style="font-size:12px;padding:6px 14px;">+ Add Photo</button>
+      </div>`;
+    if(!teamPhotos.length){
+      html+=`<div class="team-empty">No photos yet. Add one above!</div>`;
+    }else{
+      html+=`<div class="fb-photos-grid">${teamPhotos.map(p=>`<div class="fb-photo">
+        <img src="${p.url}" alt="team photo" onerror="this.style.display='none'">
+        <button class="team-post-del fb-photo-del" onclick="deleteTeamPhoto(${p.id})" title="Delete">×</button>
+      </div>`).join('')}</div>`;
     }
     html+=`</div>`;
   }
