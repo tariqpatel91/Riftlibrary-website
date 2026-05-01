@@ -1073,17 +1073,21 @@ select option{background:#1e1e2a;}
 #top-corner{position:absolute;right:10px;top:8px;display:flex;gap:6px;z-index:24;pointer-events:auto;}
 /* ── Bottom row: rune deck | runes | main deck | trash ── */
 #bottom-row{display:grid;grid-template-columns:90px 1fr 96px 96px;gap:4px;height:130px;flex-shrink:0;}
-.bz-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;}
-.bz-mini .mini-stack{width:68px;height:92px;margin-bottom:4px;position:relative;}
+.bz-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding-bottom:14px;}
+.bz-mini .mini-stack{width:68px;height:92px;margin-bottom:0;position:relative;}
 .bz-mini .mini-stack .bz-card-back{width:66px;height:90px;border-radius:6px;}
-.bz-mini .bz-deck-count{font-size:13px;}
-.bz-mini .bz-lbl{font-size:9px;bottom:4px;}
+/* Count badge sits in the top-right corner so it never collides with the bottom label */
+.bz-mini .bz-deck-count{position:absolute;top:4px;right:5px;font-size:10px;font-weight:700;color:#e8d47a;background:rgba(0,0,0,0.78);padding:1px 6px;border-radius:8px;border:1px solid rgba(180,140,50,0.45);line-height:1.4;min-width:14px;text-align:center;}
+.bz-mini .bz-lbl{font-size:9px;bottom:3px;}
+/* Same treatment for the rune deck count */
+#rune-deck-zone .bz-deck-count{position:absolute;top:4px;right:5px;font-size:10px;font-weight:700;color:#e8d47a;background:rgba(0,0,0,0.78);padding:1px 6px;border-radius:8px;border:1px solid rgba(180,140,50,0.45);line-height:1.4;min-width:14px;text-align:center;}
 /* Trash top-card preview */
 #trash-zone .trash-top{width:66px;height:90px;border-radius:6px;border:1.5px dashed rgba(180,140,50,0.4);background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:18px;color:rgba(180,140,50,0.5);overflow:hidden;margin-bottom:4px;}
 #trash-zone .trash-top.has-card{border:1.5px solid rgba(220,80,60,0.7);background:rgba(40,10,10,0.6);box-shadow:0 0 8px rgba(220,80,60,0.35);}
 #trash-zone .trash-top img{width:100%;height:100%;object-fit:cover;display:block;}
-/* Runes fill left → right so they don't overlap the hand */
-#runes-zone .bz-cards{justify-content:flex-start;align-content:flex-start;align-items:flex-start;flex-wrap:wrap;width:100%;height:100%;padding:6px;}
+/* Runes fill left → right with larger cards so they better fill the zone */
+#runes-zone .bz-cards{justify-content:flex-start;align-content:center;align-items:center;flex-wrap:nowrap;width:100%;height:100%;padding:8px 10px;gap:6px;overflow-x:auto;}
+#runes-zone .board-card{width:78px;height:108px;}
 /* LoL-style deck back artwork — single element rendered as 3D stack */
 .bz-card-back.lol-back{
   background:linear-gradient(160deg,#102f5e 0%,#091f44 50%,#04122c 100%);

@@ -357,22 +357,27 @@ function boardCardHTML(card, zone) {
 }
 
 /* ── Card hover preview ────────────────────────── */
-let _hoverPreviewTimer = null;
+let _hoveredCard = null;
+const _HOVER_SEL = '.board-card, .trash-top.has-card';
 function _onBoardHover(e) {
-  const target = e.target.closest('[data-img], [data-name]');
-  if (!target) return;
-  const img = target.getAttribute('data-img');
-  const name = target.getAttribute('data-name') || '';
+  const card = e.target.closest(_HOVER_SEL);
+  if (!card) return;
+  if (card === _hoveredCard) return; // still inside same card
+  _hoveredCard = card;
+  const img = card.getAttribute('data-img') || (card.querySelector('img') && card.querySelector('img').src) || '';
+  const name = card.getAttribute('data-name') || (card.querySelector('img') && card.querySelector('img').alt) || '';
   if (!img && !name) return;
-  if (_hoverPreviewTimer) clearTimeout(_hoverPreviewTimer);
-  _hoverPreviewTimer = setTimeout(() => _showCardPreview(img, name, target), 80);
+  _showCardPreview(img, name, card);
 }
 function _onBoardHoverOut(e) {
-  if (e.target.closest('[data-img], [data-name]')) {
-    if (_hoverPreviewTimer) clearTimeout(_hoverPreviewTimer);
-    const p = document.getElementById('card-hover-preview');
-    if (p) p.classList.remove('show');
-  }
+  const card = e.target.closest(_HOVER_SEL);
+  if (!card) return;
+  // Moving to a child of the same card → don't hide
+  if (e.relatedTarget && card.contains(e.relatedTarget)) return;
+  // Moving from one card directly to another → handled by next mouseover
+  _hoveredCard = null;
+  const p = document.getElementById('card-hover-preview');
+  if (p) p.classList.remove('show');
 }
 function _showCardPreview(img, name, sourceEl) {
   const p = document.getElementById('card-hover-preview');
