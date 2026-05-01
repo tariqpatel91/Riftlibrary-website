@@ -1072,9 +1072,9 @@ body.on-play-tab #play-board{height:100vh;}
 #my-pieces{bottom:6px;}
 .piece-bz{width:90px;height:130px;}
 /* Battlefield mini-zones, sitting on the divider line: one left, one right */
-.bf-mini{position:absolute;width:130px;height:80px;z-index:7;top:50%;transform:translateY(-50%);overflow:hidden;}
-#bf-left{left:18%;}
-#bf-right{right:18%;}
+.bf-mini{position:absolute;width:130px;height:80px;z-index:7;top:50%;overflow:hidden;}
+#bf-left{left:25%;transform:translate(-50%,-50%);}
+#bf-right{right:25%;transform:translate(50%,-50%);}
 .bf-mini .bz-cards{position:absolute;inset:4px;padding:0;display:flex;align-items:center;justify-content:center;}
 .bf-mini .board-card{width:100%;height:100%;}
 .bf-mini .board-card img{object-fit:cover;}
@@ -1251,6 +1251,10 @@ body.on-play-tab #play-board{height:100vh;}
 .pdo-bt-tab:hover{color:#e8d47a;background:rgba(200,154,58,0.08);}
 .pdo-bt-tab.on{color:#e8d47a;background:rgba(200,154,58,0.15);border-color:rgba(200,154,58,0.45);}
 .pdo-card.bf-selected{outline:3px solid #e8d47a;outline-offset:-3px;box-shadow:0 0 16px rgba(232,212,122,0.6);transform:translateY(-2px);}
+/* Battlefield grid: landscape cards so the full art is visible */
+#pdo-bf-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));}
+#pdo-bf-grid .pdo-card{aspect-ratio:7/5;}
+#pdo-bf-grid .pdo-card img{object-fit:contain;background:#0a1428;}
 .pdo-count-inline{font-size:13px;font-weight:600;color:#fff;background:rgba(200,154,58,0.18);padding:3px 10px;border-radius:14px;border:1px solid rgba(200,154,58,0.45);letter-spacing:0.04em;}
 .pdo-slider-wrap{display:flex;align-items:center;gap:6px;color:rgba(232,212,122,0.6);}
 .pdo-slider-icon{font-size:11px;}
