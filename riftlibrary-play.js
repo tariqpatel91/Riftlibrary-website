@@ -207,18 +207,35 @@ function _loadDeckIntoState(deckId) {
     return out;
   };
 
-  // Pull legend + champion out of the cards list
+  // Pull legend + champion out of every place a deck might store them
   const legendEntry   = (deck.cards || []).find(c => c.t === 'Legend');
   const championEntry = (deck.cards || []).find(c => c.t === 'Champion');
-  const legendFull   = legendEntry   ? lookup(legendEntry.id)   : null;
-  const championFull = championEntry ? lookup(championEntry.id) : null;
+  let legendFull   = legendEntry   ? lookup(legendEntry.id)   : null;
+  let championFull = championEntry ? lookup(championEntry.id) : null;
+  // Fallbacks: deck.legend (name string) or deck.champion ({id, n}) — older format
+  if (!legendFull && deck.legend) {
+    legendFull = allCards.find(c => c.name === deck.legend)
+              || allCards.find(c => (c.supertype||'').toLowerCase().includes('legend') && c.name === deck.legend);
+  }
+  if (!championFull && deck.champion) {
+    championFull = (deck.champion.id ? lookup(deck.champion.id) : null)
+                || (deck.champion.n  ? allCards.find(c => c.name === deck.champion.n) : null);
+  }
+  // Last resort: scan the deck for a card whose supertype is Champion
+  if (!championFull) {
+    const fb = (deck.cards || []).find(e => {
+      const f = lookup(e.id);
+      return f && (f.supertype||'').toLowerCase().includes('champion');
+    });
+    if (fb) championFull = lookup(fb.id);
+  }
 
   GS.me.legend = legendFull
     ? { ...legendFull,   image:_img(legendFull),   _uid: crypto.randomUUID() }
     : (deck.legend ? { name: deck.legend, _uid: crypto.randomUUID() } : null);
   GS.me.champion = championFull
     ? { ...championFull, image:_img(championFull), _uid: crypto.randomUUID() }
-    : null;
+    : (deck.champion && deck.champion.n ? { name: deck.champion.n, _uid: crypto.randomUUID() } : null);
 
   // Main deck excludes Legend/Champion (they go to their dedicated zones)
   GS.me.deck     = _shuffle(expand(deck.cards || [], ['Legend','Champion']));
