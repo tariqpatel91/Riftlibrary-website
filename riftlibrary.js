@@ -3452,6 +3452,103 @@ function _addCardSilent(cardId,binderId){
   b.cards.push(cardId);persistBinders();renderCollection();
 }
 
+// Search state for binder edit library
+const BEF={q:'',type:'',dom:''};
+function setBefField(k,v){BEF[k]=v;renderCollection();}
+
+function renderBinderEditLayout(binder){
+  const RR={Legendary:5,Epic:4,Rare:3,Uncommon:2,Common:1,Showcase:0,Promo:0};
+  const seen=new Map();
+  CARDS.forEach(c=>{
+    const key=baseName(c.name).toLowerCase();
+    const ex=seen.get(key);
+    if(!ex||(RR[c.rarity]??1)>(RR[ex.rarity]??1)) seen.set(key,c);
+  });
+  let owned=[...seen.values()].filter(c=>collOwned[c.id]).sort((a,b)=>a.name.localeCompare(b.name));
+  if(BEF.q) owned=owned.filter(c=>c.name.toLowerCase().includes(BEF.q.toLowerCase())||(c.txt||'').toLowerCase().includes(BEF.q.toLowerCase()));
+  if(BEF.type) owned=owned.filter(c=>c.type===BEF.type||(BEF.type==='Champion'&&(c.supertype||'').toLowerCase().includes('champion')));
+  if(BEF.dom) owned=owned.filter(c=>(c.doms||[]).includes(BEF.dom));
+
+  // Build left library card thumbs
+  const inBinderSet=new Set(binder.cards);
+  const leftCards=owned.map(c=>{
+    const inB=inBinderSet.has(c.id);
+    const ownedCnt=collOwned[c.id]||0;
+    return `<div class="be-thumb${inB?' in-binder':''}" onclick="${inB?`removeCardFromBinder('${c.id}',${binder.id})`:`_addCardSilent('${c.id}',${binder.id})`}" title="${c.name} — ${inB?'click to remove':'click to add'}">
+      <div class="be-thumb-img">
+        ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="edit-card-no-img"><div class="ecn-name">${c.name}</div></div>`}
+      </div>
+      <div class="be-thumb-owned">×${ownedCnt}</div>
+      ${inB?`<div class="be-thumb-incheck">✓</div>`:`<div class="be-thumb-add">+</div>`}
+      <div class="be-thumb-name">${c.name}</div>
+    </div>`;
+  }).join('');
+
+  // Group binder cards by type
+  const groupOrder=['Champion','Unit','Spell','Gear','Battlefield','Rune','Legend'];
+  const groups={};
+  binder.cards.forEach(id=>{
+    const c=CARDS.find(x=>x.id===id);
+    if(!c)return;
+    const t=c.supertype&&c.supertype.toLowerCase().includes('champion')?'Champion':(c.type||'Other');
+    if(!groups[t])groups[t]=[];
+    groups[t].push(c);
+  });
+
+  let rightHtml='';
+  const totalInBinder=binder.cards.length;
+  if(!totalInBinder){
+    rightHtml=`<div style="padding:3rem 1rem;text-align:center;color:var(--text-muted);font-size:13px;">This binder is empty. Click any card on the left to add it.</div>`;
+  } else {
+    const orderedGroups=[...groupOrder.filter(t=>groups[t]),...Object.keys(groups).filter(t=>!groupOrder.includes(t))];
+    rightHtml=orderedGroups.map(t=>{
+      const cards=groups[t].sort((a,b)=>a.name.localeCompare(b.name));
+      return `<div class="be-group">
+        <div class="be-group-header">${t.toUpperCase()} <span style="color:var(--text-muted);font-weight:500;">(${cards.length})</span></div>
+        <div class="be-group-grid">
+          ${cards.map(c=>{
+            const ownedCnt=collOwned[c.id]||0;
+            return `<div class="be-binder-card" onclick="removeCardFromBinder('${c.id}',${binder.id})" title="${c.name} — click to remove from binder">
+              ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="be-binder-no-img">${c.name}</div>`}
+              <div class="be-binder-cnt">×${ownedCnt}</div>
+              <div class="be-binder-rm">✕</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Filters above the library
+  const types=['','Champion','Unit','Spell','Gear','Battlefield','Rune'];
+  const doms=['','fury','chaos','calm','mind','body','order'];
+  const filtersHtml=`
+    <div class="be-search-wrap">
+      <span class="be-search-icon">⌕</span>
+      <input class="be-search" type="text" placeholder="Search owned cards…" value="${BEF.q.replace(/"/g,'&quot;')}" oninput="setBefField('q',this.value)">
+    </div>
+    <div class="be-filter-row">
+      ${types.map(t=>`<button class="be-pill${BEF.type===t?' on':''}" onclick="setBefField('type','${t}')">${t||'All'}</button>`).join('')}
+    </div>
+    <div class="be-filter-row">
+      ${doms.map(d=>`<button class="be-dom-pill ${d}${BEF.dom===d?' on':''}" onclick="setBefField('dom','${d}')">${d?d[0].toUpperCase()+d.slice(1):'All'}</button>`).join('')}
+    </div>`;
+
+  return `<div class="binder-edit-grid">
+    <div class="be-left">
+      <div class="be-section-title">Your Collection <span style="color:var(--text-muted);font-weight:400;">(${owned.length} cards)</span></div>
+      ${filtersHtml}
+      <div class="be-library-grid">
+        ${leftCards||'<div style="padding:2rem;color:var(--text-muted);font-size:12px;text-align:center;">No owned cards match.</div>'}
+      </div>
+    </div>
+    <div class="be-right">
+      <div class="be-section-title">${binder.name} <span style="color:var(--text-muted);font-weight:400;">(${totalInBinder} cards)</span></div>
+      ${rightHtml}
+    </div>
+  </div>`;
+}
+
 function openAddToBinderModal(cardId){
   const m=document.createElement('div');
   m.id='add-binder-modal';
@@ -3642,6 +3739,14 @@ function renderCollection(){
       <button class="btn btn-g" style="font-size:12px;" onclick="renameBinder(${activeBinder.id})">Rename</button>
       <button class="btn btn-d" style="font-size:12px;" onclick="deleteBinder(${activeBinder.id})">Delete</button>
     </div>`;
+
+    // Binder Edit mode → deck-builder-style 2-column layout
+    if(isEdit){
+      html+=renderBinderEditLayout(activeBinder);
+      html+=`</div></div>`;
+      el.innerHTML=html;
+      return;
+    }
   }
 
   // filter source — use per-set cards (not allUnique) when a set is selected so promos appear
