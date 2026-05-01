@@ -1219,18 +1219,21 @@ select option{background:#1e1e2a;}
 /* ── Pre-game deck customizer overlay ── */
 #play-deck-overlay{display:none;position:fixed;inset:0;background:rgba(4,10,22,0.96);z-index:600;flex-direction:column;color:#fff;font-family:'DM Sans',sans-serif;}
 #play-deck-overlay.open{display:flex;}
-.pdo-content{flex:1;display:grid;grid-template-columns:340px 1fr;gap:14px;padding:18px;min-height:0;overflow:hidden;}
-.pdo-left{display:flex;flex-direction:column;gap:14px;background:linear-gradient(160deg,rgba(15,30,55,0.85),rgba(4,10,22,0.85));border:1px solid rgba(180,140,50,0.35);border-radius:12px;padding:16px;}
-.pdo-vs{display:flex;align-items:center;justify-content:space-around;gap:10px;}
+.pdo-content{flex:1;display:flex;flex-direction:column;gap:14px;padding:18px;min-height:0;overflow:hidden;}
+.pdo-top{flex:1;display:grid;grid-template-columns:300px 1fr;gap:14px;min-height:0;overflow:hidden;}
+.pdo-bottom{flex:0 0 auto;display:flex;flex-direction:column;gap:8px;background:linear-gradient(160deg,rgba(15,30,55,0.7),rgba(4,10,22,0.85));border:1px solid rgba(180,140,50,0.35);border-radius:12px;padding:14px;max-height:35vh;}
+.pdo-left{display:flex;flex-direction:column;gap:14px;background:linear-gradient(160deg,rgba(15,30,55,0.85),rgba(4,10,22,0.85));border:1px solid rgba(180,140,50,0.35);border-radius:12px;padding:16px;justify-content:center;align-items:center;}
+.pdo-vs{display:flex;align-items:center;justify-content:space-around;gap:10px;width:100%;}
 .pdo-side{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;}
-.pdo-portrait{width:120px;height:140px;border-radius:10px;border:2px solid rgba(200,154,58,0.5);background:linear-gradient(160deg,#1a3a5c,#0a1828);overflow:hidden;display:flex;align-items:center;justify-content:center;}
+.pdo-portrait{width:110px;height:130px;border-radius:10px;border:2px solid rgba(200,154,58,0.5);background:linear-gradient(160deg,#1a3a5c,#0a1828);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:64px;}
 .pdo-portrait img{width:100%;height:100%;object-fit:cover;}
+.pdo-portrait.goldfish{background:linear-gradient(160deg,#fff5e6,#ffe2b3);}
 .pdo-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#e8d47a;text-align:center;}
 .pdo-vs-label{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#ff6b4a;letter-spacing:0.05em;}
 .pdo-right{display:flex;flex-direction:column;gap:10px;background:linear-gradient(160deg,rgba(15,30,55,0.7),rgba(4,10,22,0.85));border:1px solid rgba(180,140,50,0.35);border-radius:12px;padding:16px;min-height:0;overflow:hidden;}
-.pdo-section-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#e8d47a;letter-spacing:0.06em;text-transform:uppercase;display:flex;align-items:center;gap:8px;}
-.pdo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px;overflow-y:auto;padding:6px;background:rgba(0,0,0,0.3);border-radius:8px;}
-.pdo-grid-side{min-height:120px;}
+.pdo-section-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#e8d47a;letter-spacing:0.06em;text-transform:uppercase;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.pdo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:6px;overflow-y:auto;padding:6px;background:rgba(0,0,0,0.3);border-radius:8px;flex:1;align-content:start;}
+.pdo-grid-side{min-height:140px;flex:1;}
 .pdo-card{position:relative;border:2px solid rgba(200,154,58,0.55);border-radius:6px;overflow:hidden;cursor:pointer;background:rgba(0,0,0,0.3);aspect-ratio:2.5/3.5;transition:all 0.15s;}
 .pdo-card:hover{border-color:#e8d47a;transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,0.7);}
 .pdo-card img{width:100%;height:100%;object-fit:cover;display:block;}

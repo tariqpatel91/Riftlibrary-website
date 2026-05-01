@@ -47,7 +47,7 @@ async function startSolo() {
     statusEl.textContent = '';
   }
   GS.me.name = 'You';
-  GS.opp.name = 'Practice Dummy';
+  GS.opp.name = 'Goldfish';
   GS._isHost = false;
   GS._conn = null;
   GS.roomCode = 'SOLO';
@@ -836,31 +836,59 @@ function showDeckCustomizer(deckId, opts) {
   }
   const oppPortrait = document.getElementById('pdo-opp-portrait');
   if (oppPortrait) {
-    oppPortrait.innerHTML = `<span style="font-size:36px;color:rgba(232,212,122,0.4);">?</span>`;
+    if ((opts.oppName || '').toLowerCase() === 'goldfish') {
+      oppPortrait.classList.add('goldfish');
+      oppPortrait.innerHTML = `<span style="font-size:84px;line-height:1;">🐠</span>`;
+    } else {
+      oppPortrait.classList.remove('goldfish');
+      oppPortrait.innerHTML = `<span style="font-size:36px;color:rgba(232,212,122,0.4);">?</span>`;
+    }
   }
 
   function _renderEntry(entry, target) {
     const full = lookup(entry.id);
     const img = full && full.imageUrl ? full.imageUrl : '';
     const name = (full && full.name) || entry.n || entry.id;
+    const safeName = name.replace(/"/g,'&quot;');
     const flag = entry.t === 'Legend' ? 'LEGEND'
               : entry.t === 'Champion' ? 'CHAMPION'
               : '';
-    return `<div class="pdo-card" data-img="${img}" data-name="${name.replace(/"/g,'&quot;')}" onclick="_pdoClick('${entry.id}','${target}')">
-      ${img ? `<img src="${img}" alt="${name.replace(/"/g,'&quot;')}">` : `<div class="pdo-card-no-img">${name}</div>`}
-      ${entry.cnt>1 ? `<span class="pdo-card-cnt">×${entry.cnt}</span>` : ''}
-      ${flag ? `<span class="pdo-card-flag">${flag}</span>` : ''}
-    </div>`;
+    // Expand cnt into individual cards laid out side-by-side
+    const cnt = Math.max(1, entry.cnt || 1);
+    let html = '';
+    for (let i = 0; i < cnt; i++) {
+      html += `<div class="pdo-card" data-img="${img}" data-name="${safeName}" onclick="_pdoClick('${entry.id}','${target}')">
+        ${img ? `<img src="${img}" alt="${safeName}">` : `<div class="pdo-card-no-img">${name}</div>`}
+        ${flag ? `<span class="pdo-card-flag">${flag}</span>` : ''}
+      </div>`;
+    }
+    return html;
+  }
+
+  // Sort: Legend → Champion → cost ascending → name
+  function _sortEntries(arr) {
+    return arr.slice().sort((a, b) => {
+      const order = (e) => e.t === 'Legend' ? 0 : e.t === 'Champion' ? 1 : 2;
+      const oa = order(a), ob = order(b);
+      if (oa !== ob) return oa - ob;
+      const fa = lookup(a.id), fb = lookup(b.id);
+      const ca = fa && fa.cost != null ? fa.cost : 99;
+      const cb = fb && fb.cost != null ? fb.cost : 99;
+      if (ca !== cb) return ca - cb;
+      const na = (fa && fa.name) || a.n || a.id;
+      const nb = (fb && fb.name) || b.n || b.id;
+      return String(na).localeCompare(String(nb));
+    });
   }
 
   function refresh() {
     const deckGrid = document.getElementById('pdo-deck-grid');
     const sideGrid = document.getElementById('pdo-side-grid');
     deckGrid.innerHTML = main.length
-      ? main.map(e => _renderEntry(e, 'main')).join('')
+      ? _sortEntries(main).map(e => _renderEntry(e, 'main')).join('')
       : `<div class="pdo-empty">Empty deck</div>`;
     sideGrid.innerHTML = side.length
-      ? side.map(e => _renderEntry(e, 'side')).join('')
+      ? _sortEntries(side).map(e => _renderEntry(e, 'side')).join('')
       : `<div class="pdo-empty">No sideboard cards. Click any deck card above to send a copy here.</div>`;
     const total = main.reduce((a,e)=>a+(e.cnt||1),0);
     const sideTotal = side.reduce((a,e)=>a+(e.cnt||1),0);
