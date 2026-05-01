@@ -1134,6 +1134,16 @@ select option{background:#1e1e2a;}
 .board-card img{width:100%;height:100%;object-fit:cover;display:block;}
 .board-card.exhausted{transform:rotate(15deg);opacity:0.7;}
 .board-card.bf-card{width:76px;height:50px;}
+/* Larger cards in the hand strip */
+.hand-strip-cards .board-card{width:78px;height:108px;}
+.hand-strip-cards .board-card:hover{transform:translateY(-12px) scale(1.18);box-shadow:0 12px 28px rgba(0,0,0,0.9),0 0 14px rgba(232,212,122,0.45);z-index:30;}
+/* Champion / Legend cards fill their zones */
+#my-champion-zone .bz-cards,#opp-champion-zone .bz-cards,
+#my-legend-zone   .bz-cards,#opp-legend-zone   .bz-cards{position:absolute;inset:6px;padding:0;display:flex;align-items:center;justify-content:center;}
+#my-champion-zone .board-card,#opp-champion-zone .board-card,
+#my-legend-zone   .board-card,#opp-legend-zone   .board-card{width:100%;height:100%;}
+#my-champion-zone .bz-icon,#opp-champion-zone .bz-icon,
+#my-legend-zone   .bz-icon,#opp-legend-zone   .bz-icon{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);}
 
 /* ── Context menu ── */
 .board-card-menu{position:fixed;background:rgba(6,12,28,0.97);border:1px solid rgba(180,140,50,0.4);border-radius:6px;padding:5px 0;z-index:600;min-width:148px;box-shadow:0 8px 28px rgba(0,0,0,0.8);}

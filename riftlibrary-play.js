@@ -171,26 +171,45 @@ function handleMsg(msg) {
 
 /* ── LOAD DECK ── */
 function _loadDeckIntoState(deckId) {
-  const decks = JSON.parse(localStorage.getItem('rl_decks') || '[]');
-  const deck = decks.find(d => d.id === deckId);
+  const decks = (typeof myDecks !== 'undefined' && myDecks.length)
+    ? myDecks
+    : JSON.parse(localStorage.getItem('rl_decks') || '[]');
+  const deck = decks.find(d => String(d.id) === String(deckId));
   if (!deck) return;
-  const allCards = window._allCards || [];
+  const allCards = (typeof CARDS !== 'undefined' && CARDS.length) ? CARDS : (window._allCards || []);
 
-  const expand = (entries) => {
+  const lookup = id => allCards.find(c => c.id === id);
+  const _img = c => (c && (c.imageUrl || c.image)) || '';
+  const expand = (entries, skipTypes) => {
     const out = [];
     (entries || []).forEach(e => {
-      const card = allCards.find(c => c.id === e.id) || { id:e.id, name:e.name||e.id, image:'' };
-      for (let i = 0; i < (e.qty||1); i++) {
+      if (skipTypes && skipTypes.includes(e.t)) return;
+      const full = lookup(e.id) || { id:e.id, name:e.name||e.id };
+      const card = { ...full, image: _img(full), name: full.name || e.name || e.id, type: full.type || e.t || '' };
+      const cnt = e.cnt || e.qty || 1;
+      for (let i = 0; i < cnt; i++) {
         out.push({ ...card, _uid: crypto.randomUUID() });
       }
     });
     return out;
   };
 
-  GS.me.legend   = deck.legend   ? allCards.find(c=>c.name===deck.legend)||{name:deck.legend,_uid:crypto.randomUUID()} : null;
-  GS.me.champion = (deck.champ&&deck.champ.length) ? { ...expand(deck.champ)[0], _uid:crypto.randomUUID() } : null;
-  GS.me.deck     = _shuffle(expand(deck.cards||[]));
-  GS.me.runes    = expand(deck.runes||[]);
+  // Pull legend + champion out of the cards list
+  const legendEntry   = (deck.cards || []).find(c => c.t === 'Legend');
+  const championEntry = (deck.cards || []).find(c => c.t === 'Champion');
+  const legendFull   = legendEntry   ? lookup(legendEntry.id)   : null;
+  const championFull = championEntry ? lookup(championEntry.id) : null;
+
+  GS.me.legend = legendFull
+    ? { ...legendFull,   image:_img(legendFull),   _uid: crypto.randomUUID() }
+    : (deck.legend ? { name: deck.legend, _uid: crypto.randomUUID() } : null);
+  GS.me.champion = championFull
+    ? { ...championFull, image:_img(championFull), _uid: crypto.randomUUID() }
+    : null;
+
+  // Main deck excludes Legend/Champion (they go to their dedicated zones)
+  GS.me.deck     = _shuffle(expand(deck.cards || [], ['Legend','Champion']));
+  GS.me.runes    = expand(deck.runes || []);
   GS.me.battle   = [];
   GS.me.support  = [];
   GS.me.hand     = [];
@@ -249,8 +268,10 @@ function renderFullBoard() {
 }
 
 function renderMyHand() {
-  // Hand zone removed from board; nothing to render visually.
   _setText('my-hand-count', GS.me.hand.length);
+  const el = document.getElementById('my-hand');
+  if (!el) return;
+  el.innerHTML = GS.me.hand.map(c => boardCardHTML(c, 'hand')).join('');
 }
 
 function renderOppHand() {
