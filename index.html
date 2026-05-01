@@ -449,17 +449,27 @@
           </div>
         </div>
         <div class="pdo-right">
-          <div class="pdo-section-title">📚 Deck</div>
+          <!-- Static champion slot — pulled from the deck file, never editable here -->
+          <div id="pdo-champion-row" class="pdo-static-row" style="display:none;">
+            <div class="pdo-section-title">★ CHAMPION</div>
+            <div id="pdo-champion-slot"></div>
+          </div>
+          <div class="pdo-section-title">
+            <span>📚 Deck</span>
+            <span class="pdo-count-inline" id="pdo-deck-count">0 / 40</span>
+          </div>
           <div id="pdo-deck-grid" class="pdo-grid"></div>
         </div>
       </div>
       <div class="pdo-bottom">
-        <div class="pdo-section-title">SIDEBOARD</div>
+        <div class="pdo-section-title">
+          <span>SIDEBOARD</span>
+          <span class="pdo-count-inline" id="pdo-side-count">0</span>
+        </div>
         <div id="pdo-side-grid" class="pdo-grid pdo-grid-side"></div>
       </div>
     </div>
     <div class="pdo-footer">
-      <span class="pdo-count" id="pdo-count">Deck 0/40</span>
       <button class="btn btn-p" id="pdo-confirm">Confirm Deck</button>
       <button class="btn btn-g" id="pdo-leave">Leave</button>
     </div>

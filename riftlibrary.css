@@ -1231,7 +1231,12 @@ select option{background:#1e1e2a;}
 .pdo-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#e8d47a;text-align:center;}
 .pdo-vs-label{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#ff6b4a;letter-spacing:0.05em;}
 .pdo-right{display:flex;flex-direction:column;gap:10px;background:linear-gradient(160deg,rgba(15,30,55,0.7),rgba(4,10,22,0.85));border:1px solid rgba(180,140,50,0.35);border-radius:12px;padding:16px;min-height:0;overflow:hidden;}
-.pdo-section-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#e8d47a;letter-spacing:0.06em;text-transform:uppercase;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.pdo-section-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#e8d47a;letter-spacing:0.06em;text-transform:uppercase;display:flex;align-items:center;gap:10px;flex-shrink:0;justify-content:space-between;}
+.pdo-count-inline{font-size:13px;font-weight:600;color:#fff;background:rgba(200,154,58,0.18);padding:3px 10px;border-radius:14px;border:1px solid rgba(200,154,58,0.45);letter-spacing:0.04em;}
+.pdo-static-row{display:flex;flex-direction:column;gap:6px;background:rgba(200,154,58,0.08);border:1px solid rgba(200,154,58,0.3);border-radius:8px;padding:8px 10px;flex-shrink:0;}
+.pdo-static-row #pdo-champion-slot{display:flex;gap:8px;}
+.pdo-static-row .pdo-card{cursor:default;width:84px;}
+.pdo-static-row .pdo-card:hover{transform:none;box-shadow:none;border-color:rgba(200,154,58,0.55);}
 .pdo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:6px;overflow-y:auto;padding:6px;background:rgba(0,0,0,0.3);border-radius:8px;flex:1;align-content:start;}
 .pdo-grid-side{min-height:140px;flex:1;}
 .pdo-card{position:relative;border:2px solid rgba(200,154,58,0.55);border-radius:6px;overflow:hidden;cursor:pointer;background:rgba(0,0,0,0.3);aspect-ratio:2.5/3.5;transition:all 0.15s;}

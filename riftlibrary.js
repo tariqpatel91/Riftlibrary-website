@@ -1509,7 +1509,12 @@ function renderEditSearch(){
 
   let html='';
 
-  EF.type='';
+  // Type filter tabs (Unit / Spell / Gear / Rune / Battlefield)
+  html+='<div class="edit-type-tabs">';
+  TYPES.forEach(t=>{
+    html+=`<button class="edit-type-tab${EF.type===t?' on':''}" onclick="setEditType('${t}')">${TYPE_LABELS[t]}</button>`;
+  });
+  html+='</div>';
 
   html+='<div class="edit-dom-filter">';
   const filterDoms=deckDoms.length?deckDoms:DOMS;
