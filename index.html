@@ -420,36 +420,6 @@
 
     </div><!-- /board-arena -->
 
-    <!-- Deck customizer overlay (shown before startBoard) -->
-    <div id="play-deck-overlay">
-      <div class="pdo-content">
-        <div class="pdo-left">
-          <div class="pdo-vs">
-            <div class="pdo-side">
-              <div class="pdo-portrait" id="pdo-me-portrait"></div>
-              <div class="pdo-name" id="pdo-me-name">You</div>
-            </div>
-            <div class="pdo-vs-label">VS</div>
-            <div class="pdo-side">
-              <div class="pdo-portrait" id="pdo-opp-portrait"></div>
-              <div class="pdo-name" id="pdo-opp-name">Opponent</div>
-            </div>
-          </div>
-        </div>
-        <div class="pdo-right">
-          <div class="pdo-section-title">📚 Deck</div>
-          <div id="pdo-deck-grid" class="pdo-grid"></div>
-          <div class="pdo-section-title">Sideboard</div>
-          <div id="pdo-side-grid" class="pdo-grid pdo-grid-side"></div>
-        </div>
-      </div>
-      <div class="pdo-footer">
-        <span class="pdo-count" id="pdo-count">Deck 0/40</span>
-        <button class="btn btn-p" id="pdo-confirm">Confirm Deck</button>
-        <button class="btn btn-g" id="pdo-leave">Leave</button>
-      </div>
-    </div>
-
     <!-- Chat panel -->
     <div id="chat-panel" style="display:none;">
       <div id="chat-msgs"></div>
@@ -460,6 +430,36 @@
     </div>
 
   </div><!-- /play-board -->
+
+  <!-- Deck customizer overlay (sibling of play-board so it shows even before startBoard) -->
+  <div id="play-deck-overlay">
+    <div class="pdo-content">
+      <div class="pdo-left">
+        <div class="pdo-vs">
+          <div class="pdo-side">
+            <div class="pdo-portrait" id="pdo-me-portrait"></div>
+            <div class="pdo-name" id="pdo-me-name">You</div>
+          </div>
+          <div class="pdo-vs-label">VS</div>
+          <div class="pdo-side">
+            <div class="pdo-portrait" id="pdo-opp-portrait"></div>
+            <div class="pdo-name" id="pdo-opp-name">Opponent</div>
+          </div>
+        </div>
+      </div>
+      <div class="pdo-right">
+        <div class="pdo-section-title">📚 Deck</div>
+        <div id="pdo-deck-grid" class="pdo-grid"></div>
+        <div class="pdo-section-title">Sideboard</div>
+        <div id="pdo-side-grid" class="pdo-grid pdo-grid-side"></div>
+      </div>
+    </div>
+    <div class="pdo-footer">
+      <span class="pdo-count" id="pdo-count">Deck 0/40</span>
+      <button class="btn btn-p" id="pdo-confirm">Confirm Deck</button>
+      <button class="btn btn-g" id="pdo-leave">Leave</button>
+    </div>
+  </div>
 
   <!-- Discard overlay -->
   <div id="discard-overlay">
