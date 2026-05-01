@@ -377,17 +377,6 @@
           <span class="bz-lbl">LEGEND</span>
         </div>
 
-        <!-- MY MAIN DECK -->
-        <div class="bz bz-deck" id="my-deck-zone" onclick="drawCard()" title="Click to draw">
-          <div class="bz-deck-stack">
-            <div class="bz-card-back b3"></div>
-            <div class="bz-card-back b2"></div>
-            <div class="bz-card-back b1"></div>
-          </div>
-          <div id="my-deck-count" class="bz-deck-count">0</div>
-          <span class="bz-lbl">MAIN DECK</span>
-        </div>
-
       </div><!-- /board-grid -->
 
       <!-- ── BOTTOM ROW ── -->
@@ -404,18 +393,29 @@
           <div id="support-cards" class="bz-cards"></div>
           <span class="bz-lbl">RUNES</span>
         </div>
-        <div class="bz" id="trash-zone" onclick="viewDiscard()" style="cursor:pointer;">
-          <div class="bz-icon" style="font-size:20px;">🗑</div>
+      </div>
+
+      <!-- ── BOTTOM-RIGHT CLUSTER: tiny main deck + trash ── -->
+      <div id="bottom-corner">
+        <div class="bz bz-deck bz-mini" id="my-deck-zone" onclick="drawCard()" title="Click to draw">
+          <div class="bz-deck-stack mini-stack">
+            <div class="bz-card-back b3"></div>
+            <div class="bz-card-back b2"></div>
+            <div class="bz-card-back b1"></div>
+          </div>
+          <div id="my-deck-count" class="bz-deck-count">0</div>
+          <span class="bz-lbl">DECK</span>
+        </div>
+        <div class="bz bz-mini" id="trash-zone" onclick="viewDiscard()">
+          <div class="bz-icon" style="font-size:18px;">🗑</div>
           <div id="my-disc-count" class="bz-deck-count">0</div>
           <span class="bz-lbl">TRASH</span>
         </div>
       </div>
 
-      <!-- ── HAND STRIP ── -->
-      <div id="hand-strip">
-        <div class="hand-strip-lbl">HAND (<span id="my-hand-count">0</span>)</div>
-        <div id="my-hand" class="hand-strip-cards"></div>
-      </div>
+      <!-- ── FLOATING HAND FAN ── -->
+      <div id="my-hand" class="hand-fan-overlay"></div>
+      <div id="my-hand-count" style="display:none;"></div>
 
     </div><!-- /board-arena -->
 

@@ -271,7 +271,19 @@ function renderMyHand() {
   _setText('my-hand-count', GS.me.hand.length);
   const el = document.getElementById('my-hand');
   if (!el) return;
-  el.innerHTML = GS.me.hand.map(c => boardCardHTML(c, 'hand')).join('');
+  const n = GS.me.hand.length;
+  el.innerHTML = GS.me.hand.map((c, i) => {
+    // Fan: rotate cards from -spread/2 to +spread/2 with a slight vertical arc
+    const maxSpread = Math.min(36, n * 5); // total degrees
+    const rot = n > 1 ? -maxSpread/2 + (maxSpread * i / (n - 1)) : 0;
+    const lift = n > 1 ? -Math.abs(rot) * 0.6 : 0; // arc lift
+    const html = boardCardHTML(c, 'hand');
+    // Inject inline transform onto the rendered card
+    return html.replace(
+      'class="board-card',
+      `style="transform:translateY(${lift}px) rotate(${rot}deg);" class="board-card`
+    );
+  }).join('');
 }
 
 function renderOppHand() {
