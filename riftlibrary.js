@@ -435,6 +435,7 @@ function goto(p,el){
   document.querySelectorAll('.nl').forEach(x=>x.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
   if(el)el.classList.add('active');
+  document.body.classList.toggle('on-play-tab', p==='play');
   if(p==='decks'){const dd=document.getElementById('dd');const dl=document.getElementById('dl');if(dd&&dd.style.display!=='none'){dd.style.display='none';if(dl)dl.style.display='';activeDeckId=null;activeDDTab='cards';}renderDecks();}
   if(p==='search'&&cardsLoaded)renderCards();
   if(p==='statistics')renderStatistics();
