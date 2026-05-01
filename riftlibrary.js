@@ -637,9 +637,24 @@ function openShareToTeamModal(){
   document.body.appendChild(m);
 }
 
+let publishedPublicSet=JSON.parse(localStorage.getItem('rl_published_public')||'[]');
+function isPublishedPublic(id){return publishedPublicSet.includes(String(id));}
+function isPublishedTeam(id){return !!teamDecklists.find(x=>String(x.deckId)===String(id));}
+function persistPublishedPublic(){localStorage.setItem('rl_published_public',JSON.stringify(publishedPublicSet));}
+
 async function publishDeckToPublic(deckId){
   const d=myDecks.find(x=>String(x.id)===String(deckId));
   if(!d){toast('Deck not found');return;}
+  if(isPublishedPublic(deckId)){
+    if(!confirm(`"${d.name}" is already published to Public Decks. Unpublish it?`))return;
+    publishedPublicSet=publishedPublicSet.filter(x=>String(x)!==String(deckId));
+    persistPublishedPublic();
+    try{ await _sb.from('public_decks').delete().eq('local_deck_id',String(deckId)); }catch(e){}
+    toast('Removed from Public Decks');
+    renderDecks();
+    return;
+  }
+  if(!confirm(`Publish "${d.name}" to Public Decks? Anyone will be able to view and import it.`))return;
   const author=(prompt('Publish under what author name?','Anonymous')||'').trim()||'Anonymous';
   const description=(prompt('Short description (optional):','')||'').trim();
   const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
@@ -648,12 +663,15 @@ async function publishDeckToPublic(deckId){
     name:d.name, legend:d.legend, legend_img:dcLegFull?dcLegFull.imageUrl:'',
     format:d.format||'', domains:d.domains||[], cards:d.cards||[],
     card_count:(d.cards||[]).reduce((a,c)=>a+c.cnt,0),
-    author, description, created_at:new Date().toISOString()
+    author, description, local_deck_id:String(deckId), created_at:new Date().toISOString()
   };
   try{
     const {error}=await _sb.from('public_decks').insert([payload]);
     if(error) throw error;
+    publishedPublicSet.push(String(deckId));
+    persistPublishedPublic();
     toast('Deck published to Public Decks!');
+    renderDecks();
   }catch(e){
     toast('Could not publish: '+(e.message||'unknown error'));
   }
@@ -662,10 +680,19 @@ async function publishDeckToPublic(deckId){
 function publishDeckToTeam(deckId){
   const d=myDecks.find(x=>String(x.id)===String(deckId));
   if(!d){toast('Deck not found');return;}
-  if(teamDecklists.find(x=>x.deckId===d.id)){toast('Already shared with team');return;}
+  if(isPublishedTeam(deckId)){
+    if(!confirm(`"${d.name}" is already shared with the team. Remove it?`))return;
+    teamDecklists=teamDecklists.filter(x=>String(x.deckId)!==String(deckId));
+    localStorage.setItem('rl_team_decklists',JSON.stringify(teamDecklists));
+    toast('Removed from team decks');
+    renderDecks();
+    return;
+  }
+  if(!confirm(`Share "${d.name}" with your team?`))return;
   teamDecklists.unshift({id:Date.now(),deckId:d.id,name:d.name,legend:d.legend,ts:new Date().toISOString()});
   localStorage.setItem('rl_team_decklists',JSON.stringify(teamDecklists));
   toast('Deck shared with team!');
+  renderDecks();
 }
 
 function _doShareToTeam(){
@@ -721,8 +748,8 @@ function renderDecks(){
       </div>
       <div class="da">
         <div class="da-left">
-          <button class="btn btn-sm btn-p" onclick="event.stopPropagation();publishDeckToPublic('${d.id}')">Publish to Public</button>
-          <button class="btn btn-sm btn-g" onclick="event.stopPropagation();publishDeckToTeam('${d.id}')">Publish to Team</button>
+          <button class="btn btn-sm ${isPublishedPublic(d.id)?'btn-pub-on':'btn-g'}" onclick="event.stopPropagation();publishDeckToPublic('${d.id}')">${isPublishedPublic(d.id)?'✓ Published':'Publish to Public'}</button>
+          <button class="btn btn-sm ${isPublishedTeam(d.id)?'btn-pub-on':'btn-g'}" onclick="event.stopPropagation();publishDeckToTeam('${d.id}')">${isPublishedTeam(d.id)?'✓ On Team':'Publish to Team'}</button>
         </div>
         <button class="btn btn-sm btn-d" onclick="event.stopPropagation();delDeck('${d.id}')">Delete</button>
       </div>
@@ -3374,7 +3401,9 @@ function renderEvents(){
 let collOwned=JSON.parse(localStorage.getItem('rl_collection')||'{}');
 let collWanted=JSON.parse(localStorage.getItem('rl_collection_wanted')||'{}');
 let rlBinders=JSON.parse(localStorage.getItem('rl_binders')||'[]');
-const CF2={q:'',type:'',dom:'',rar:'',set:'',show:'all',view:'grid',binder:''};
+const CF2={q:'',type:'',dom:'',rar:'',set:'',show:'all',view:'grid',binder:'',binderMode:'view'};
+
+function setBinderMode(mode){CF2.binderMode=mode;renderCollection();}
 
 function persistBinders(){localStorage.setItem('rl_binders',JSON.stringify(rlBinders));}
 
@@ -3399,7 +3428,7 @@ function deleteBinder(id){
   persistBinders();renderCollection();
 }
 
-function setActiveBinder(id){CF2.binder=id;CF2.show='all';CF2.q='';renderCollection();}
+function setActiveBinder(id){CF2.binder=id;CF2.show='all';CF2.q='';CF2.binderMode='view';renderCollection();}
 
 function addCardToBinder(cardId,binderId){
   if(!binderId){
@@ -3414,6 +3443,12 @@ function addCardToBinder(cardId,binderId){
 function removeCardFromBinder(cardId,binderId){
   const b=rlBinders.find(x=>x.id===binderId);if(!b)return;
   b.cards=b.cards.filter(x=>x!==cardId);persistBinders();renderCollection();
+}
+
+function _addCardSilent(cardId,binderId){
+  const b=rlBinders.find(x=>x.id===binderId);if(!b)return;
+  if(b.cards.includes(cardId))return;
+  b.cards.push(cardId);persistBinders();renderCollection();
 }
 
 function openAddToBinderModal(cardId){
@@ -3586,11 +3621,16 @@ function renderCollection(){
     </div>`;
   } else {
     // Binder header
-    html+=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">
+    const isEdit=CF2.binderMode==='edit';
+    html+=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
       <span style="font-size:22px;">📁</span>
-      <div style="flex:1;">
+      <div style="flex:1;min-width:140px;">
         <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">${activeBinder.name}</div>
-        <div style="font-size:12px;color:var(--text-muted);">${activeBinder.cards.length} card${activeBinder.cards.length!==1?'s':''}</div>
+        <div style="font-size:12px;color:var(--text-muted);">${activeBinder.cards.length} card${activeBinder.cards.length!==1?'s':''} ${isEdit?'• adding from collection':''}</div>
+      </div>
+      <div class="binder-mode-toggle">
+        <button class="bmt ${!isEdit?'on':''}" onclick="setBinderMode('view')">👁 View</button>
+        <button class="bmt ${isEdit?'on':''}" onclick="setBinderMode('edit')">✎ Edit</button>
       </div>
       <button class="btn btn-g" style="font-size:12px;" onclick="renameBinder(${activeBinder.id})">Rename</button>
       <button class="btn btn-d" style="font-size:12px;" onclick="deleteBinder(${activeBinder.id})">Delete</button>
@@ -3600,7 +3640,15 @@ function renderCollection(){
   // filter source — use per-set cards (not allUnique) when a set is selected so promos appear
   let source=CF2.set&&setMap[CF2.set]&&!activeBinder?[...setMap[CF2.set].cards.values()]:allUnique;
   // binder filter
-  if(activeBinder) source=source.filter(c=>activeBinder.cards.includes(c.id));
+  if(activeBinder){
+    if(CF2.binderMode==='edit'){
+      // show only owned cards (from the user's collection) so they can pick what to add
+      source=source.filter(c=>collOwned[c.id]);
+    } else {
+      // view mode: only cards already added to the binder
+      source=source.filter(c=>activeBinder.cards.includes(c.id));
+    }
+  }
   if(CF2.q) source=source.filter(c=>c.name.toLowerCase().includes(CF2.q)||c.txt.toLowerCase().includes(CF2.q));
   if(CF2.type) source=source.filter(c=>c.type===CF2.type||(CF2.type==='Champion'&&(c.supertype||'').toLowerCase().includes('champion')));
   if(CF2.dom) source=source.filter(c=>c.doms.includes(CF2.dom));
@@ -3681,9 +3729,17 @@ function renderCollection(){
           <div class="coll-card-name" style="${need>0?'color:#f87171;':'color:var(--calm);'}">${need>0?`Need ${need}`:'✓ Done'}</div>
         </div>`;
       } else {
-        const binderRemoveBtn=activeBinder
-          ?`<button class="coll-binder-btn remove" onclick="event.stopPropagation();removeCardFromBinder('${si}',${activeBinder.id})" title="Remove from binder">📁✕</button>`
-          :'';
+        let binderRemoveBtn='';
+        if(activeBinder){
+          if(CF2.binderMode==='edit'){
+            const inBinder=activeBinder.cards.includes(c.id);
+            binderRemoveBtn=inBinder
+              ?`<button class="coll-binder-btn in-binder" onclick="event.stopPropagation();removeCardFromBinder('${si}',${activeBinder.id})" title="In binder — click to remove">✓</button>`
+              :`<button class="coll-binder-btn add" onclick="event.stopPropagation();_addCardSilent('${si}',${activeBinder.id})" title="Add to binder">+</button>`;
+          } else {
+            binderRemoveBtn=`<button class="coll-binder-btn remove" onclick="event.stopPropagation();removeCardFromBinder('${si}',${activeBinder.id})" title="Remove from binder">📁✕</button>`;
+          }
+        }
         html+=`<div class="coll-card ${cls}${isWanted?' wishlisted':''}" title="${c.name}">
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
           <button class="coll-wishlist-top-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>
