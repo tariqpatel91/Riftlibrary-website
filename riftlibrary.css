@@ -796,10 +796,13 @@ select option{background:#1e1e2a;}
 .coll-dom-pill.order.on{background:var(--order);color:#000;border-color:var(--order);}
 .coll-select{padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;cursor:pointer;}
 .coll-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;}
-.coll-card{position:relative;border-radius:10px;overflow:hidden;background:var(--surface2);border:2px solid var(--border);cursor:pointer;transition:transform 0.15s,border-color 0.15s,box-shadow 0.15s;aspect-ratio:2.5/3.5;user-select:none;filter:grayscale(1);opacity:0.5;}
+.coll-card{position:relative;border-radius:10px;overflow:hidden;background:var(--surface2);border:2px solid var(--border);cursor:pointer;transition:transform 0.15s,border-color 0.15s,box-shadow 0.15s;aspect-ratio:2.5/3.5;user-select:none;}
+.coll-card>img,.coll-card>.coll-card-no-img{filter:grayscale(1);opacity:0.5;transition:filter 0.15s,opacity 0.15s;}
 .coll-card:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,0.4);}
-.coll-card.owned{border-color:var(--accent);filter:none;opacity:1;}
-.coll-card.complete{border-color:var(--calm);box-shadow:0 0 8px rgba(61,214,163,0.25);filter:none;opacity:1;}
+.coll-card.owned{border-color:var(--accent);}
+.coll-card.owned>img,.coll-card.owned>.coll-card-no-img{filter:none;opacity:1;}
+.coll-card.complete{border-color:var(--calm);box-shadow:0 0 8px rgba(61,214,163,0.25);}
+.coll-card.complete>img,.coll-card.complete>.coll-card-no-img{filter:none;opacity:1;}
 .coll-card.wanted{border-color:var(--chaos);}
 .coll-card img{width:100%;height:100%;object-fit:cover;display:block;}
 .coll-card-no-img{display:flex;align-items:center;justify-content:center;height:100%;padding:8px;text-align:center;font-size:10px;color:var(--text-muted);}
@@ -867,8 +870,8 @@ select option{background:#1e1e2a;}
 .coll-wishlist-top-btn:hover{background:rgba(236,72,153,0.4);color:#f472b6;transform:translateX(-50%) scale(1.15);}
 .coll-wishlist-top-btn.active{background:#ec4899;color:#fff;border-color:#ec4899;box-shadow:0 0 12px rgba(236,72,153,0.6);}
 .coll-wishlist-top-btn.active:hover{transform:translateX(-50%) scale(1.15);background:#f472b6;}
-/* Wishlisted cards keep grey art, just show pink border */
-.coll-card.wishlisted{border-color:#f472b6 !important;}
+/* Wishlisted cards: pink border + glow, art stays greyed */
+.coll-card.wishlisted{border-color:#ec4899 !important;box-shadow:0 0 14px rgba(236,72,153,0.45);}
 /* Wishlist view cards always full color */
 .coll-card.wanted-card{filter:none!important;opacity:1!important;}
 /* remove old standalone wishlist btn */
