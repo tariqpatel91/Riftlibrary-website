@@ -453,12 +453,22 @@ function adjustLife(side, delta) {
 }
 
 function drawCard() {
-  if (GS.me.deck.length === 0) { showToast('Deck empty!'); return; }
+  if (GS.me.deck.length === 0) { showToast && showToast('Deck empty!'); return; }
   GS.me.hand.push(GS.me.deck.shift());
-  _sendHandCount();
-  document.getElementById('my-deck-count').textContent = GS.me.deck.length;
+  _sendHandCount && _sendHandCount();
+  _setText('my-deck-count', GS.me.deck.length);
   renderMyHand();
   _updateCounts();
+}
+
+function playRune() {
+  if (!GS.me.runes || GS.me.runes.length === 0) { showToast && showToast('No runes left!'); return; }
+  const rune = GS.me.runes.shift();
+  rune._exhausted = true;
+  GS.me.support = GS.me.support || [];
+  GS.me.support.push(rune);
+  _setText('my-rune-count', GS.me.runes.length);
+  renderZone('support-cards', GS.me.support);
 }
 
 function viewDiscard() {

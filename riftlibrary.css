@@ -1071,11 +1071,8 @@ select option{background:#1e1e2a;}
 #my-legend-zone    {grid-column:2;grid-row:2;}
 #my-deck-zone      {grid-column:4;grid-row:2;}
 
-/* ── Phase strip ── */
-#phase-strip{text-align:center;font-size:9px;font-weight:700;letter-spacing:0.1em;color:rgba(232,212,122,0.7);padding:3px 0;border-top:1px solid rgba(180,140,50,0.2);border-bottom:1px solid rgba(180,140,50,0.2);flex-shrink:0;background:rgba(4,10,22,0.6);}
-
 /* ── Bottom row ── */
-#bottom-row{display:grid;grid-template-columns:90px 1fr 90px;gap:3px;height:80px;flex-shrink:0;}
+#bottom-row{display:grid;grid-template-columns:90px 1fr 90px;gap:3px;height:120px;flex-shrink:0;}
 
 /* ── Generic zone ── */
 .bz{background:rgba(4,10,22,0.82);border:1px solid rgba(180,140,50,0.35);border-radius:4px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
