@@ -439,7 +439,7 @@ function goto(p,el){
   if(p==='search'&&cardsLoaded)renderCards();
   if(p==='statistics')renderStatistics();
   if(p==='events')renderEvents();
-  if(p==='collection')renderCollection();
+  if(p==='collection'){CF2.binder='';CF2.show='all';CF2.q='';CF2.binderMode='view';renderCollection();}
   if(p==='team')renderTeam();
   if(p==='play'&&typeof populateDeckSelectors==='function')populateDeckSelectors();
   if(p==='articles')renderArticles();
@@ -3228,9 +3228,9 @@ function renderTeam(){
       </div>
     </div>
     <div class="fb-tabs">
-      <button class="fb-tab-btn${activeTeamTab==='all'?' on':''}" onclick="switchTeamTab('all')">All</button>
-      <button class="fb-tab-btn${activeTeamTab==='about'?' on':''}" onclick="switchTeamTab('about')">About</button>
-      <button class="fb-tab-btn${activeTeamTab==='friends'?' on':''}" onclick="switchTeamTab('friends')">Friends</button>
+      <button class="fb-tab-btn${activeTeamTab==='all'?' on':''}" onclick="switchTeamTab('all')">Announcements</button>
+      <button class="fb-tab-btn${activeTeamTab==='about'?' on':''}" onclick="switchTeamTab('about')">Decklists</button>
+      <button class="fb-tab-btn${activeTeamTab==='friends'?' on':''}" onclick="switchTeamTab('friends')">Team Members</button>
       <button class="fb-tab-btn${activeTeamTab==='photos'?' on':''}" onclick="switchTeamTab('photos')">Photos</button>
     </div>
   </div>`;
@@ -3280,7 +3280,7 @@ function renderTeam(){
     html+=`</div>`;
   }else if(activeTeamTab==='friends'){
     html+=`<div class="team-section">
-      <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:12px;">Friends · ${memberCount}</div>
+      <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:12px;">Team Members · ${memberCount}</div>
       <div class="fb-friends-grid">
         <div class="fb-friend-card">
           <div class="fb-friend-avatar fb-friend-you">👑</div>
@@ -3295,7 +3295,7 @@ function renderTeam(){
       </div>
       <div class="team-add-row" style="margin-top:14px;">
         <input id="tm-add-member" type="text" placeholder="Add friend by name…" onkeydown="if(event.key==='Enter')addTeamMember()">
-        <button class="btn btn-p" onclick="addTeamMember()" style="font-size:12px;padding:6px 14px;">Add Friend</button>
+        <button class="btn btn-p" onclick="addTeamMember()" style="font-size:12px;padding:6px 14px;">Add Member</button>
       </div>
     </div>`;
   }else if(activeTeamTab==='photos'){
@@ -3936,7 +3936,11 @@ function renderCollection(){
       } else {
         let binderRemoveBtn='';
         if(activeBinder){
-          if(CF2.binderMode==='edit'){
+          if(activeBinder._kind==='wishlist'){
+            binderRemoveBtn=`<button class="coll-binder-btn remove" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="Remove from wishlist">✕</button>`;
+          } else if(activeBinder._kind==='extras'){
+            binderRemoveBtn=`<button class="coll-binder-btn remove" onclick="event.stopPropagation();setCollOwned('${si}',-1)" title="Remove one extra copy">✕</button>`;
+          } else if(CF2.binderMode==='edit'){
             const inBinder=!!_binderHas(activeBinder,c.id);
             binderRemoveBtn=inBinder
               ?`<button class="coll-binder-btn in-binder" onclick="event.stopPropagation();removeCardFromBinder('${si}',${activeBinder.id})" title="In binder — click to remove">✓</button>`
@@ -3945,13 +3949,22 @@ function renderCollection(){
             binderRemoveBtn=`<button class="coll-binder-btn remove" onclick="event.stopPropagation();removeCardFromBinder('${si}',${activeBinder.id})" title="Remove from binder">📁✕</button>`;
           }
         }
+        let badgeHtml='';
+        if(activeBinder&&activeBinder._kind==='wishlist'){
+          badgeHtml=`<div class="coll-card-badge coll-badge-wanted">♥ ×${wantedCount}</div>`;
+        } else if(activeBinder&&activeBinder._kind==='extras'){
+          const extras=Math.max(0,owned-3);
+          badgeHtml=`<div class="coll-card-badge coll-badge-owned">×${extras>=12?'12+':extras}</div>`;
+        } else if(owned>0){
+          badgeHtml=`<div class="coll-card-badge coll-badge-owned">${ownedLabel}</div>`;
+        }
         const inBinderView=!!activeBinder;
         const hideOwnerControls=inBinderView||CF2.collMode==='view';
         html+=`<div class="coll-card ${cls}${isWanted?' wishlisted':''}${hideOwnerControls?' in-binder-view':''}" title="${c.name}" onclick="openCardModal('${si}')">
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
           ${hideOwnerControls?'':`<button class="coll-wishlist-top-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>`}
           ${binderRemoveBtn}
-          ${owned>0?`<div class="coll-card-badge coll-badge-owned">${ownedLabel}</div>`:''}
+          ${badgeHtml}
           ${hideOwnerControls?'':`<div class="coll-card-actions">
             <button class="coll-copy-btn coll-copy-minus" onclick="event.stopPropagation();setCollOwned('${si}',-1)" title="Remove copy">−</button>
             <button class="coll-copy-btn coll-copy-plus" onclick="event.stopPropagation();setCollOwned('${si}',1)" title="Add copy">+</button>
