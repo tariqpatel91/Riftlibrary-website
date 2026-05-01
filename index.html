@@ -355,23 +355,21 @@
         <!-- OPP MAIN DECK -->
         <div class="bz bz-deck" id="opp-deck-zone">
           <div class="bz-deck-stack">
-            <div class="bz-card-back lol-back b3"></div>
-            <div class="bz-card-back lol-back b2"></div>
-            <div class="bz-card-back lol-back b1"></div>
+            <div class="bz-card-back lol-back"></div>
           </div>
           <div id="opp-hand" class="bz-hand-fan"></div>
           <span class="bz-lbl">MAIN DECK</span>
         </div>
 
         <!-- MY CHAMPION -->
-        <div class="bz" id="my-champion-zone">
+        <div class="bz" id="my-champion-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'champion')">
           <div class="bz-icon">♛</div>
           <div id="my-champion-cards" class="bz-cards"></div>
           <span class="bz-lbl">CHAMPION</span>
         </div>
 
         <!-- MY LEGEND -->
-        <div class="bz" id="my-legend-zone">
+        <div class="bz" id="my-legend-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'legend')">
           <div class="bz-icon">★</div>
           <div id="my-legend-cards" class="bz-cards"></div>
           <span class="bz-lbl">LEGEND</span>
@@ -383,8 +381,7 @@
       <div id="bottom-row">
         <div class="bz bz-deck" id="rune-deck-zone" onclick="playRune()" title="Click to play 1 rune (tapped)">
           <div class="bz-deck-stack">
-            <div class="bz-card-back lol-back rune-back b3"></div>
-            <div class="bz-card-back lol-back rune-back b1"></div>
+            <div class="bz-card-back lol-back rune-back"></div>
           </div>
           <div id="my-rune-count" class="bz-deck-count">0</div>
           <span class="bz-lbl">RUNE DECK</span>
@@ -397,24 +394,22 @@
 
       <!-- ── BOTTOM-RIGHT CLUSTER: tiny main deck + trash ── -->
       <div id="bottom-corner">
-        <div class="bz bz-deck bz-mini" id="my-deck-zone" onclick="drawCard()" title="Click to draw">
+        <div class="bz bz-deck bz-mini" id="my-deck-zone" onclick="drawCard()" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'deck')" title="Click to draw — drop a card here to put it on top">
           <div class="bz-deck-stack mini-stack">
-            <div class="bz-card-back lol-back b3"></div>
-            <div class="bz-card-back lol-back b2"></div>
-            <div class="bz-card-back lol-back b1"></div>
+            <div class="bz-card-back lol-back"></div>
           </div>
           <div id="my-deck-count" class="bz-deck-count">0</div>
           <span class="bz-lbl">DECK</span>
         </div>
-        <div class="bz bz-mini" id="trash-zone" onclick="viewDiscard()">
+        <div class="bz bz-mini" id="trash-zone" onclick="viewDiscard()" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'trash')" title="Discard pile — drop a card here to discard">
           <div class="bz-icon" style="font-size:18px;">🗑</div>
           <div id="my-disc-count" class="bz-deck-count">0</div>
           <span class="bz-lbl">TRASH</span>
         </div>
       </div>
 
-      <!-- ── FLOATING HAND FAN ── -->
-      <div id="my-hand" class="hand-fan-overlay"></div>
+      <!-- ── FLOATING HAND FAN (drop target for returning cards to hand) ── -->
+      <div id="my-hand" class="hand-fan-overlay" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'hand')"></div>
       <div id="my-hand-count" style="display:none;"></div>
 
     </div><!-- /board-arena -->

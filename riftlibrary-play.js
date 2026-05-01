@@ -331,7 +331,9 @@ function boardCardHTML(card, zone) {
 function _isMyCard(card) {
   return GS.me.hand.some(c=>c._uid===card._uid) ||
          GS.me.battle.some(c=>c._uid===card._uid) ||
-         GS.me.support.some(c=>c._uid===card._uid);
+         GS.me.support.some(c=>c._uid===card._uid) ||
+         (GS.me.legend && GS.me.legend._uid===card._uid) ||
+         (GS.me.champion && GS.me.champion._uid===card._uid);
 }
 
 function _updateCounts() {
@@ -349,7 +351,11 @@ function boardDragOver(e) {
 function boardDragStart(e, uid, zone) {
   _dragUid = uid;
   _dragZone = zone;
-  e.dataTransfer.effectAllowed = 'move';
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', uid); } catch (_) {}
+  }
+  e.stopPropagation();
 }
 
 function dropToZone(e, toZone) {
@@ -359,14 +365,59 @@ function dropToZone(e, toZone) {
   const card = _pluckMyCard(_dragUid, _dragZone);
   if (!card) return;
 
-  if (toZone === 'battle')  { GS.me.battle.push(card);  _send({type:'play_card',zone:'battle',card}); }
-  else if (toZone === 'support') { GS.me.support.push(card); _send({type:'play_card',zone:'support',card}); }
-  else if (toZone === 'hand') { GS.me.hand.push(card); }
+  // Reset transient flags when moving
+  card._exhausted = false;
+
+  switch (toZone) {
+    case 'battle':
+      GS.me.battle.push(card);
+      _send({type:'play_card',zone:'battle',card});
+      break;
+    case 'support':
+      GS.me.support.push(card);
+      _send({type:'play_card',zone:'support',card});
+      break;
+    case 'hand':
+      GS.me.hand.push(card);
+      break;
+    case 'deck':
+      // Drop on top of deck (next draw will pick this up)
+      GS.me.deck.unshift(card);
+      break;
+    case 'trash':
+    case 'discard':
+      GS.me.discard.push(card);
+      break;
+    case 'legend':
+      // Send any current legend back to hand to free the slot, then equip
+      if (GS.me.legend && GS.me.legend._uid !== card._uid) {
+        GS.me.hand.push(GS.me.legend);
+      }
+      GS.me.legend = card;
+      break;
+    case 'champion':
+      if (GS.me.champion && GS.me.champion._uid !== card._uid) {
+        GS.me.hand.push(GS.me.champion);
+      }
+      GS.me.champion = card;
+      break;
+    default:
+      // Unknown zone — return the card to where it came from
+      _returnCardToZone(card, _dragZone);
+  }
 
   _sendHandCount();
   renderFullBoard();
   _dragUid = null;
   _dragZone = null;
+}
+
+function _returnCardToZone(card, zone) {
+  if (zone === 'battle') GS.me.battle.push(card);
+  else if (zone === 'support') GS.me.support.push(card);
+  else if (zone === 'legend') GS.me.legend = card;
+  else if (zone === 'champion') GS.me.champion = card;
+  else GS.me.hand.push(card);
 }
 
 /* ── CARD CONTEXT MENU ── */
@@ -433,8 +484,24 @@ function _findMyCard(uid, zone) {
 }
 
 function _pluckMyCard(uid, zone) {
-  const zones = { hand:GS.me.hand, battle:GS.me.battle, support:GS.me.support };
-  const arr = zones[zone] || [];
+  // Singleton zones first
+  if (zone === 'legend' && GS.me.legend && GS.me.legend._uid === uid) {
+    const c = GS.me.legend; GS.me.legend = null; return c;
+  }
+  if (zone === 'champion' && GS.me.champion && GS.me.champion._uid === uid) {
+    const c = GS.me.champion; GS.me.champion = null; return c;
+  }
+  const zones = { hand:GS.me.hand, battle:GS.me.battle, support:GS.me.support, discard:GS.me.discard, trash:GS.me.discard };
+  const arr = zones[zone];
+  if (!arr) {
+    // Unknown zone — search every list as a fallback so drag still works
+    for (const k of Object.keys(zones)) {
+      const a = zones[k];
+      const i = a.findIndex(c=>c._uid===uid);
+      if (i !== -1) return a.splice(i,1)[0];
+    }
+    return null;
+  }
   const idx = arr.findIndex(c=>c._uid===uid);
   if (idx === -1) return null;
   return arr.splice(idx, 1)[0];
