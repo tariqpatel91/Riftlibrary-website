@@ -819,6 +819,12 @@ function showDeckCustomizer(deckId, opts) {
   const legendEntries = allEntries.filter(e => e.t === 'Legend');
   const main = allEntries.filter(e => e.t !== 'Legend');
   const side = JSON.parse(JSON.stringify(deck.sideboard || []));
+  // If the deck stored its champion in deck.champion (legacy), surface it as a deck entry
+  if (deck.champion && deck.champion.id && !main.find(e => e.id === deck.champion.id)) {
+    main.unshift({ id: deck.champion.id, n: deck.champion.n || '', t: 'Champion', cnt: 1 });
+  }
+  // Active champion slot — starts empty; user drags one in from the deck
+  let activeChampion = null;
   const allCards = (typeof CARDS !== 'undefined' && CARDS.length) ? CARDS : (window._allCards || []);
   const lookup = id => allCards.find(c => c.id === id);
 
@@ -858,9 +864,13 @@ function showDeckCustomizer(deckId, opts) {
               : '';
     // Expand cnt into individual cards laid out side-by-side
     const cnt = Math.max(1, entry.cnt || 1);
+    const isChampion = entry.t === 'Champion';
+    const drag = (target === 'main' && isChampion)
+      ? `draggable="true" ondragstart="_pdoChampionDragStart(event,'${entry.id}')"`
+      : '';
     let html = '';
     for (let i = 0; i < cnt; i++) {
-      html += `<div class="pdo-card" data-img="${img}" data-name="${safeName}" onclick="_pdoClick('${entry.id}','${target}')">
+      html += `<div class="pdo-card${isChampion?' is-champion':''}" data-img="${img}" data-name="${safeName}" onclick="_pdoClick('${entry.id}','${target}')" ${drag}>
         ${img ? `<img src="${img}" alt="${safeName}">` : `<div class="pdo-card-no-img">${name}</div>`}
         ${flag ? `<span class="pdo-card-flag">${flag}</span>` : ''}
       </div>`;
@@ -884,25 +894,21 @@ function showDeckCustomizer(deckId, opts) {
     });
   }
 
-  // Resolve the deck's champion (cards entry with t==='Champion', or legacy deck.champion field)
-  const championEntry = (deck.cards || []).find(c => c.t === 'Champion');
-  let championFull = championEntry ? lookup(championEntry.id) : null;
-  if (!championFull && deck.champion) {
-    championFull = (deck.champion.id ? lookup(deck.champion.id) : null)
-                || (deck.champion.n  ? allCards.find(c => c.name === deck.champion.n) : null);
-  }
-  const championRow = document.getElementById('pdo-champion-row');
-  const championSlot = document.getElementById('pdo-champion-slot');
-  if (championFull && championSlot && championRow) {
-    const img = championFull.imageUrl || '';
-    const name = (championFull.name || '').replace(/"/g,'&quot;');
-    championSlot.innerHTML = `<div class="pdo-card" data-img="${img}" data-name="${name}">
-      ${img ? `<img src="${img}" alt="${name}">` : `<div class="pdo-card-no-img">${championFull.name||'?'}</div>`}
-      <span class="pdo-card-flag">CHAMPION</span>
-    </div>`;
-    championRow.style.display = '';
-  } else if (championRow) {
-    championRow.style.display = 'none';
+  function _renderChampionSlot() {
+    const slot = document.getElementById('pdo-champion-slot');
+    if (!slot) return;
+    if (activeChampion) {
+      const full = lookup(activeChampion.id);
+      const img = (full && full.imageUrl) || '';
+      const name = ((full && full.name) || activeChampion.n || '').replace(/"/g,'&quot;');
+      slot.classList.add('has-card');
+      slot.innerHTML = img
+        ? `<img src="${img}" alt="${name}" data-img="${img}" data-name="${name}">`
+        : `<div style="padding:6px;font-size:10px;text-align:center;color:rgba(255,255,255,0.7);">${name}</div>`;
+    } else {
+      slot.classList.remove('has-card');
+      slot.innerHTML = `<span class="pdo-champion-empty">CHAMPION<br><span style="font-size:9px;opacity:0.7;font-weight:500;">drag from deck</span></span>`;
+    }
   }
 
   function refresh() {
@@ -914,12 +920,13 @@ function showDeckCustomizer(deckId, opts) {
     sideGrid.innerHTML = side.length
       ? _sortEntries(side).map(e => _renderEntry(e, 'side')).join('')
       : `<div class="pdo-empty">No sideboard cards. Click any deck card above to send a copy here.</div>`;
-    const total = main.reduce((a,e)=>a+(e.cnt||1),0);
+    const total = main.reduce((a,e)=>a+(e.cnt||1),0) + (activeChampion ? (activeChampion.cnt || 1) : 0);
     const sideTotal = side.reduce((a,e)=>a+(e.cnt||1),0);
     const deckCount = document.getElementById('pdo-deck-count');
     const sideCount = document.getElementById('pdo-side-count');
     if (deckCount) deckCount.textContent = `${total} / 40`;
     if (sideCount) sideCount.textContent = String(sideTotal);
+    _renderChampionSlot();
   }
 
   // Expose click handler on window so inline onclick can reach it
@@ -936,10 +943,48 @@ function showDeckCustomizer(deckId, opts) {
     refresh();
   };
 
+  // Drag a champion card from the deck onto the champion slot
+  window._pdoChampionDragStart = function(e, cardId) {
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('text/plain', cardId);
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  };
+  window._pdoDropChampion = function(e) {
+    e.preventDefault();
+    const slot = document.getElementById('pdo-champion-slot');
+    if (slot) slot.classList.remove('drag-over');
+    const cardId = e.dataTransfer ? e.dataTransfer.getData('text/plain') : null;
+    if (!cardId) return;
+    const idx = main.findIndex(en => en.id === cardId && en.t === 'Champion');
+    if (idx === -1) return;
+    // Remove one copy from deck
+    main[idx].cnt = Math.max(0, (main[idx].cnt || 1) - 1);
+    const taken = { ...main[idx], cnt: 1 };
+    if (main[idx].cnt === 0) main.splice(idx, 1);
+    // If a champion was already set, send it back to the deck (one copy)
+    if (activeChampion) {
+      const back = main.findIndex(en => en.id === activeChampion.id);
+      if (back >= 0) main[back].cnt = (main[back].cnt || 0) + 1;
+      else main.push({ ...activeChampion, cnt: 1 });
+    }
+    activeChampion = taken;
+    refresh();
+  };
+
+  // Card-size sliders — controls the auto-fill min size on each grid
+  window._pdoSetSize = function(which, val) {
+    const px = parseInt(val, 10) || 90;
+    const id = which === 'side' ? 'pdo-side-grid' : 'pdo-deck-grid';
+    const el = document.getElementById(id);
+    if (el) el.style.setProperty('--pdo-min', px + 'px');
+  };
+
   document.getElementById('pdo-confirm').onclick = () => {
     overlay.classList.remove('open');
-    // Re-attach the legend entries that were hidden from the editor so the loader still finds them
-    const merged = { ...deck, cards: [...legendEntries, ...main], sideboard: side };
+    // Re-attach legend + active champion so the loader still finds them
+    const champArr = activeChampion ? [{ id: activeChampion.id, n: activeChampion.n || '', t: 'Champion', cnt: activeChampion.cnt || 1 }] : [];
+    const merged = { ...deck, cards: [...legendEntries, ...champArr, ...main], sideboard: side };
     opts.onConfirm && opts.onConfirm(merged);
   };
   document.getElementById('pdo-leave').onclick = () => {
