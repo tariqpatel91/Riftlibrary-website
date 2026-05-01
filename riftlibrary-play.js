@@ -278,6 +278,7 @@ function _loadDeckIntoStateFromObj(deck) {
     ? [{ ...bfFull, image: _img(bfFull), name: bfFull.name || bfEntry.n || '', type: 'Battlefield', _uid: crypto.randomUUID() }]
     : (bfEntry ? [{ id: bfEntry.id, name: bfEntry.n || '', type: 'Battlefield', _uid: crypto.randomUUID() }] : []);
   GS.me.bfRight = [];
+  GS.me.bfArea = [];
 }
 
 function _shuffle(arr) {
@@ -324,6 +325,7 @@ function renderFullBoard() {
   renderZone('support-cards', GS.me.support);
   renderZone('bf-left-cards',  GS.me.bfLeft  || []);
   renderZone('bf-right-cards', GS.me.bfRight || []);
+  renderZone('my-battlefield-cards', GS.me.bfArea || []);
   // Hide base hint once units are placed
   const hint = document.getElementById('base-hint');
   if (hint) hint.style.display = (GS.me.battle.length || GS.opp.battle.length) ? 'none' : '';
@@ -512,6 +514,10 @@ function dropToZone(e, toZone) {
       GS.me.support.push(card);
       _send({type:'play_card',zone:'support',card});
       break;
+    case 'battlefield-area':
+      GS.me.bfArea = GS.me.bfArea || [];
+      GS.me.bfArea.push(card);
+      break;
     case 'hand':
       GS.me.hand.push(card);
       break;
@@ -626,7 +632,8 @@ function _pluckMyCard(uid, zone) {
   if (zone === 'champion' && GS.me.champion && GS.me.champion._uid === uid) {
     const c = GS.me.champion; GS.me.champion = null; return c;
   }
-  const zones = { hand:GS.me.hand, battle:GS.me.battle, support:GS.me.support, discard:GS.me.discard, trash:GS.me.discard };
+  GS.me.bfArea = GS.me.bfArea || [];
+  const zones = { hand:GS.me.hand, battle:GS.me.battle, support:GS.me.support, discard:GS.me.discard, trash:GS.me.discard, 'battlefield-area':GS.me.bfArea, 'my-battlefield-cards':GS.me.bfArea };
   const arr = zones[zone];
   if (!arr) {
     // Unknown zone — search every list as a fallback so drag still works
@@ -979,7 +986,7 @@ function showDeckCustomizer(deckId, opts) {
     }).join('');
   }
 
-  // Tab switching: 'side' (default) or 'bf'
+  // Tab switching: 'side' / 'bf' / 'rune'
   let activeBottomTab = 'side';
   window._pdoSetBottomTab = function(tab) {
     activeBottomTab = tab;
@@ -987,10 +994,33 @@ function showDeckCustomizer(deckId, opts) {
       b.classList.toggle('on', b.getAttribute('data-tab') === tab);
     });
     const sideGrid = document.getElementById('pdo-side-grid');
-    const bfGrid = document.getElementById('pdo-bf-grid');
+    const bfGrid   = document.getElementById('pdo-bf-grid');
+    const runeGrid = document.getElementById('pdo-rune-grid');
     if (sideGrid) sideGrid.style.display = tab === 'side' ? '' : 'none';
     if (bfGrid)   bfGrid.style.display   = tab === 'bf'   ? '' : 'none';
+    if (runeGrid) runeGrid.style.display = tab === 'rune' ? '' : 'none';
   };
+
+  function _renderRuneGrid() {
+    const grid = document.getElementById('pdo-rune-grid');
+    if (!grid) return;
+    const runes = (deck.runes || []);
+    if (!runes.length) { grid.innerHTML = `<div class="pdo-empty">No runes in this deck.</div>`; return; }
+    grid.innerHTML = runes.map(e => {
+      const full = lookup(e.id);
+      const img = (full && full.imageUrl) || '';
+      const name = ((full && full.name) || e.n || '').replace(/"/g,'&quot;');
+      const cnt = e.cnt || 1;
+      let html = '';
+      for (let i = 0; i < cnt; i++) {
+        html += `<div class="pdo-card" data-img="${img}" data-name="${name}">
+          ${img ? `<img src="${img}" alt="${name}">` : `<div class="pdo-card-no-img">${name}</div>`}
+          <span class="pdo-card-flag">RUNE</span>
+        </div>`;
+      }
+      return html;
+    }).join('');
+  }
 
   window._pdoPickBattlefield = function(id) {
     selectedBattlefieldId = (selectedBattlefieldId === id) ? null : id;
@@ -1007,14 +1037,18 @@ function showDeckCustomizer(deckId, opts) {
       ? _sortEntries(side).map(e => _renderEntry(e, 'side')).join('')
       : `<div class="pdo-empty">No sideboard cards. Click any deck card above to send a copy here.</div>`;
     _renderBattlefieldGrid();
+    _renderRuneGrid();
     const total = main.reduce((a,e)=>a+(e.cnt||1),0) + (activeChampion ? (activeChampion.cnt || 1) : 0);
     const sideTotal = side.reduce((a,e)=>a+(e.cnt||1),0);
+    const runeTotal = (deck.runes||[]).reduce((a,e)=>a+(e.cnt||1),0);
     const deckCount = document.getElementById('pdo-deck-count');
     const sideCount = document.getElementById('pdo-side-count');
     const bfCount   = document.getElementById('pdo-bf-count');
+    const runeCount = document.getElementById('pdo-rune-count');
     if (deckCount) deckCount.textContent = `${total} / 40`;
     if (sideCount) sideCount.textContent = String(sideTotal);
     if (bfCount)   bfCount.textContent   = String(battlefields.length);
+    if (runeCount) runeCount.textContent = String(runeTotal);
     _renderChampionSlot();
   }
 

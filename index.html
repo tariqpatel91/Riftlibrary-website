@@ -361,6 +361,12 @@
         <div class="bz-base-hint" id="base-hint">Units Start/Return Here · Units Start Exhausted</div>
         <span class="bz-lbl">BASE</span>
 
+        <!-- My battlefield zone — area for cards conquered/under your battlefield -->
+        <div class="bz battlefield-zone" id="my-battlefield-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battlefield-area')">
+          <div id="my-battlefield-cards" class="bz-cards"></div>
+          <span class="bz-lbl">BATTLEFIELD ZONE</span>
+        </div>
+
         <!-- My champion + legend, bottom-left -->
         <div class="player-pieces" id="my-pieces">
           <div class="bz piece-bz" id="my-champion-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'champion')">
@@ -478,6 +484,7 @@
             <span class="pdo-bottom-tabs">
               <button class="pdo-bt-tab on" data-tab="side" onclick="_pdoSetBottomTab('side')">SIDEBOARD <span class="pdo-count-inline" id="pdo-side-count">0</span></button>
               <button class="pdo-bt-tab" data-tab="bf" onclick="_pdoSetBottomTab('bf')">BATTLEFIELDS <span class="pdo-count-inline" id="pdo-bf-count">0</span></button>
+              <button class="pdo-bt-tab" data-tab="rune" onclick="_pdoSetBottomTab('rune')">RUNES <span class="pdo-count-inline" id="pdo-rune-count">0</span></button>
             </span>
           </span>
           <span class="pdo-slider-wrap" title="Card size">
@@ -487,6 +494,7 @@
         </div>
         <div id="pdo-side-grid" class="pdo-grid pdo-grid-side"></div>
         <div id="pdo-bf-grid" class="pdo-grid pdo-grid-side" style="display:none;"></div>
+        <div id="pdo-rune-grid" class="pdo-grid pdo-grid-side" style="display:none;"></div>
       </div>
     </div>
     <div class="pdo-footer">
