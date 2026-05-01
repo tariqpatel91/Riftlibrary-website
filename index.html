@@ -475,8 +475,10 @@
       <div class="pdo-bottom">
         <div class="pdo-section-title">
           <span class="pdo-title-left">
-            <span>SIDEBOARD</span>
-            <span class="pdo-count-inline" id="pdo-side-count">0</span>
+            <span class="pdo-bottom-tabs">
+              <button class="pdo-bt-tab on" data-tab="side" onclick="_pdoSetBottomTab('side')">SIDEBOARD <span class="pdo-count-inline" id="pdo-side-count">0</span></button>
+              <button class="pdo-bt-tab" data-tab="bf" onclick="_pdoSetBottomTab('bf')">BATTLEFIELDS <span class="pdo-count-inline" id="pdo-bf-count">0</span></button>
+            </span>
           </span>
           <span class="pdo-slider-wrap" title="Card size">
             <span class="pdo-slider-icon">▭</span>
@@ -484,6 +486,7 @@
           </span>
         </div>
         <div id="pdo-side-grid" class="pdo-grid pdo-grid-side"></div>
+        <div id="pdo-bf-grid" class="pdo-grid pdo-grid-side" style="display:none;"></div>
       </div>
     </div>
     <div class="pdo-footer">

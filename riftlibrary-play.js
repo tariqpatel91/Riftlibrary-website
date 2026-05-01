@@ -825,6 +825,9 @@ function showDeckCustomizer(deckId, opts) {
   }
   // Active champion slot — starts empty; user drags one in from the deck
   let activeChampion = null;
+  // Battlefields: array of {id, n} (or null) — present in the deck file
+  const battlefields = (deck.battlefields || []).filter(Boolean).map(b => ({ ...b }));
+  let selectedBattlefieldId = battlefields.length ? battlefields[0].id : null;
   const allCards = (typeof CARDS !== 'undefined' && CARDS.length) ? CARDS : (window._allCards || []);
   const lookup = id => allCards.find(c => c.id === id);
 
@@ -947,6 +950,43 @@ function showDeckCustomizer(deckId, opts) {
     });
   }
 
+  function _renderBattlefieldGrid() {
+    const grid = document.getElementById('pdo-bf-grid');
+    if (!grid) return;
+    if (!battlefields.length) {
+      grid.innerHTML = `<div class="pdo-empty">No battlefields in this deck.</div>`;
+      return;
+    }
+    grid.innerHTML = battlefields.map(b => {
+      const full = lookup(b.id);
+      const img = (full && full.imageUrl) || '';
+      const name = ((full && full.name) || b.n || '').replace(/"/g,'&quot;');
+      const sel = b.id === selectedBattlefieldId ? ' bf-selected' : '';
+      return `<div class="pdo-card${sel}" data-img="${img}" data-name="${name}" onclick="_pdoPickBattlefield('${b.id}')">
+        ${img ? `<img src="${img}" alt="${name}">` : `<div class="pdo-card-no-img">${name}</div>`}
+        <span class="pdo-card-flag">BATTLEFIELD</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Tab switching: 'side' (default) or 'bf'
+  let activeBottomTab = 'side';
+  window._pdoSetBottomTab = function(tab) {
+    activeBottomTab = tab;
+    document.querySelectorAll('.pdo-bt-tab').forEach(b => {
+      b.classList.toggle('on', b.getAttribute('data-tab') === tab);
+    });
+    const sideGrid = document.getElementById('pdo-side-grid');
+    const bfGrid = document.getElementById('pdo-bf-grid');
+    if (sideGrid) sideGrid.style.display = tab === 'side' ? '' : 'none';
+    if (bfGrid)   bfGrid.style.display   = tab === 'bf'   ? '' : 'none';
+  };
+
+  window._pdoPickBattlefield = function(id) {
+    selectedBattlefieldId = (selectedBattlefieldId === id) ? null : id;
+    _renderBattlefieldGrid();
+  };
+
   function refresh() {
     const deckGrid = document.getElementById('pdo-deck-grid');
     const sideGrid = document.getElementById('pdo-side-grid');
@@ -956,12 +996,15 @@ function showDeckCustomizer(deckId, opts) {
     sideGrid.innerHTML = side.length
       ? _sortEntries(side).map(e => _renderEntry(e, 'side')).join('')
       : `<div class="pdo-empty">No sideboard cards. Click any deck card above to send a copy here.</div>`;
+    _renderBattlefieldGrid();
     const total = main.reduce((a,e)=>a+(e.cnt||1),0) + (activeChampion ? (activeChampion.cnt || 1) : 0);
     const sideTotal = side.reduce((a,e)=>a+(e.cnt||1),0);
     const deckCount = document.getElementById('pdo-deck-count');
     const sideCount = document.getElementById('pdo-side-count');
+    const bfCount   = document.getElementById('pdo-bf-count');
     if (deckCount) deckCount.textContent = `${total} / 40`;
     if (sideCount) sideCount.textContent = String(sideTotal);
+    if (bfCount)   bfCount.textContent   = String(battlefields.length);
     _renderChampionSlot();
   }
 
@@ -1020,7 +1063,14 @@ function showDeckCustomizer(deckId, opts) {
     overlay.classList.remove('open');
     // Re-attach legend + active champion so the loader still finds them
     const champArr = activeChampion ? [{ id: activeChampion.id, n: activeChampion.n || '', t: 'Champion', cnt: activeChampion.cnt || 1 }] : [];
-    const merged = { ...deck, cards: [...legendEntries, ...champArr, ...main], sideboard: side };
+    // Only the player-picked battlefield is loaded into the game
+    const chosenBattlefield = battlefields.find(b => b.id === selectedBattlefieldId) || null;
+    const merged = {
+      ...deck,
+      cards: [...legendEntries, ...champArr, ...main],
+      sideboard: side,
+      battlefields: chosenBattlefield ? [chosenBattlefield] : []
+    };
     opts.onConfirm && opts.onConfirm(merged);
   };
   document.getElementById('pdo-leave').onclick = () => {

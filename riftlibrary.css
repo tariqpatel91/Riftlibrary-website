@@ -1230,12 +1230,12 @@ body.on-play-tab #play-board{height:100vh;}
 #play-deck-overlay{display:none;position:fixed;inset:0;background:rgba(4,10,22,0.96);z-index:600;flex-direction:column;color:#fff;font-family:'DM Sans',sans-serif;}
 #play-deck-overlay.open{display:flex;}
 .pdo-content{flex:1;display:flex;flex-direction:column;gap:14px;padding:18px;min-height:0;overflow:hidden;}
-.pdo-top{flex:1;display:grid;grid-template-columns:200px 1fr;gap:14px;min-height:0;overflow:hidden;}
+.pdo-top{flex:1;display:grid;grid-template-columns:330px 1fr;gap:14px;min-height:0;overflow:hidden;}
 .pdo-bottom{flex:0 0 auto;display:flex;flex-direction:column;gap:8px;background:linear-gradient(160deg,rgba(15,30,55,0.7),rgba(4,10,22,0.85));border:1px solid rgba(180,140,50,0.35);border-radius:12px;padding:14px;max-height:35vh;}
 .pdo-left{display:flex;flex-direction:column;gap:14px;background:linear-gradient(160deg,rgba(15,30,55,0.85),rgba(4,10,22,0.85));border:1px solid rgba(180,140,50,0.35);border-radius:12px;padding:16px;justify-content:center;align-items:center;}
-.pdo-vs{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;width:100%;}
-.pdo-side{display:flex;flex-direction:column;align-items:center;gap:5px;flex:0 0 auto;}
-.pdo-portrait{width:130px;aspect-ratio:2.5/3.5;height:auto;border-radius:10px;border:2px solid rgba(200,154,58,0.5);background:linear-gradient(160deg,#1a3a5c,#0a1828);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:64px;}
+.pdo-vs{display:flex;flex-direction:row;align-items:center;justify-content:space-around;gap:6px;width:100%;}
+.pdo-side{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;min-width:0;}
+.pdo-portrait{width:110px;aspect-ratio:2.5/3.5;height:auto;border-radius:10px;border:2px solid rgba(200,154,58,0.5);background:linear-gradient(160deg,#1a3a5c,#0a1828);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:54px;}
 .pdo-portrait img{width:100%;height:100%;object-fit:contain;background:#0a1428;}
 .pdo-portrait.goldfish{background:linear-gradient(160deg,#fff5e6,#ffe2b3);}
 .pdo-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#e8d47a;text-align:center;}
@@ -1243,12 +1243,17 @@ body.on-play-tab #play-board{height:100vh;}
 .pdo-right{display:flex;flex-direction:column;gap:10px;background:linear-gradient(160deg,rgba(15,30,55,0.7),rgba(4,10,22,0.85));border:1px solid rgba(180,140,50,0.35);border-radius:12px;padding:16px;min-height:0;overflow:hidden;}
 .pdo-section-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#e8d47a;letter-spacing:0.06em;text-transform:uppercase;display:flex;align-items:center;gap:10px;flex-shrink:0;justify-content:space-between;}
 .pdo-title-left{display:flex;align-items:center;gap:10px;}
+.pdo-bottom-tabs{display:inline-flex;gap:4px;}
+.pdo-bt-tab{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:rgba(232,212,122,0.6);letter-spacing:0.06em;text-transform:uppercase;background:transparent;border:1px solid transparent;border-radius:6px;padding:5px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all 0.15s;}
+.pdo-bt-tab:hover{color:#e8d47a;background:rgba(200,154,58,0.08);}
+.pdo-bt-tab.on{color:#e8d47a;background:rgba(200,154,58,0.15);border-color:rgba(200,154,58,0.45);}
+.pdo-card.bf-selected{outline:3px solid #e8d47a;outline-offset:-3px;box-shadow:0 0 16px rgba(232,212,122,0.6);transform:translateY(-2px);}
 .pdo-count-inline{font-size:13px;font-weight:600;color:#fff;background:rgba(200,154,58,0.18);padding:3px 10px;border-radius:14px;border:1px solid rgba(200,154,58,0.45);letter-spacing:0.04em;}
 .pdo-slider-wrap{display:flex;align-items:center;gap:6px;color:rgba(232,212,122,0.6);}
 .pdo-slider-icon{font-size:11px;}
 .pdo-slider-wrap input[type="range"]{width:120px;accent-color:#e8d47a;cursor:pointer;}
 /* Champion zone under the legend portrait */
-.pdo-champion-zone{width:130px;aspect-ratio:2.5/3.5;border-radius:10px;border:2px dashed rgba(200,154,58,0.45);background:#0a1428;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:10px;font-weight:700;color:rgba(232,212,122,0.55);letter-spacing:0.1em;text-align:center;padding:4px;position:relative;cursor:default;}
+.pdo-champion-zone{width:110px;aspect-ratio:2.5/3.5;border-radius:10px;border:2px dashed rgba(200,154,58,0.45);background:#0a1428;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:10px;font-weight:700;color:rgba(232,212,122,0.55);letter-spacing:0.1em;text-align:center;padding:4px;position:relative;cursor:default;}
 .pdo-champion-zone.has-card{cursor:grab;}
 .pdo-champion-zone.has-card:active{cursor:grabbing;}
 .pdo-champion-zone.is-opp{cursor:default;opacity:0.7;}
