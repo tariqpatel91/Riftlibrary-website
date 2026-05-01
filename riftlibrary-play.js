@@ -51,8 +51,14 @@ async function startSolo() {
   GS._isHost = false;
   GS._conn = null;
   GS.roomCode = 'SOLO';
-  _loadDeckIntoState(deckEl.value);
-  startBoard(true);
+  showDeckCustomizer(deckEl.value, {
+    meName: GS.me.name,
+    oppName: GS.opp.name,
+    onConfirm: (modifiedDeck) => {
+      _loadDeckIntoStateFromObj(modifiedDeck);
+      startBoard(true);
+    }
+  });
 }
 
 /* ── HOST ── */
@@ -78,11 +84,18 @@ function hostGame() {
   peer.on('connection', conn => {
     GS._conn = conn;
     _setupConn(conn);
-    document.getElementById('host-wait-msg').textContent = 'Opponent connected! Starting…';
+    document.getElementById('host-wait-msg').textContent = 'Opponent connected! Customize your deck…';
     setTimeout(() => {
-      _send({ type:'player_join', name: GS.me.name });
-      startBoard(true);
-    }, 500);
+      showDeckCustomizer(deckEl.value, {
+        meName: GS.me.name,
+        oppName: GS.opp.name || 'Opponent',
+        onConfirm: (modifiedDeck) => {
+          _loadDeckIntoStateFromObj(modifiedDeck);
+          _send({ type:'player_join', name: GS.me.name });
+          startBoard(true);
+        }
+      });
+    }, 200);
   });
   peer.on('error', err => { statusEl.textContent = 'Error: ' + err.message; });
 }
@@ -113,9 +126,16 @@ function joinGame() {
     GS._conn = conn;
     _setupConn(conn);
     conn.on('open', () => {
-      statusEl.textContent = 'Connected! Starting…';
-      _send({ type:'player_join', name: GS.me.name });
-      startBoard(false);
+      statusEl.textContent = 'Connected! Customize your deck…';
+      showDeckCustomizer(deckEl.value, {
+        meName: GS.me.name,
+        oppName: GS.opp.name || 'Opponent',
+        onConfirm: (modifiedDeck) => {
+          _loadDeckIntoStateFromObj(modifiedDeck);
+          _send({ type:'player_join', name: GS.me.name });
+          startBoard(false);
+        }
+      });
     });
     conn.on('error', err => { statusEl.textContent = 'Error: ' + err.message; });
   });
@@ -181,6 +201,11 @@ function _loadDeckIntoState(deckId) {
     ? myDecks
     : JSON.parse(localStorage.getItem('rl_decks') || '[]');
   const deck = decks.find(d => String(d.id) === String(deckId));
+  if (!deck) return;
+  _loadDeckIntoStateFromObj(deck);
+}
+
+function _loadDeckIntoStateFromObj(deck) {
   if (!deck) return;
   const allCards = (typeof CARDS !== 'undefined' && CARDS.length) ? CARDS : (window._allCards || []);
 
@@ -778,4 +803,94 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ── PRE-GAME DECK CUSTOMIZER ──────────────────── */
+function showDeckCustomizer(deckId, opts) {
+  const decks = (typeof myDecks !== 'undefined' && myDecks.length)
+    ? myDecks
+    : JSON.parse(localStorage.getItem('rl_decks') || '[]');
+  const deck = decks.find(d => String(d.id) === String(deckId));
+  if (!deck) { opts.onConfirm && opts.onConfirm(null); return; }
+
+  // Working copies — entries with cnt counters; click swaps single copies
+  const main = JSON.parse(JSON.stringify(deck.cards || []));
+  const side = JSON.parse(JSON.stringify(deck.sideboard || []));
+  const allCards = (typeof CARDS !== 'undefined' && CARDS.length) ? CARDS : (window._allCards || []);
+  const lookup = id => allCards.find(c => c.id === id);
+
+  const overlay = document.getElementById('play-deck-overlay');
+  if (!overlay) { opts.onConfirm && opts.onConfirm(deck); return; }
+
+  // Headers
+  document.getElementById('pdo-me-name').textContent = opts.meName || 'You';
+  document.getElementById('pdo-opp-name').textContent = opts.oppName || 'Opponent';
+  // Set the legend art as the player portrait if found
+  const legendEntry = (deck.cards || []).find(c => c.t === 'Legend');
+  const legendCard = legendEntry ? lookup(legendEntry.id) : null;
+  const portraitEl = document.getElementById('pdo-me-portrait');
+  if (portraitEl) {
+    portraitEl.innerHTML = (legendCard && legendCard.imageUrl)
+      ? `<img src="${legendCard.imageUrl}" alt="${legendCard.name||''}">`
+      : `<span style="font-size:36px;color:rgba(232,212,122,0.4);">★</span>`;
+  }
+  const oppPortrait = document.getElementById('pdo-opp-portrait');
+  if (oppPortrait) {
+    oppPortrait.innerHTML = `<span style="font-size:36px;color:rgba(232,212,122,0.4);">?</span>`;
+  }
+
+  function _renderEntry(entry, target) {
+    const full = lookup(entry.id);
+    const img = full && full.imageUrl ? full.imageUrl : '';
+    const name = (full && full.name) || entry.n || entry.id;
+    const flag = entry.t === 'Legend' ? 'LEGEND'
+              : entry.t === 'Champion' ? 'CHAMPION'
+              : '';
+    return `<div class="pdo-card" data-img="${img}" data-name="${name.replace(/"/g,'&quot;')}" onclick="_pdoClick('${entry.id}','${target}')">
+      ${img ? `<img src="${img}" alt="${name.replace(/"/g,'&quot;')}">` : `<div class="pdo-card-no-img">${name}</div>`}
+      ${entry.cnt>1 ? `<span class="pdo-card-cnt">×${entry.cnt}</span>` : ''}
+      ${flag ? `<span class="pdo-card-flag">${flag}</span>` : ''}
+    </div>`;
+  }
+
+  function refresh() {
+    const deckGrid = document.getElementById('pdo-deck-grid');
+    const sideGrid = document.getElementById('pdo-side-grid');
+    deckGrid.innerHTML = main.length
+      ? main.map(e => _renderEntry(e, 'main')).join('')
+      : `<div class="pdo-empty">Empty deck</div>`;
+    sideGrid.innerHTML = side.length
+      ? side.map(e => _renderEntry(e, 'side')).join('')
+      : `<div class="pdo-empty">No sideboard cards. Click any deck card above to send a copy here.</div>`;
+    const total = main.reduce((a,e)=>a+(e.cnt||1),0);
+    const sideTotal = side.reduce((a,e)=>a+(e.cnt||1),0);
+    document.getElementById('pdo-count').textContent = `Deck ${total}/40 · Sideboard ${sideTotal}`;
+  }
+
+  // Expose click handler on window so inline onclick can reach it
+  window._pdoClick = function(cardId, source) {
+    const fromArr = source === 'main' ? main : side;
+    const toArr   = source === 'main' ? side : main;
+    const fIdx = fromArr.findIndex(e => e.id === cardId);
+    if (fIdx === -1) return;
+    fromArr[fIdx].cnt = Math.max(0, (fromArr[fIdx].cnt || 1) - 1);
+    const tIdx = toArr.findIndex(e => e.id === cardId);
+    if (tIdx >= 0) toArr[tIdx].cnt = (toArr[tIdx].cnt || 0) + 1;
+    else toArr.push({ ...fromArr[fIdx], cnt: 1 });
+    if (fromArr[fIdx].cnt === 0) fromArr.splice(fIdx, 1);
+    refresh();
+  };
+
+  document.getElementById('pdo-confirm').onclick = () => {
+    overlay.classList.remove('open');
+    const merged = { ...deck, cards: main, sideboard: side };
+    opts.onConfirm && opts.onConfirm(merged);
+  };
+  document.getElementById('pdo-leave').onclick = () => {
+    overlay.classList.remove('open');
+    leaveBoard && leaveBoard();
+  };
+
+  overlay.classList.add('open');
+  refresh();
 }
