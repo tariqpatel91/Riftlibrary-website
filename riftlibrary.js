@@ -3401,9 +3401,10 @@ function renderEvents(){
 let collOwned=JSON.parse(localStorage.getItem('rl_collection')||'{}');
 let collWanted=JSON.parse(localStorage.getItem('rl_collection_wanted')||'{}');
 let rlBinders=JSON.parse(localStorage.getItem('rl_binders')||'[]');
-const CF2={q:'',type:'',dom:'',rar:'',set:'',show:'all',view:'grid',binder:'',binderMode:'view'};
+const CF2={q:'',type:'',dom:'',rar:'',set:'',show:'all',view:'grid',binder:'',binderMode:'view',collMode:'view'};
 
 function setBinderMode(mode){CF2.binderMode=mode;renderCollection();}
+function setCollMode(mode){CF2.collMode=mode;renderCollection();}
 
 function persistBinders(){localStorage.setItem('rl_binders',JSON.stringify(rlBinders));}
 
@@ -3567,7 +3568,13 @@ function renderCollection(){
   });
   sidebarHtml+=`</div>`;
 
-  let html=`<div class="ph"><h1>My Collection</h1><p>Track your Riftbound card collection</p></div>`;
+  let html=`<div class="ph coll-ph-centered"><h1>My Collection</h1><p>Track your Riftbound card collection</p></div>`;
+  if(!activeBinder){
+    html+=`<div class="coll-mode-toggle-wrap">
+      <button class="cmt ${CF2.collMode==='view'?'on':''}" onclick="setCollMode('view')">👁 View my Collection</button>
+      <button class="cmt ${CF2.collMode==='edit'?'on':''}" onclick="setCollMode('edit')">✎ Edit my Collection</button>
+    </div>`;
+  }
   html+=`<div class="coll-layout">${sidebarHtml}<div class="coll-main">`;
 
   if(!activeBinder){
@@ -3688,13 +3695,13 @@ function renderCollection(){
     </div>
   </div>`;
 
-  html+=`<div class="coll-filter-row">
+  html+=`<div class="coll-filter-row coll-filter-centered">
     ${['all','owned','missing','complete','wanted'].map(s=>`<button class="coll-pill${CF2.show===s?' on':''}" onclick="CF2.show='${s}';renderCollection()">${{all:'All',owned:'Owned',missing:'Missing',complete:'Playset',wanted:'♥ Wishlist'}[s]}</button>`).join('')}
     <span style="margin-left:4px;font-size:12px;color:var(--text-muted);">${source.length} cards</span>
-    ${(CF2.q||CF2.type||CF2.dom||CF2.rar||CF2.show!=='all')?`<button class="coll-pill" onclick="CF2.q='';CF2.type='';CF2.dom='';CF2.rar='';CF2.show='all';renderCollection()" style="margin-left:auto;">✕ Clear</button>`:''}
+    ${(CF2.q||CF2.type||CF2.dom||CF2.rar||CF2.show!=='all')?`<button class="coll-pill" onclick="CF2.q='';CF2.type='';CF2.dom='';CF2.rar='';CF2.show='all';renderCollection()">✕ Clear</button>`:''}
   </div>`;
 
-  html+=`<div class="coll-filter-row">
+  html+=`<div class="coll-filter-row coll-filter-centered">
     ${['fury','chaos','calm','mind','body','order'].map(d=>`<button class="coll-dom-pill ${d}${CF2.dom===d?' on':''}" onclick="CF2.dom=CF2.dom==='${d}'?'':'${d}';renderCollection()">${d[0].toUpperCase()+d.slice(1)}</button>`).join('')}
   </div>`;
 
@@ -3741,12 +3748,13 @@ function renderCollection(){
           }
         }
         const inBinderView=!!activeBinder;
-        html+=`<div class="coll-card ${cls}${isWanted?' wishlisted':''}${inBinderView?' in-binder-view':''}" title="${c.name}">
+        const hideOwnerControls=inBinderView||CF2.collMode==='view';
+        html+=`<div class="coll-card ${cls}${isWanted?' wishlisted':''}${hideOwnerControls?' in-binder-view':''}" title="${c.name}">
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
-          ${inBinderView?'':`<button class="coll-wishlist-top-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>`}
+          ${hideOwnerControls?'':`<button class="coll-wishlist-top-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>`}
           ${binderRemoveBtn}
-          ${(!inBinderView&&owned>0)?`<div class="coll-card-badge coll-badge-owned">×${ownedLabel}</div>`:''}
-          ${inBinderView?'':`<div class="coll-card-actions">
+          ${owned>0?`<div class="coll-card-badge coll-badge-owned">×${ownedLabel}</div>`:''}
+          ${hideOwnerControls?'':`<div class="coll-card-actions">
             <button class="coll-copy-btn coll-copy-minus" onclick="event.stopPropagation();setCollOwned('${si}',-1)" title="Remove copy">−</button>
             <button class="coll-copy-btn coll-copy-plus" onclick="event.stopPropagation();setCollOwned('${si}',1)" title="Add copy">+</button>
           </div>`}

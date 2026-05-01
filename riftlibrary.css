@@ -915,6 +915,13 @@ select option{background:#1e1e2a;}
 .bmt{padding:6px 14px;border:none;background:none;color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
 .bmt:hover{background:var(--surface2);color:var(--text);}
 .bmt.on{background:var(--accent);color:#000;}
+/* Centered collection header + filters */
+.coll-ph-centered{text-align:center;}
+.coll-mode-toggle-wrap{display:flex;justify-content:center;gap:8px;margin-bottom:1.5rem;}
+.cmt{padding:9px 22px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;font-family:'Syne',sans-serif;transition:all 0.15s;}
+.cmt:hover{background:var(--surface3);color:var(--text);border-color:var(--border-hover);}
+.cmt.on{background:var(--accent);color:#000;border-color:var(--accent);}
+.coll-filter-centered{justify-content:center;}
 @media(max-width:900px){.coll-layout{flex-direction:column;}.coll-binder-sidebar{width:100%;position:static;left:auto;top:auto;max-height:none;}#page-collection{padding-left:1.5rem;}}
 
 /* ── TEAM TAB ───────────────────────────────────── */
