@@ -134,16 +134,16 @@ function handleMsg(msg) {
   switch (msg.type) {
     case 'player_join':
       GS.opp.name = msg.name;
-      document.getElementById('opp-name-label').textContent = msg.name;
+      _setText('opp-name-label', msg.name);
       appendChat('System', msg.name + ' joined.');
       break;
     case 'life':
       GS.opp.life = msg.value;
-      document.getElementById('opp-life').textContent = msg.value;
+      _setText('opp-life', msg.value);
       break;
     case 'hand_count':
       GS.opp.handCount = msg.count;
-      document.getElementById('opp-hand-count').textContent = msg.count;
+      _setText('opp-hand-count', msg.count);
       renderOppHand();
       break;
     case 'play_card':
@@ -215,20 +215,23 @@ function startBoard(isFirst) {
   }
   document.getElementById('play-lobby').style.display = 'none';
   document.getElementById('play-board').style.display = 'flex';
-  document.getElementById('my-name-label').textContent = GS.me.name;
-  document.getElementById('opp-name-label').textContent = GS.opp.name || 'Opponent';
+  _setText('my-name-label', GS.me.name);
+  _setText('opp-name-label', GS.opp.name || 'Opponent');
   renderFullBoard();
   updateTurnBadge();
   appendChat('System', 'Game started! ' + (GS.myTurn ? 'You go first.' : (GS.opp.name||'Opponent') + ' goes first.'));
 }
 
+/* ── helpers ── */
+function _setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+
 /* ── RENDER ── */
 function renderFullBoard() {
-  document.getElementById('my-life').textContent = GS.me.life;
-  document.getElementById('opp-life').textContent = GS.opp.life;
-  document.getElementById('my-deck-count').textContent = GS.me.deck.length;
-  document.getElementById('my-disc-count').textContent = GS.me.discard.length;
-  document.getElementById('my-rune-count').textContent = GS.me.runes.length;
+  _setText('my-life', GS.me.life);
+  _setText('opp-life', GS.opp.life);
+  _setText('my-deck-count', GS.me.deck.length);
+  _setText('my-disc-count', GS.me.discard.length);
+  _setText('my-rune-count', GS.me.runes.length);
   renderMyHand();
   renderOppHand();
   // Center BASE: my units at bottom half, opp units at top half
@@ -236,8 +239,6 @@ function renderFullBoard() {
   renderZone('opp-base-cards', GS.opp.battle);
   // Other zones
   renderZone('support-cards', GS.me.support);
-  renderZone('my-bf-left-cards', GS.me.bfLeft || []);
-  renderZone('my-bf-right-cards', GS.me.bfRight || []);
   // Hide base hint once units are placed
   const hint = document.getElementById('base-hint');
   if (hint) hint.style.display = (GS.me.battle.length || GS.opp.battle.length) ? 'none' : '';
@@ -248,10 +249,8 @@ function renderFullBoard() {
 }
 
 function renderMyHand() {
-  const el = document.getElementById('my-hand');
-  if (!el) return;
-  document.getElementById('my-hand-count').textContent = GS.me.hand.length;
-  el.innerHTML = GS.me.hand.map(c => boardCardHTML(c, 'hand')).join('');
+  // Hand zone removed from board; nothing to render visually.
+  _setText('my-hand-count', GS.me.hand.length);
 }
 
 function renderOppHand() {
@@ -424,11 +423,11 @@ function _removeOppCard(uid, zone) {
 function adjustLife(side, delta) {
   if (side === 'me') {
     GS.me.life = Math.max(0, GS.me.life + delta);
-    document.getElementById('my-life').textContent = GS.me.life;
+    _setText('my-life', GS.me.life);
     _send({ type:'life', value: GS.me.life });
   } else {
     GS.opp.life = Math.max(0, GS.opp.life + delta);
-    document.getElementById('opp-life').textContent = GS.opp.life;
+    _setText('opp-life', GS.opp.life);
   }
 }
 

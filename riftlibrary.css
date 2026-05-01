@@ -1054,28 +1054,22 @@ select option{background:#1e1e2a;}
 #board-arena{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:4px 6px;gap:3px;min-height:0;}
 
 /* ── BATTLEFIELD strip ── */
-#bf-row{display:grid;grid-template-columns:1fr 1fr;gap:3px;height:72px;flex-shrink:0;}
-
-/* ── MAIN GRID: 6 cols, 2 rows, center spans both ── */
+/* ── MAIN GRID: 4 cols, 2 rows, center spans both ── */
 #board-grid{
   flex:1;min-height:0;
   display:grid;
-  grid-template-columns:90px 90px 120px 1fr 120px 110px;
+  grid-template-columns:90px 90px 1fr 110px;
   grid-template-rows:1fr 1fr;
   gap:3px;
 }
 /* Assign each zone to its grid cell */
 #opp-champion-zone{grid-column:1;grid-row:1;}
 #opp-legend-zone   {grid-column:2;grid-row:1;}
-#opp-bf-left       {grid-column:3;grid-row:1;}
-#center-base       {grid-column:4;grid-row:1/3;}  /* spans both rows */
-#opp-bf-right      {grid-column:5;grid-row:1;}
-#opp-deck-zone     {grid-column:6;grid-row:1;}
+#center-base       {grid-column:3;grid-row:1/3;}  /* spans both rows */
+#opp-deck-zone     {grid-column:4;grid-row:1;}
 #my-champion-zone  {grid-column:1;grid-row:2;}
 #my-legend-zone    {grid-column:2;grid-row:2;}
-#my-bf-left        {grid-column:3;grid-row:2;}
-#my-bf-right       {grid-column:5;grid-row:2;}
-#my-deck-zone      {grid-column:6;grid-row:2;}
+#my-deck-zone      {grid-column:4;grid-row:2;}
 
 /* ── Phase strip ── */
 #phase-strip{text-align:center;font-size:9px;font-weight:700;letter-spacing:0.1em;color:rgba(232,212,122,0.7);padding:3px 0;border-top:1px solid rgba(180,140,50,0.2);border-bottom:1px solid rgba(180,140,50,0.2);flex-shrink:0;background:rgba(4,10,22,0.6);}

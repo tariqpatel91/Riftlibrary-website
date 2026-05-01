@@ -321,32 +321,11 @@
     <!-- Board arena: no topbar — info lives inside zones -->
     <div id="board-arena">
 
-      <!-- ── BATTLEFIELD STRIP (top) ── -->
-      <div id="bf-row">
-        <div class="bz" id="opp-bf-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'opp-battlefield')">
-          <div id="opp-bf-cards" class="bz-cards"></div>
-          <span class="bz-lbl">BATTLEFIELD</span>
-        </div>
-        <div class="bz" id="my-bf-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'my-battlefield')">
-          <div id="my-bf-cards" class="bz-cards"></div>
-          <span class="bz-lbl">BATTLEFIELD</span>
-        </div>
-      </div>
-
-      <!-- ── MAIN GRID: 6 columns × 2 rows, center spans both ── -->
+      <!-- ── MAIN GRID: 4 columns × 2 rows, center spans both ── -->
       <div id="board-grid">
 
         <!-- OPP CHAMPION -->
         <div class="bz" id="opp-champion-zone">
-          <div class="pinfo-overlay">
-            <div id="opp-name-label" class="pinfo-name"></div>
-            <div class="pinfo-life">
-              <button class="life-btn" onclick="adjustLife('opp',-1)">−</button>
-              <span id="opp-life">20</span>
-              <button class="life-btn" onclick="adjustLife('opp',1)">+</button>
-            </div>
-            <div class="pinfo-hand">Hand: <span id="opp-hand-count">0</span></div>
-          </div>
           <div class="bz-icon">♛</div>
           <div id="opp-champion-cards" class="bz-cards"></div>
           <span class="bz-lbl">CHAMPION</span>
@@ -357,12 +336,6 @@
           <div class="bz-icon">★</div>
           <div id="opp-legend-cards" class="bz-cards"></div>
           <span class="bz-lbl">LEGEND</span>
-        </div>
-
-        <!-- OPP BATTLEFIELD LEFT -->
-        <div class="bz" id="opp-bf-left" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'opp-bf-left')">
-          <div id="opp-bf-left-cards" class="bz-cards"></div>
-          <span class="bz-lbl">BATTLEFIELD</span>
         </div>
 
         <!-- CENTER BASE — spans both player rows -->
@@ -379,12 +352,6 @@
           <span class="bz-lbl">BASE</span>
         </div>
 
-        <!-- OPP BATTLEFIELD RIGHT -->
-        <div class="bz" id="opp-bf-right" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'opp-bf-right')">
-          <div id="opp-bf-right-cards" class="bz-cards"></div>
-          <span class="bz-lbl">BATTLEFIELD</span>
-        </div>
-
         <!-- OPP MAIN DECK -->
         <div class="bz bz-deck" id="opp-deck-zone">
           <div class="bz-deck-stack">
@@ -398,14 +365,6 @@
 
         <!-- MY CHAMPION -->
         <div class="bz" id="my-champion-zone">
-          <div class="pinfo-overlay pinfo-mine">
-            <div class="pinfo-life">
-              <button class="life-btn" onclick="adjustLife('me',-1)">−</button>
-              <span id="my-life">20</span>
-              <button class="life-btn" onclick="adjustLife('me',1)">+</button>
-            </div>
-            <div id="my-name-label" class="pinfo-name"></div>
-          </div>
           <div class="bz-icon">♛</div>
           <div id="my-champion-cards" class="bz-cards"></div>
           <span class="bz-lbl">CHAMPION</span>
@@ -416,18 +375,6 @@
           <div class="bz-icon">★</div>
           <div id="my-legend-cards" class="bz-cards"></div>
           <span class="bz-lbl">LEGEND</span>
-        </div>
-
-        <!-- MY BATTLEFIELD LEFT -->
-        <div class="bz" id="my-bf-left" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'my-bf-left')">
-          <div id="my-bf-left-cards" class="bz-cards"></div>
-          <span class="bz-lbl">BATTLEFIELD</span>
-        </div>
-
-        <!-- MY BATTLEFIELD RIGHT -->
-        <div class="bz" id="my-bf-right" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'my-bf-right')">
-          <div id="my-bf-right-cards" class="bz-cards"></div>
-          <span class="bz-lbl">BATTLEFIELD</span>
         </div>
 
         <!-- MY MAIN DECK -->
@@ -465,12 +412,6 @@
           <div id="my-disc-count" class="bz-deck-count">0</div>
           <span class="bz-lbl">TRASH</span>
         </div>
-      </div>
-
-      <!-- ── HAND STRIP ── -->
-      <div id="hand-strip">
-        <div class="hand-strip-lbl">HAND (<span id="my-hand-count">0</span>)</div>
-        <div id="my-hand" class="hand-strip-cards"></div>
       </div>
 
     </div><!-- /board-arena -->
