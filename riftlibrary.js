@@ -3740,15 +3740,16 @@ function renderCollection(){
             binderRemoveBtn=`<button class="coll-binder-btn remove" onclick="event.stopPropagation();removeCardFromBinder('${si}',${activeBinder.id})" title="Remove from binder">📁✕</button>`;
           }
         }
-        html+=`<div class="coll-card ${cls}${isWanted?' wishlisted':''}" title="${c.name}">
+        const inBinderView=!!activeBinder;
+        html+=`<div class="coll-card ${cls}${isWanted?' wishlisted':''}${inBinderView?' in-binder-view':''}" title="${c.name}">
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
-          <button class="coll-wishlist-top-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>
+          ${inBinderView?'':`<button class="coll-wishlist-top-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>`}
           ${binderRemoveBtn}
-          ${owned>0?`<div class="coll-card-badge coll-badge-owned">×${ownedLabel}</div>`:''}
-          <div class="coll-card-actions">
+          ${(!inBinderView&&owned>0)?`<div class="coll-card-badge coll-badge-owned">×${ownedLabel}</div>`:''}
+          ${inBinderView?'':`<div class="coll-card-actions">
             <button class="coll-copy-btn coll-copy-minus" onclick="event.stopPropagation();setCollOwned('${si}',-1)" title="Remove copy">−</button>
             <button class="coll-copy-btn coll-copy-plus" onclick="event.stopPropagation();setCollOwned('${si}',1)" title="Add copy">+</button>
-          </div>
+          </div>`}
           <div class="coll-card-name">${c.name}</div>
         </div>`;
       }

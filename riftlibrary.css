@@ -22,6 +22,7 @@ nav{position:sticky;top:0;z-index:50;background:rgba(13,13,18,0.96);backdrop-fil
 .nl:hover{color:var(--text-soft);}
 .nl.active{color:var(--accent);border-bottom-color:var(--accent);}
 .page{display:none;position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:2rem 1.5rem;}
+#page-collection{max-width:none;padding:2rem 1.5rem 2rem 232px;}
 #page-decks{max-width:1600px;}
 .page.active{display:block;}
 .ph{margin-bottom:1.75rem;}
@@ -883,7 +884,7 @@ select option{background:#1e1e2a;}
 /* ── BINDER SIDEBAR ─────────────────────────────── */
 .coll-layout{display:flex;gap:16px;align-items:flex-start;}
 .coll-binder-sidebar{width:200px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:12px;overflow:hidden;position:fixed;top:78px;left:16px;max-height:calc(100vh - 96px);overflow-y:auto;z-index:5;}
-.coll-main{flex:1;min-width:0;margin-left:216px;}
+.coll-main{flex:1;min-width:0;}
 .cbs-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;}
 .cbs-new-btn{width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface3);color:var(--accent);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all 0.15s;}
 .cbs-new-btn:hover{background:var(--accent);color:#000;}
@@ -914,7 +915,7 @@ select option{background:#1e1e2a;}
 .bmt{padding:6px 14px;border:none;background:none;color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
 .bmt:hover{background:var(--surface2);color:var(--text);}
 .bmt.on{background:var(--accent);color:#000;}
-@media(max-width:900px){.coll-layout{flex-direction:column;}.coll-binder-sidebar{width:100%;position:static;left:auto;top:auto;max-height:none;}.coll-main{margin-left:0;}}
+@media(max-width:900px){.coll-layout{flex-direction:column;}.coll-binder-sidebar{width:100%;position:static;left:auto;top:auto;max-height:none;}#page-collection{padding-left:1.5rem;}}
 
 /* ── TEAM TAB ───────────────────────────────────── */
 .team-header{display:flex;align-items:center;gap:14px;padding:16px 20px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;margin-bottom:1rem;}
