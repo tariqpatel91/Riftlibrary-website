@@ -35,11 +35,17 @@ function populateDeckSelectors() {
 }
 
 /* ── SOLO PRACTICE ── */
-function startSolo() {
+async function startSolo() {
   const deckEl = document.getElementById('solo-deck-sel');
   const statusEl = document.getElementById('solo-status');
   if (!deckEl.value) { statusEl.textContent = 'Please select a deck first.'; return; }
   statusEl.textContent = '';
+  // Ensure cards are loaded so images and names resolve
+  if (typeof CARDS !== 'undefined' && (!CARDS.length || !cardsLoaded)) {
+    statusEl.textContent = 'Loading card data…';
+    try { if (typeof fetchAllCards === 'function') await fetchAllCards(); } catch (e) {}
+    statusEl.textContent = '';
+  }
   GS.me.name = 'You';
   GS.opp.name = 'Practice Dummy';
   GS._isHost = false;
@@ -184,8 +190,15 @@ function _loadDeckIntoState(deckId) {
     const out = [];
     (entries || []).forEach(e => {
       if (skipTypes && skipTypes.includes(e.t)) return;
-      const full = lookup(e.id) || { id:e.id, name:e.name||e.id };
-      const card = { ...full, image: _img(full), name: full.name || e.name || e.id, type: full.type || e.t || '' };
+      // deck format stores the card name as e.n
+      const fallbackName = e.n || e.name || e.id;
+      const full = lookup(e.id) || { id:e.id, name:fallbackName };
+      const card = {
+        ...full,
+        image: _img(full),
+        name: (full && full.name) || fallbackName,
+        type: full.type || e.t || ''
+      };
       const cnt = e.cnt || e.qty || 1;
       for (let i = 0; i < cnt; i++) {
         out.push({ ...card, _uid: crypto.randomUUID() });
