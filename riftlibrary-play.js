@@ -270,6 +270,14 @@ function _loadDeckIntoStateFromObj(deck) {
   GS.me.hand     = [];
   GS.me.discard  = [];
   GS.me.life     = 20;
+
+  // Chosen battlefield (single entry from deck.battlefields after the customizer narrows it down)
+  const bfEntry = (deck.battlefields || []).filter(Boolean)[0];
+  const bfFull = bfEntry ? lookup(bfEntry.id) : null;
+  GS.me.bfLeft = bfFull
+    ? [{ ...bfFull, image: _img(bfFull), name: bfFull.name || bfEntry.n || '', type: 'Battlefield', _uid: crypto.randomUUID() }]
+    : (bfEntry ? [{ id: bfEntry.id, name: bfEntry.n || '', type: 'Battlefield', _uid: crypto.randomUUID() }] : []);
+  GS.me.bfRight = [];
 }
 
 function _shuffle(arr) {
@@ -314,6 +322,8 @@ function renderFullBoard() {
   renderZone('opp-base-cards', GS.opp.battle);
   // Other zones
   renderZone('support-cards', GS.me.support);
+  renderZone('bf-left-cards',  GS.me.bfLeft  || []);
+  renderZone('bf-right-cards', GS.me.bfRight || []);
   // Hide base hint once units are placed
   const hint = document.getElementById('base-hint');
   if (hint) hint.style.display = (GS.me.battle.length || GS.opp.battle.length) ? 'none' : '';
