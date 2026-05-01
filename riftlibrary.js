@@ -1232,11 +1232,7 @@ function renderEditSearch(){
 
   let html='';
 
-  html+='<div class="edit-type-tabs">';
-  TYPES.forEach(t=>{
-    html+=`<button class="edit-type-tab${EF.type===t?' on':''}" onclick="setEditType('${t}')">${TYPE_LABELS[t]}</button>`;
-  });
-  html+='</div>';
+  EF.type='';
 
   html+='<div class="edit-dom-filter">';
   const filterDoms=deckDoms.length?deckDoms:DOMS;
@@ -3347,7 +3343,7 @@ function renderCollection(){
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
           <div class="coll-half coll-half-left" onclick="setCollOwned('${si}',-1)"></div>
           <div class="coll-half coll-half-right" onclick="setCollOwned('${si}',1)"></div>
-          ${owned>0?`<div class="coll-card-badge coll-badge-owned">×${ownedLabel}</div>`:''}
+          ${owned>0?`<div class="coll-card-badge coll-badge-owned">${ownedLabel}</div>`:''}
           <div class="coll-card-actions">
             <button class="coll-copy-btn coll-copy-minus" onclick="event.stopPropagation();setCollOwned('${si}',-1)" title="Remove copy">−</button>
             <button class="coll-copy-btn coll-wishlist-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>
