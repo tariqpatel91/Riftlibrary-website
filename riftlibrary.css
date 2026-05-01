@@ -1189,9 +1189,10 @@ select option{background:#1e1e2a;}
 .opp-card-back{width:32px;height:46px;border-radius:4px;background:linear-gradient(145deg,#0c1a3a,#060e20);border:1px solid rgba(180,140,50,0.3);flex-shrink:0;}
 
 /* ── Floating hand fan overlay (anchored to the right of the BASE, never overlapping the deck cluster) ── */
-.hand-fan-overlay{position:absolute;bottom:14px;right:220px;left:auto;transform:none;display:flex;justify-content:flex-end;align-items:flex-end;height:160px;pointer-events:none;z-index:20;max-width:calc(100vw - 460px);}
-.hand-fan-overlay .board-card{pointer-events:auto;width:90px;height:124px;margin:0 -22px;transform-origin:bottom center;transition:transform 0.18s ease,box-shadow 0.18s,margin 0.18s;box-shadow:0 6px 14px rgba(0,0,0,0.6);}
-.hand-fan-overlay .board-card:hover{transform:translateY(-46px) scale(1.18);z-index:50;box-shadow:0 16px 36px rgba(0,0,0,0.85),0 0 18px rgba(232,212,122,0.55);margin:0 6px;}
+.hand-fan-overlay{position:absolute;bottom:18px;right:290px;left:auto;transform:none;display:flex;justify-content:flex-end;align-items:flex-end;height:200px;pointer-events:none;z-index:20;max-width:calc(100vw - 520px);}
+.hand-fan-overlay .board-card{pointer-events:auto;width:118px;height:164px;margin:0 -28px;transform-origin:bottom center;transition:transform 0.18s ease,box-shadow 0.18s,margin 0.18s;box-shadow:0 6px 14px rgba(0,0,0,0.6);image-rendering:-webkit-optimize-contrast;}
+.hand-fan-overlay .board-card img{image-rendering:auto;}
+.hand-fan-overlay .board-card:hover{transform:translateY(-58px) scale(1.16);z-index:50;box-shadow:0 16px 36px rgba(0,0,0,0.85),0 0 18px rgba(232,212,122,0.55);margin:0 8px;}
 
 /* ── Board cards ── */
 .board-card{width:52px;height:72px;border-radius:5px;overflow:hidden;cursor:grab;border:1px solid rgba(180,140,50,0.3);background:rgba(10,18,36,0.9);position:relative;flex-shrink:0;transition:transform 0.12s,box-shadow 0.12s;}
