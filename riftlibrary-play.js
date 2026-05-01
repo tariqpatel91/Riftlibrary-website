@@ -343,7 +343,13 @@ function boardCardHTML(card, zone) {
   const mine = _isMyCard(card);
   const drag = mine ? `draggable="true" ondragstart="boardDragStart(event,'${card._uid}','${zone}')"` : '';
   const cardJson = JSON.stringify(card).replace(/'/g,"\\'").replace(/"/g,'&quot;');
-  const click = mine ? `onclick="showBoardCardMenu(event,'${cardJson}','${zone}')"` : '';
+  // Runes (support zone) toggle exhaust on click; everything else opens the action menu
+  const isRuneZone = zone === 'support-cards' || zone === 'support';
+  const click = mine
+    ? (isRuneZone
+        ? `onclick="event.stopPropagation();_toggleExhaust('${card._uid}','support')"`
+        : `onclick="showBoardCardMenu(event,'${cardJson}','${zone}')"`)
+    : '';
   const safeName = (card.name||'').replace(/"/g,'&quot;');
   return `<div class="board-card${exhausted}${bfClass}" ${drag} ${click} title="${safeName}" data-uid="${card._uid||''}" data-img="${img}" data-name="${safeName}">
     ${img ? `<img src="${img}" alt="${safeName}">` : `<div style="padding:4px;font-size:9px;color:rgba(255,255,255,0.5);text-align:center;word-break:break-word;">${card.name||'?'}</div>`}

@@ -352,15 +352,6 @@
           <span class="bz-lbl">BASE</span>
         </div>
 
-        <!-- OPP MAIN DECK -->
-        <div class="bz bz-deck" id="opp-deck-zone">
-          <div class="bz-deck-stack">
-            <div class="bz-card-back lol-back"></div>
-          </div>
-          <div id="opp-hand" class="bz-hand-fan"></div>
-          <span class="bz-lbl">MAIN DECK</span>
-        </div>
-
         <!-- MY CHAMPION -->
         <div class="bz" id="my-champion-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'champion')">
           <div class="bz-icon">♛</div>
@@ -376,6 +367,17 @@
         </div>
 
       </div><!-- /board-grid -->
+
+      <!-- ── TOP-RIGHT CLUSTER: opponent deck ── -->
+      <div id="top-corner">
+        <div class="bz bz-deck bz-mini" id="opp-deck-zone" title="Opponent's main deck">
+          <div class="bz-deck-stack mini-stack">
+            <div class="bz-card-back lol-back"></div>
+          </div>
+          <div id="opp-hand" class="bz-hand-fan"></div>
+          <span class="bz-lbl">OPP DECK</span>
+        </div>
+      </div>
 
       <!-- ── BOTTOM ROW: rune deck | runes | main deck | trash ── -->
       <div id="bottom-row">

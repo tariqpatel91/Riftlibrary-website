@@ -1054,22 +1054,23 @@ select option{background:#1e1e2a;}
 #board-arena{flex:1;display:flex;flex-direction:column;overflow:visible;padding:4px 6px;gap:3px;min-height:0;position:relative;}
 
 /* ── BATTLEFIELD strip ── */
-/* ── MAIN GRID: 4 cols, 2 rows, center spans both ── */
+/* ── MAIN GRID: 3 cols, 2 rows, center spans both rows and full right edge ── */
 #board-grid{
   flex:1;min-height:0;
   display:grid;
-  grid-template-columns:90px 90px 1fr 110px;
+  grid-template-columns:90px 90px 1fr;
   grid-template-rows:1fr 1fr;
   gap:3px;
 }
 /* Assign each zone to its grid cell */
 #opp-champion-zone{grid-column:1;grid-row:1;}
 #opp-legend-zone   {grid-column:2;grid-row:1;}
-#center-base       {grid-column:3;grid-row:1/3;}  /* spans both rows */
-#opp-deck-zone     {grid-column:4;grid-row:1;}
+#center-base       {grid-column:3;grid-row:1/3;}  /* full right edge, both rows */
 #my-champion-zone  {grid-column:1;grid-row:2;}
 #my-legend-zone    {grid-column:2;grid-row:2;}
 
+/* ── Top-right cluster: opponent deck ── */
+#top-corner{position:absolute;right:10px;top:8px;display:flex;gap:6px;z-index:24;pointer-events:auto;}
 /* ── Bottom row: rune deck | runes | main deck | trash ── */
 #bottom-row{display:grid;grid-template-columns:90px 1fr 96px 96px;gap:4px;height:130px;flex-shrink:0;}
 .bz-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;}
@@ -1184,7 +1185,7 @@ select option{background:#1e1e2a;}
 .opp-card-back{width:32px;height:46px;border-radius:4px;background:linear-gradient(145deg,#0c1a3a,#060e20);border:1px solid rgba(180,140,50,0.3);flex-shrink:0;}
 
 /* ── Floating hand fan overlay ── */
-.hand-fan-overlay{position:absolute;bottom:140px;left:50%;transform:translateX(-50%);display:flex;justify-content:center;align-items:flex-end;height:180px;pointer-events:none;z-index:20;}
+.hand-fan-overlay{position:absolute;bottom:14px;left:60%;transform:translateX(-50%);display:flex;justify-content:center;align-items:flex-end;height:130px;pointer-events:none;z-index:20;}
 .hand-fan-overlay .board-card{pointer-events:auto;width:90px;height:124px;margin:0 -22px;transform-origin:bottom center;transition:transform 0.18s ease,box-shadow 0.18s,margin 0.18s;box-shadow:0 6px 14px rgba(0,0,0,0.6);}
 .hand-fan-overlay .board-card:hover{transform:translateY(-46px) scale(1.18);z-index:50;box-shadow:0 16px 36px rgba(0,0,0,0.85),0 0 18px rgba(232,212,122,0.55);margin:0 6px;}
 
@@ -1192,7 +1193,7 @@ select option{background:#1e1e2a;}
 .board-card{width:52px;height:72px;border-radius:5px;overflow:hidden;cursor:grab;border:1px solid rgba(180,140,50,0.3);background:rgba(10,18,36,0.9);position:relative;flex-shrink:0;transition:transform 0.12s,box-shadow 0.12s;}
 .board-card:hover{transform:translateY(-5px) scale(1.06);box-shadow:0 8px 20px rgba(0,0,0,0.8),0 0 8px rgba(180,140,50,0.3);}
 .board-card img{width:100%;height:100%;object-fit:cover;display:block;}
-.board-card.exhausted{transform:rotate(15deg);opacity:0.7;}
+.board-card.exhausted{transform:rotate(45deg);opacity:0.85;}
 .board-card.bf-card{width:76px;height:50px;}
 /* Champion / Legend cards fill their zones */
 #my-champion-zone .bz-cards,#opp-champion-zone .bz-cards,
