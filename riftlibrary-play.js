@@ -286,12 +286,13 @@ function renderMyHand() {
   if (!el) return;
   const n = GS.me.hand.length;
   el.innerHTML = GS.me.hand.map((c, i) => {
-    // Fan: rotate cards from -spread/2 to +spread/2 with a slight vertical arc
-    const maxSpread = Math.min(36, n * 5); // total degrees
-    const rot = n > 1 ? -maxSpread/2 + (maxSpread * i / (n - 1)) : 0;
-    const lift = n > 1 ? -Math.abs(rot) * 0.6 : 0; // arc lift
+    // Arch fan: middle cards sit highest, edges sweep down (parabolic arch)
+    const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0; // -1 .. 1
+    const maxSpread = Math.min(40, n * 5); // total degrees of fan
+    const rot = (maxSpread / 2) * t; // negative on left, positive on right
+    const peakLift = Math.min(48, n * 5); // px lift at center peak
+    const lift = -peakLift * (1 - t * t); // arch: 0 at edges, -peak at middle
     const html = boardCardHTML(c, 'hand');
-    // Inject inline transform onto the rendered card
     return html.replace(
       'class="board-card',
       `style="transform:translateY(${lift}px) rotate(${rot}deg);" class="board-card`
