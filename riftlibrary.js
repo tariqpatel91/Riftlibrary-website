@@ -3266,8 +3266,14 @@ function renderTeam(){
       teamDecklists.forEach(td=>{
         const dt=new Date(td.ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
         const exists=myDecks.find(d=>d.id===td.deckId);
+        const legEntry=exists?(exists.cards||[]).find(c=>c.t==='Legend'):null;
+        const legFull=legEntry?CARDS.find(x=>x.id===legEntry.id):null;
+        const legImg=legFull?legFull.imageUrl:'';
+        const avatar=legImg
+          ?`<div class="dc-avatar team-deck-avatar"><img src="${legImg}" alt="${td.legend}"></div>`
+          :`<div class="dc-avatar dc-avatar-empty team-deck-avatar"></div>`;
         html+=`<div class="team-post team-deck-row">
-          <div class="team-deck-icon">📋</div>
+          ${avatar}
           <div style="flex:1;">
             <div style="font-weight:600;font-size:13px;">${td.name}</div>
             <div style="font-size:11px;color:var(--text-muted);">${td.legend} · Shared ${dt}</div>
@@ -3736,7 +3742,7 @@ function renderCollection(){
   rlBinders.forEach(b=>{
     sidebarHtml+=`<div class="cbs-item-wrap${CF2.binder===b.id?' active':''}">
       <button class="cbs-item${CF2.binder===b.id?' active':''}" onclick="setActiveBinder(${b.id})">
-        <span class="cbs-label">📁 ${b.name}</span>
+        <span class="cbs-label">${b.name}</span>
         <span class="cbs-count">${_binderTotal(b)}</span>
       </button>
       <div class="cbs-actions">
@@ -3808,14 +3814,14 @@ function renderCollection(){
   } else {
     // Binder header
     const isEdit=CF2.binderMode==='edit'&&!activeBinder._static;
-    const icon=activeBinder._kind==='wishlist'?'♥':activeBinder._kind==='extras'?'📦':'📁';
+    const icon=activeBinder._kind==='wishlist'?'♥':activeBinder._kind==='extras'?'📦':'';
     const subtitle=activeBinder._kind==='wishlist'
       ?'Auto-updates from your wishlist'
       :activeBinder._kind==='extras'
         ?'Cards you own more than 3 copies of'
         :'';
     html+=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
-      <span style="font-size:22px;">${icon}</span>
+      ${icon?`<span style="font-size:22px;">${icon}</span>`:''}
       <div style="flex:1;min-width:140px;">
         <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">${activeBinder.name}</div>
         <div style="font-size:12px;color:var(--text-muted);">${_binderTotal(activeBinder)} card${_binderTotal(activeBinder)!==1?'s':''}${subtitle?' • '+subtitle:''}${isEdit?' • adding from collection':''}</div>
@@ -4160,6 +4166,9 @@ function renderAuthNav(user) {
     var b1 = document.createElement('button');
     b1.textContent = 'My Decks';
     b1.onclick = function(){ goto('decks', null); closeUserDrop(); };
+    var bProfile = document.createElement('button');
+    bProfile.textContent = '⚙ Profile Settings';
+    bProfile.onclick = function(){ openProfileModal(); closeUserDrop(); };
     var b2 = document.createElement('button');
     b2.textContent = '☁ Sync decks';
     b2.onclick = function(){ syncCloudDecks(); closeUserDrop(); };
@@ -4168,6 +4177,7 @@ function renderAuthNav(user) {
     b3.style.color = 'var(--fury)';
     b3.onclick = logOut;
     drop.appendChild(b1);
+    drop.appendChild(bProfile);
     drop.appendChild(b2);
     drop.appendChild(b3);
     wrap.appendChild(drop);
@@ -4283,6 +4293,110 @@ async function submitLogin() {
 
 function oauthLogin(provider) {
   _sb.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.href } });
+}
+
+function openProfileModal(){
+  if(!currentUser){toast('Please log in first');return;}
+  const meta=currentUser.user_metadata||{};
+  const m=document.createElement('div');
+  m.id='profile-modal';
+  m.className='auth-modal-backdrop open';
+  m.innerHTML=`<div class="auth-modal-box" style="max-width:460px;">
+    <div class="auth-modal-header">
+      <h2 style="font-family:'Syne',sans-serif;font-size:18px;margin:0;">Profile Settings</h2>
+      <button class="auth-close" onclick="closeProfileModal()">✕</button>
+    </div>
+    <div id="profile-msg" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;margin:0 0 10px;"></div>
+    <div style="display:flex;flex-direction:column;gap:14px;padding:4px 2px 10px;">
+      <div>
+        <label class="pf-lbl">Username</label>
+        <input id="pf-username" type="text" class="pf-input" value="${(meta.username||'').replace(/"/g,'&quot;')}" placeholder="username">
+      </div>
+      <div>
+        <label class="pf-lbl">Display name</label>
+        <input id="pf-displayname" type="text" class="pf-input" value="${(meta.full_name||'').replace(/"/g,'&quot;')}" placeholder="Display name (optional)">
+      </div>
+      <div>
+        <label class="pf-lbl">Avatar URL</label>
+        <input id="pf-avatar" type="text" class="pf-input" value="${(meta.avatar_url||'').replace(/"/g,'&quot;')}" placeholder="https://…">
+      </div>
+      <div>
+        <label class="pf-lbl">Bio</label>
+        <textarea id="pf-bio" class="pf-input" rows="2" placeholder="Tell people about yourself">${(meta.bio||'').replace(/</g,'&lt;')}</textarea>
+      </div>
+      <button class="btn btn-p" style="padding:10px;font-size:13px;" onclick="saveProfileSettings()">Save Profile</button>
+      <hr style="border:none;border-top:1px solid var(--border);margin:4px 0;">
+      <div>
+        <label class="pf-lbl">Email</label>
+        <input id="pf-email" type="email" class="pf-input" value="${(currentUser.email||'').replace(/"/g,'&quot;')}">
+        <button class="btn btn-g" style="padding:8px;font-size:12px;margin-top:8px;width:100%;" onclick="updateProfileEmail()">Update Email</button>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">You'll receive a confirmation link at the new address.</div>
+      </div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:4px 0;">
+      <div>
+        <label class="pf-lbl">New Password</label>
+        <input id="pf-password" type="password" class="pf-input" placeholder="At least 8 characters">
+        <input id="pf-password-confirm" type="password" class="pf-input" placeholder="Confirm new password" style="margin-top:8px;">
+        <button class="btn btn-g" style="padding:8px;font-size:12px;margin-top:8px;width:100%;" onclick="updateProfilePassword()">Change Password</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+function closeProfileModal(){
+  const m=document.getElementById('profile-modal');
+  if(m) m.remove();
+}
+
+function _pfMsg(text,kind){
+  const el=document.getElementById('profile-msg');
+  if(!el) return;
+  el.textContent=text;
+  el.style.display='block';
+  if(kind==='ok'){el.style.background='rgba(61,214,163,0.12)';el.style.color='var(--calm)';el.style.border='1px solid var(--calm)';}
+  else{el.style.background='rgba(239,68,68,0.12)';el.style.color='#f87171';el.style.border='1px solid #ef4444';}
+}
+
+async function saveProfileSettings(){
+  const username=document.getElementById('pf-username').value.trim();
+  const full_name=document.getElementById('pf-displayname').value.trim();
+  const avatar_url=document.getElementById('pf-avatar').value.trim();
+  const bio=document.getElementById('pf-bio').value.trim();
+  if(!username){_pfMsg('Username is required','err');return;}
+  if(!/^[A-Za-z0-9_.\-]{2,30}$/.test(username)){_pfMsg('Username: 2-30 chars, letters/numbers/_.- only','err');return;}
+  try{
+    const {data,error}=await _sb.auth.updateUser({data:{username,full_name,avatar_url,bio}});
+    if(error) throw error;
+    currentUser=data.user;
+    renderAuthNav(currentUser);
+    _pfMsg('Profile saved!','ok');
+  }catch(e){_pfMsg(e.message||'Could not save profile','err');}
+}
+
+async function updateProfileEmail(){
+  const email=document.getElementById('pf-email').value.trim();
+  if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){_pfMsg('Enter a valid email','err');return;}
+  if(email===currentUser.email){_pfMsg('That is already your email','err');return;}
+  try{
+    const {error}=await _sb.auth.updateUser({email});
+    if(error) throw error;
+    _pfMsg('Confirmation email sent — click the link to finish updating.','ok');
+  }catch(e){_pfMsg(e.message||'Could not update email','err');}
+}
+
+async function updateProfilePassword(){
+  const pw=document.getElementById('pf-password').value;
+  const pw2=document.getElementById('pf-password-confirm').value;
+  if(!pw||pw.length<8){_pfMsg('Password must be at least 8 characters','err');return;}
+  if(pw!==pw2){_pfMsg('Passwords do not match','err');return;}
+  try{
+    const {error}=await _sb.auth.updateUser({password:pw});
+    if(error) throw error;
+    document.getElementById('pf-password').value='';
+    document.getElementById('pf-password-confirm').value='';
+    _pfMsg('Password updated!','ok');
+  }catch(e){_pfMsg(e.message||'Could not update password','err');}
 }
 
 async function logOut() {
