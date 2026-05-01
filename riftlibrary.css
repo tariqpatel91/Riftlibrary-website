@@ -1071,14 +1071,18 @@ body.on-play-tab #play-board{height:100vh;}
 #opp-pieces{top:6px;}
 #my-pieces{bottom:6px;}
 .piece-bz{width:90px;height:130px;}
-/* Battlefield mini-zones, sitting on the divider line: one left, one right */
-.bf-mini{position:absolute;width:130px;height:80px;z-index:7;top:50%;overflow:hidden;}
-#bf-left{left:25%;transform:translate(-50%,-50%);}
-#bf-right{right:25%;transform:translate(50%,-50%);}
-/* Player's BATTLEFIELD ZONE — sits below the left battlefield, above champion+legend */
-.battlefield-zone{position:absolute;left:6px;top:calc(50% + 50px);bottom:142px;width:42%;background:rgba(180,140,50,0.05);border:1px dashed rgba(200,154,58,0.3);border-radius:6px;z-index:5;}
-.battlefield-zone .bz-cards{position:absolute;inset:6px;padding:0;display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start;align-items:flex-start;}
-.battlefield-zone.drag-over{background:rgba(200,154,58,0.18);border-color:rgba(232,212,122,0.7);}
+/* Battlefield mini-zones, both centered on the divider midline */
+.bf-mini{position:absolute;width:130px;height:80px;z-index:7;overflow:hidden;}
+#bf-left{left:25%;top:50%;transform:translate(-50%,-50%);}
+#bf-right{left:75%;top:50%;transform:translate(-50%,-50%);}
+/* Player's BATTLEFIELD ZONE — wide rectangle below the divider, left of the buttons,
+   wraps over the champion+legend cluster on its lower-left corner */
+.battlefield-zone{position:absolute;left:6px;top:calc(50% + 22px);bottom:6px;right:50%;background:rgba(180,140,50,0.04);border:2px dashed rgba(232,212,122,0.55);border-radius:8px;z-index:5;}
+.battlefield-zone .bz-cards{position:absolute;left:200px;top:8px;right:8px;bottom:8px;padding:0;display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start;align-items:flex-start;}
+.battlefield-zone .bz-lbl{font-size:10px;color:rgba(232,212,122,0.85);}
+.battlefield-zone.drag-over{background:rgba(200,154,58,0.18);border-color:#e8d47a;box-shadow:0 0 16px rgba(232,212,122,0.4);}
+/* Champion + legend pieces need to sit above the zone outline so they're not covered */
+#my-pieces{z-index:6;}
 .bf-mini .bz-cards{position:absolute;inset:4px;padding:0;display:flex;align-items:center;justify-content:center;}
 .bf-mini .board-card{width:100%;height:100%;}
 .bf-mini .board-card img{object-fit:cover;}
