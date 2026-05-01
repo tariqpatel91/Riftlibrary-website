@@ -400,7 +400,7 @@ function boardCardHTML(card, zone) {
 
 /* ── Card hover preview ────────────────────────── */
 let _hoveredCard = null;
-const _HOVER_SEL = '.board-card, .trash-top.has-card';
+const _HOVER_SEL = '.board-card, .trash-top.has-card, .pdo-card, .pdo-champion-zone.has-card, .pdo-portrait';
 function _onBoardHover(e) {
   const card = e.target.closest(_HOVER_SEL);
   if (!card) return;
@@ -902,13 +902,49 @@ function showDeckCustomizer(deckId, opts) {
       const img = (full && full.imageUrl) || '';
       const name = ((full && full.name) || activeChampion.n || '').replace(/"/g,'&quot;');
       slot.classList.add('has-card');
+      slot.setAttribute('draggable', 'true');
+      slot.setAttribute('data-img', img);
+      slot.setAttribute('data-name', name);
+      slot.ondragstart = (e) => {
+        if (e.dataTransfer) {
+          e.dataTransfer.setData('text/plain', activeChampion.id);
+          e.dataTransfer.setData('application/x-pdo-source', 'champion');
+          e.dataTransfer.effectAllowed = 'move';
+        }
+      };
       slot.innerHTML = img
-        ? `<img src="${img}" alt="${name}" data-img="${img}" data-name="${name}">`
+        ? `<img src="${img}" alt="${name}" data-img="${img}" data-name="${name}" draggable="false">`
         : `<div style="padding:6px;font-size:10px;text-align:center;color:rgba(255,255,255,0.7);">${name}</div>`;
     } else {
       slot.classList.remove('has-card');
+      slot.removeAttribute('draggable');
+      slot.removeAttribute('data-img');
+      slot.removeAttribute('data-name');
+      slot.ondragstart = null;
       slot.innerHTML = `<span class="pdo-champion-empty">CHAMPION<br><span style="font-size:9px;opacity:0.7;font-weight:500;">drag from deck</span></span>`;
     }
+  }
+
+  // Make deck and sideboard grids accept the champion when dragged off the slot
+  function _bindDropTargets() {
+    ['pdo-deck-grid','pdo-side-grid'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.ondragover = (e) => { e.preventDefault(); el.classList.add('drag-over'); };
+      el.ondragleave = () => el.classList.remove('drag-over');
+      el.ondrop = (e) => {
+        e.preventDefault();
+        el.classList.remove('drag-over');
+        const source = e.dataTransfer ? e.dataTransfer.getData('application/x-pdo-source') : '';
+        if (source !== 'champion' || !activeChampion) return;
+        const targetArr = id === 'pdo-side-grid' ? side : main;
+        const existing = targetArr.find(en => en.id === activeChampion.id);
+        if (existing) existing.cnt = (existing.cnt || 0) + 1;
+        else targetArr.push({ ...activeChampion, cnt: 1 });
+        activeChampion = null;
+        refresh();
+      };
+    });
   }
 
   function refresh() {
@@ -993,5 +1029,6 @@ function showDeckCustomizer(deckId, opts) {
   };
 
   overlay.classList.add('open');
+  _bindDropTargets();
   refresh();
 }

@@ -1246,7 +1246,10 @@ select option{background:#1e1e2a;}
 .pdo-slider-icon{font-size:11px;}
 .pdo-slider-wrap input[type="range"]{width:120px;accent-color:#e8d47a;cursor:pointer;}
 /* Champion zone under the legend portrait */
-.pdo-champion-zone{width:120px;aspect-ratio:2.5/3.5;border-radius:10px;border:2px dashed rgba(200,154,58,0.45);background:#0a1428;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:10px;font-weight:700;color:rgba(232,212,122,0.55);letter-spacing:0.1em;text-align:center;padding:4px;position:relative;}
+.pdo-champion-zone{width:120px;aspect-ratio:2.5/3.5;border-radius:10px;border:2px dashed rgba(200,154,58,0.45);background:#0a1428;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:10px;font-weight:700;color:rgba(232,212,122,0.55);letter-spacing:0.1em;text-align:center;padding:4px;position:relative;cursor:default;}
+.pdo-champion-zone.has-card{cursor:grab;}
+.pdo-champion-zone.has-card:active{cursor:grabbing;}
+.pdo-champion-zone.is-opp{cursor:default;opacity:0.7;}
 .pdo-champion-zone img{object-fit:contain;}
 .pdo-champion-zone.has-card{border-style:solid;border-color:rgba(232,184,85,0.85);background:#0a1428;box-shadow:0 0 12px rgba(232,184,85,0.35);}
 .pdo-champion-zone.drag-over{border-color:#e8d47a;background:rgba(200,154,58,0.18);box-shadow:0 0 16px rgba(232,184,85,0.55);}
