@@ -3452,7 +3452,8 @@ rlBinders.forEach(b=>{
 
 function _binderTotal(b){return (b.cards||[]).reduce((a,e)=>a+(e.cnt||0),0);}
 function _binderHas(b,id){return (b.cards||[]).find(e=>e.id===id);}
-const CF2={q:'',type:'',dom:'',rar:'',set:'',show:'all',view:'grid',binder:'',binderMode:'view',collMode:'view'};
+const CF2={q:'',type:'',dom:'',rar:'',set:'',show:'all',view:'grid',binder:'',binderMode:'view',collMode:'view',showGrey:true};
+function toggleCollGrey(){CF2.showGrey=!CF2.showGrey;renderCollection();}
 
 function setBinderMode(mode){CF2.binderMode=mode;renderCollection();}
 function setCollMode(mode){CF2.collMode=mode;renderCollection();}
@@ -3480,7 +3481,7 @@ function deleteBinder(id){
   persistBinders();renderCollection();
 }
 
-function setActiveBinder(id){CF2.binder=id;CF2.show='all';CF2.q='';CF2.binderMode='view';renderCollection();}
+function setActiveBinder(id){CF2.binder=id;CF2.show='all';CF2.q='';CF2.binderMode='view';renderCollection();window.scrollTo({top:0,behavior:'smooth'});}
 
 function addCardToBinder(cardId,binderId){
   if(!binderId){
@@ -3705,7 +3706,16 @@ function renderCollection(){
   const orderedSets=[...SET_ORDER.filter(s=>setMap[s]),...Object.keys(setMap).filter(s=>!SET_ORDER.includes(s))];
 
   // ── Binder sidebar ──
-  const activeBinder=CF2.binder?rlBinders.find(x=>x.id===CF2.binder):null;
+  const wishlistCount=Object.keys(collWanted).filter(id=>collWanted[id]).length;
+  const extrasCount=Object.values(collOwned).filter(n=>n>3).length;
+  let activeBinder=null;
+  if(CF2.binder==='wishlist'){
+    activeBinder={id:'wishlist',name:'♥ Wishlist',_static:true,_kind:'wishlist',cards:Object.keys(collWanted).filter(id=>collWanted[id]).map(id=>({id,cnt:collWanted[id]===true?3:(collWanted[id]||0)}))};
+  } else if(CF2.binder==='extras'){
+    activeBinder={id:'extras',name:'Extra Cards',_static:true,_kind:'extras',cards:Object.keys(collOwned).filter(id=>(collOwned[id]||0)>3).map(id=>({id,cnt:(collOwned[id]||0)-3}))};
+  } else if(CF2.binder){
+    activeBinder=rlBinders.find(x=>x.id===CF2.binder);
+  }
   let sidebarHtml=`<div class="coll-binder-sidebar">
     <div class="cbs-header">
       <span>Binders</span>
@@ -3714,6 +3724,14 @@ function renderCollection(){
     <button class="cbs-item${!CF2.binder?' active':''}" onclick="setActiveBinder('')">
       <span class="cbs-label">All Cards</span>
       <span class="cbs-count">${allUnique.length}</span>
+    </button>
+    <button class="cbs-item cbs-item-static${CF2.binder==='wishlist'?' active':''}" onclick="setActiveBinder('wishlist')">
+      <span class="cbs-label">♥ Wishlist</span>
+      <span class="cbs-count">${wishlistCount}</span>
+    </button>
+    <button class="cbs-item cbs-item-static${CF2.binder==='extras'?' active':''}" onclick="setActiveBinder('extras')">
+      <span class="cbs-label">📦 Extra Cards</span>
+      <span class="cbs-count">${extrasCount}</span>
     </button>`;
   rlBinders.forEach(b=>{
     sidebarHtml+=`<div class="cbs-item-wrap${CF2.binder===b.id?' active':''}">
@@ -3789,19 +3807,25 @@ function renderCollection(){
     </div>`;
   } else {
     // Binder header
-    const isEdit=CF2.binderMode==='edit';
+    const isEdit=CF2.binderMode==='edit'&&!activeBinder._static;
+    const icon=activeBinder._kind==='wishlist'?'♥':activeBinder._kind==='extras'?'📦':'📁';
+    const subtitle=activeBinder._kind==='wishlist'
+      ?'Auto-updates from your wishlist'
+      :activeBinder._kind==='extras'
+        ?'Cards you own more than 3 copies of'
+        :'';
     html+=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
-      <span style="font-size:22px;">📁</span>
+      <span style="font-size:22px;">${icon}</span>
       <div style="flex:1;min-width:140px;">
         <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">${activeBinder.name}</div>
-        <div style="font-size:12px;color:var(--text-muted);">${_binderTotal(activeBinder)} card${_binderTotal(activeBinder)!==1?'s':''} ${isEdit?'• adding from collection':''}</div>
+        <div style="font-size:12px;color:var(--text-muted);">${_binderTotal(activeBinder)} card${_binderTotal(activeBinder)!==1?'s':''}${subtitle?' • '+subtitle:''}${isEdit?' • adding from collection':''}</div>
       </div>
-      <div class="binder-mode-toggle">
+      ${activeBinder._static?'':`<div class="binder-mode-toggle">
         <button class="bmt ${!isEdit?'on':''}" onclick="setBinderMode('view')">👁 View</button>
         <button class="bmt ${isEdit?'on':''}" onclick="setBinderMode('edit')">✎ Edit</button>
       </div>
       <button class="btn btn-g" style="font-size:12px;" onclick="renameBinder(${activeBinder.id})">Rename</button>
-      <button class="btn btn-d" style="font-size:12px;" onclick="deleteBinder(${activeBinder.id})">Delete</button>
+      <button class="btn btn-d" style="font-size:12px;" onclick="deleteBinder(${activeBinder.id})">Delete</button>`}
     </div>`;
 
     // Binder Edit mode → deck-builder-style 2-column layout
@@ -3817,7 +3841,11 @@ function renderCollection(){
   let source=CF2.set&&setMap[CF2.set]&&!activeBinder?[...setMap[CF2.set].cards.values()]:allUnique;
   // binder filter
   if(activeBinder){
-    if(CF2.binderMode==='edit'){
+    if(activeBinder._kind==='wishlist'){
+      source=source.filter(c=>collWanted[c.id]);
+    } else if(activeBinder._kind==='extras'){
+      source=source.filter(c=>(collOwned[c.id]||0)>3);
+    } else if(CF2.binderMode==='edit'){
       // show only owned cards (from the user's collection) so they can pick what to add
       source=source.filter(c=>collOwned[c.id]);
     } else {
@@ -3862,6 +3890,7 @@ function renderCollection(){
       <button class="coll-pill${CF2.view==='grid'?' on':''}" onclick="CF2.view='grid';renderCollection()">⊞ Grid</button>
       <button class="coll-pill${CF2.view==='list'?' on':''}" onclick="CF2.view='list';renderCollection()">☰ List</button>
     </div>
+    <button class="coll-pill${CF2.showGrey?' on':''}" onclick="toggleCollGrey()" title="Toggle greyed-out unowned cards">${CF2.showGrey?'🌑 Grey: On':'☀ Grey: Off'}</button>
   </div>`;
 
   html+=`<div class="coll-filter-row coll-filter-centered">
@@ -3881,7 +3910,7 @@ function renderCollection(){
   }
 
   if(CF2.view==='grid'){
-    html+=`<div class="coll-grid">`;
+    html+=`<div class="coll-grid${CF2.showGrey?'':' no-grey'}">`;
     source.forEach(c=>{
       const owned=collOwned[c.id]||0;
       const wantedRaw=collWanted[c.id];
@@ -3894,7 +3923,7 @@ function renderCollection(){
       const inWishlistView=CF2.show==='wanted';
       if(inWishlistView){
         const need=Math.max(0,wantedCount-owned);
-        html+=`<div class="coll-card wanted-card ${isComplete?'complete':owned>0?'owned':''}" title="${c.name}">
+        html+=`<div class="coll-card wanted-card ${isComplete?'complete':owned>0?'owned':''}" title="${c.name}" onclick="openCardModal('${si}')">
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
           <div class="coll-card-badge coll-badge-wanted">♥ ×${wantedCount}</div>
           <div class="coll-card-actions">
@@ -3918,7 +3947,7 @@ function renderCollection(){
         }
         const inBinderView=!!activeBinder;
         const hideOwnerControls=inBinderView||CF2.collMode==='view';
-        html+=`<div class="coll-card ${cls}${isWanted?' wishlisted':''}${hideOwnerControls?' in-binder-view':''}" title="${c.name}">
+        html+=`<div class="coll-card ${cls}${isWanted?' wishlisted':''}${hideOwnerControls?' in-binder-view':''}" title="${c.name}" onclick="openCardModal('${si}')">
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
           ${hideOwnerControls?'':`<button class="coll-wishlist-top-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>`}
           ${binderRemoveBtn}

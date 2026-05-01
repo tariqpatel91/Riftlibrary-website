@@ -801,8 +801,8 @@ select option{background:#1e1e2a;}
 .coll-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;}
 .coll-card{position:relative;border-radius:10px;overflow:hidden;background:var(--surface2);border:2px solid var(--border);cursor:pointer;transition:transform 0.15s,border-color 0.15s,box-shadow 0.15s;aspect-ratio:2.5/3.5;user-select:none;}
 .coll-card>img,.coll-card>.coll-card-no-img{filter:grayscale(1);opacity:0.5;transition:filter 0.15s,opacity 0.15s;}
-.coll-card:hover{transform:scale(1.6);z-index:50;box-shadow:0 12px 32px rgba(0,0,0,0.65);}
-.coll-grid{overflow:visible;}
+.coll-card:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,0.4);}
+.coll-grid.no-grey .coll-card>img,.coll-grid.no-grey .coll-card>.coll-card-no-img{filter:none!important;opacity:1!important;}
 .coll-card.owned{border-color:var(--accent);}
 .coll-card.owned>img,.coll-card.owned>.coll-card-no-img{filter:none;opacity:1;}
 .coll-card.complete{border-color:var(--calm);box-shadow:0 0 8px rgba(61,214,163,0.25);}
