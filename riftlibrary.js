@@ -3401,6 +3401,18 @@ function renderEvents(){
 let collOwned=JSON.parse(localStorage.getItem('rl_collection')||'{}');
 let collWanted=JSON.parse(localStorage.getItem('rl_collection_wanted')||'{}');
 let rlBinders=JSON.parse(localStorage.getItem('rl_binders')||'[]');
+// Migrate legacy binders: cards used to be string[] of IDs; now [{id,cnt}]
+rlBinders.forEach(b=>{
+  if(Array.isArray(b.cards)&&b.cards.length&&typeof b.cards[0]==='string'){
+    const map={};
+    b.cards.forEach(id=>{map[id]=(map[id]||0)+1;});
+    b.cards=Object.entries(map).map(([id,cnt])=>({id,cnt}));
+  }
+  if(!Array.isArray(b.cards)) b.cards=[];
+});
+
+function _binderTotal(b){return (b.cards||[]).reduce((a,e)=>a+(e.cnt||0),0);}
+function _binderHas(b,id){return (b.cards||[]).find(e=>e.id===id);}
 const CF2={q:'',type:'',dom:'',rar:'',set:'',show:'all',view:'grid',binder:'',binderMode:'view',collMode:'view'};
 
 function setBinderMode(mode){CF2.binderMode=mode;renderCollection();}
@@ -3437,19 +3449,31 @@ function addCardToBinder(cardId,binderId){
     openAddToBinderModal(cardId);return;
   }
   const b=rlBinders.find(x=>x.id===binderId);if(!b)return;
-  if(b.cards.includes(cardId)){toast('Already in binder');return;}
-  b.cards.push(cardId);persistBinders();toast('Added to '+b.name);renderCollection();
+  const owned=collOwned[cardId]||0;
+  const entry=_binderHas(b,cardId);
+  const inBinder=entry?entry.cnt:0;
+  if(inBinder>=owned&&owned>0){toast('All '+owned+' copies are already in this binder');return;}
+  if(entry) entry.cnt+=1; else b.cards.push({id:cardId,cnt:1});
+  persistBinders();toast('Added to '+b.name);renderCollection();
 }
 
 function removeCardFromBinder(cardId,binderId){
   const b=rlBinders.find(x=>x.id===binderId);if(!b)return;
-  b.cards=b.cards.filter(x=>x!==cardId);persistBinders();renderCollection();
+  const entry=_binderHas(b,cardId);
+  if(!entry)return;
+  entry.cnt-=1;
+  if(entry.cnt<=0) b.cards=b.cards.filter(e=>e.id!==cardId);
+  persistBinders();renderCollection();
 }
 
 function _addCardSilent(cardId,binderId){
   const b=rlBinders.find(x=>x.id===binderId);if(!b)return;
-  if(b.cards.includes(cardId))return;
-  b.cards.push(cardId);persistBinders();renderCollection();
+  const owned=collOwned[cardId]||0;
+  const entry=_binderHas(b,cardId);
+  const inBinder=entry?entry.cnt:0;
+  if(owned>0&&inBinder>=owned){toast('Max '+owned+' copies (you only own '+owned+')');return;}
+  if(entry) entry.cnt+=1; else b.cards.push({id:cardId,cnt:1});
+  persistBinders();renderCollection();
 }
 
 // Search state for binder edit library
@@ -3470,16 +3494,17 @@ function renderBinderEditLayout(binder){
   if(BEF.dom) owned=owned.filter(c=>(c.doms||[]).includes(BEF.dom));
 
   // Build left library card thumbs
-  const inBinderSet=new Set(binder.cards);
   const leftCards=owned.map(c=>{
-    const inB=inBinderSet.has(c.id);
+    const entry=_binderHas(binder,c.id);
+    const inBinderCnt=entry?entry.cnt:0;
     const ownedCnt=collOwned[c.id]||0;
-    return `<div class="be-thumb${inB?' in-binder':''}" onclick="${inB?`removeCardFromBinder('${c.id}',${binder.id})`:`_addCardSilent('${c.id}',${binder.id})`}" title="${c.name} — ${inB?'click to remove':'click to add'}">
+    const maxed=ownedCnt>0&&inBinderCnt>=ownedCnt;
+    return `<div class="be-thumb${inBinderCnt>0?' in-binder':''}${maxed?' maxed':''}" onclick="_addCardSilent('${c.id}',${binder.id})" title="${c.name} — click to add (${inBinderCnt}/${ownedCnt} in binder)">
       <div class="be-thumb-img">
         ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="edit-card-no-img"><div class="ecn-name">${c.name}</div></div>`}
       </div>
-      <div class="be-thumb-owned">×${ownedCnt}</div>
-      ${inB?`<div class="be-thumb-incheck">✓</div>`:`<div class="be-thumb-add">+</div>`}
+      <div class="be-thumb-owned">${inBinderCnt}/${ownedCnt}</div>
+      ${maxed?`<div class="be-thumb-incheck">✓</div>`:`<div class="be-thumb-add">+</div>`}
       <div class="be-thumb-name">${c.name}</div>
     </div>`;
   }).join('');
@@ -3487,31 +3512,31 @@ function renderBinderEditLayout(binder){
   // Group binder cards by type
   const groupOrder=['Champion','Unit','Spell','Gear','Battlefield','Rune','Legend'];
   const groups={};
-  binder.cards.forEach(id=>{
-    const c=CARDS.find(x=>x.id===id);
+  binder.cards.forEach(entry=>{
+    const c=CARDS.find(x=>x.id===entry.id);
     if(!c)return;
     const t=c.supertype&&c.supertype.toLowerCase().includes('champion')?'Champion':(c.type||'Other');
     if(!groups[t])groups[t]=[];
-    groups[t].push(c);
+    groups[t].push({card:c,cnt:entry.cnt});
   });
 
   let rightHtml='';
-  const totalInBinder=binder.cards.length;
+  const totalInBinder=_binderTotal(binder);
   if(!totalInBinder){
     rightHtml=`<div style="padding:3rem 1rem;text-align:center;color:var(--text-muted);font-size:13px;">This binder is empty. Click any card on the left to add it.</div>`;
   } else {
     const orderedGroups=[...groupOrder.filter(t=>groups[t]),...Object.keys(groups).filter(t=>!groupOrder.includes(t))];
     rightHtml=orderedGroups.map(t=>{
-      const cards=groups[t].sort((a,b)=>a.name.localeCompare(b.name));
+      const cards=groups[t].sort((a,b)=>a.card.name.localeCompare(b.card.name));
+      const groupTotal=cards.reduce((a,e)=>a+e.cnt,0);
       return `<div class="be-group">
-        <div class="be-group-header">${t.toUpperCase()} <span style="color:var(--text-muted);font-weight:500;">(${cards.length})</span></div>
+        <div class="be-group-header">${t.toUpperCase()} <span style="color:var(--text-muted);font-weight:500;">(${groupTotal})</span></div>
         <div class="be-group-grid">
-          ${cards.map(c=>{
-            const ownedCnt=collOwned[c.id]||0;
-            return `<div class="be-binder-card" onclick="removeCardFromBinder('${c.id}',${binder.id})" title="${c.name} — click to remove from binder">
+          ${cards.map(({card:c,cnt})=>{
+            return `<div class="be-binder-card" onclick="removeCardFromBinder('${c.id}',${binder.id})" title="${c.name} — click to remove one copy">
               ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="be-binder-no-img">${c.name}</div>`}
-              <div class="be-binder-cnt">×${ownedCnt}</div>
-              <div class="be-binder-rm">✕</div>
+              <div class="be-binder-cnt">×${cnt}</div>
+              <div class="be-binder-rm">−</div>
             </div>`;
           }).join('')}
         </div>
@@ -3655,7 +3680,7 @@ function renderCollection(){
     sidebarHtml+=`<div class="cbs-item-wrap${CF2.binder===b.id?' active':''}">
       <button class="cbs-item${CF2.binder===b.id?' active':''}" onclick="setActiveBinder(${b.id})">
         <span class="cbs-label">📁 ${b.name}</span>
-        <span class="cbs-count">${b.cards.length}</span>
+        <span class="cbs-count">${_binderTotal(b)}</span>
       </button>
       <div class="cbs-actions">
         <button class="cbs-act-btn" onclick="renameBinder(${b.id})" title="Rename">✎</button>
@@ -3730,7 +3755,7 @@ function renderCollection(){
       <span style="font-size:22px;">📁</span>
       <div style="flex:1;min-width:140px;">
         <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">${activeBinder.name}</div>
-        <div style="font-size:12px;color:var(--text-muted);">${activeBinder.cards.length} card${activeBinder.cards.length!==1?'s':''} ${isEdit?'• adding from collection':''}</div>
+        <div style="font-size:12px;color:var(--text-muted);">${_binderTotal(activeBinder)} card${_binderTotal(activeBinder)!==1?'s':''} ${isEdit?'• adding from collection':''}</div>
       </div>
       <div class="binder-mode-toggle">
         <button class="bmt ${!isEdit?'on':''}" onclick="setBinderMode('view')">👁 View</button>
@@ -3758,7 +3783,7 @@ function renderCollection(){
       source=source.filter(c=>collOwned[c.id]);
     } else {
       // view mode: only cards already added to the binder
-      source=source.filter(c=>activeBinder.cards.includes(c.id));
+      source=source.filter(c=>!!_binderHas(activeBinder,c.id));
     }
   }
   if(CF2.q) source=source.filter(c=>c.name.toLowerCase().includes(CF2.q)||c.txt.toLowerCase().includes(CF2.q));
@@ -3844,7 +3869,7 @@ function renderCollection(){
         let binderRemoveBtn='';
         if(activeBinder){
           if(CF2.binderMode==='edit'){
-            const inBinder=activeBinder.cards.includes(c.id);
+            const inBinder=!!_binderHas(activeBinder,c.id);
             binderRemoveBtn=inBinder
               ?`<button class="coll-binder-btn in-binder" onclick="event.stopPropagation();removeCardFromBinder('${si}',${activeBinder.id})" title="In binder — click to remove">✓</button>`
               :`<button class="coll-binder-btn add" onclick="event.stopPropagation();_addCardSilent('${si}',${activeBinder.id})" title="Add to binder">+</button>`;
