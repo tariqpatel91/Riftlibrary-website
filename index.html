@@ -17,6 +17,7 @@
     <button class="nl" onclick="goto('collection',this)">Collection</button>
     <button class="nl" onclick="goto('events',this)">Events</button>
     <button class="nl" onclick="goto('team',this)">Team</button>
+    <button class="nl" onclick="goto('play',this)">⚔ Play</button>
   </div>
   <div class="auth-btn-wrap" id="auth-nav-area">
     <!-- Populated by JS: shows Login button or user pill -->
@@ -28,15 +29,31 @@
 <!-- MY DECKS -->
 <div class="page" id="page-decks">
   <div id="dl">
-    <div class="ph"><h1>My Decks</h1><p>Your personal deck collection</p></div>
-    <div class="filters">
-      <div class="sw"><span class="si">⌕</span><input type="text" id="ds" placeholder="Search decks…" oninput="renderDecks()"></div>
-      <select id="dsl" onchange="renderDecks()"><option value="">All legends</option><option>Jinx</option><option>Viktor</option><option>Ahri</option><option>Darius</option><option>Lee Sin</option><option>Volibear</option><option>Miss Fortune</option><option>Kai'Sa</option></select>
-      <select id="dsd" onchange="renderDecks()"><option value="">All domains</option><option>Fury</option><option>Chaos</option><option>Calm</option><option>Mind</option><option>Body</option><option>Order</option></select>
-      <button class="btn btn-p" onclick="openModal()">+ New Deck</button>
-      <button class="btn btn-g" onclick="openImportDeckModal()" style="font-size:12px;">⇪ Import</button>
+    <div class="ph"><h1>Decks</h1><p>Browse and manage decklists</p></div>
+    <div class="deck-subtabs">
+      <button class="dst on" id="dst-mine" onclick="setDeckTab('mine')">My Decks</button>
+      <button class="dst" id="dst-public" onclick="setDeckTab('public')">Public Decks</button>
+      <button class="dst" id="dst-team" onclick="setDeckTab('team')">Team Decks</button>
     </div>
-    <div class="dg" id="dg"></div>
+    <!-- My Decks tab -->
+    <div id="dst-mine-content">
+      <div class="filters">
+        <div class="sw"><span class="si">⌕</span><input type="text" id="ds" placeholder="Search decks…" oninput="renderDecks()"></div>
+        <select id="dsl" onchange="renderDecks()"><option value="">All legends</option><option>Jinx</option><option>Viktor</option><option>Ahri</option><option>Darius</option><option>Lee Sin</option><option>Volibear</option><option>Miss Fortune</option><option>Kai'Sa</option></select>
+        <select id="dsd" onchange="renderDecks()"><option value="">All domains</option><option>Fury</option><option>Chaos</option><option>Calm</option><option>Mind</option><option>Body</option><option>Order</option></select>
+        <button class="btn btn-p" onclick="openModal()">+ New Deck</button>
+        <button class="btn btn-g" onclick="openImportDeckModal()" style="font-size:12px;">⇪ Import</button>
+      </div>
+      <div class="dg" id="dg"></div>
+    </div>
+    <!-- Public Decks tab -->
+    <div id="dst-public-content" style="display:none;">
+      <div id="public-decks-content"></div>
+    </div>
+    <!-- Team Decks tab -->
+    <div id="dst-team-content" style="display:none;">
+      <div id="team-decks-content"></div>
+    </div>
   </div>
   <div id="dd" style="display:none;">
     <button class="bb" onclick="closeDeckDetail()">← Back to decks</button>
@@ -226,6 +243,21 @@
   <div id="play-lobby">
     <div class="ph"><h1>⚔ Play</h1><p>Challenge a friend to a Riftbound match — no accounts needed</p></div>
 
+    <div style="margin-bottom:1.5rem;">
+      <div class="dc" style="cursor:default;border-color:rgba(139,92,246,0.4);background:rgba(139,92,246,0.06);">
+        <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:600;margin-bottom:6px;">🃏 Solo Practice</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;">Test your deck alone — draw cards, move them to zones, and get comfortable with the board.</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="field" style="flex:1;min-width:180px;margin:0;">
+            <label>Select deck</label>
+            <select id="solo-deck-sel" style="width:100%;background:var(--bg);"><option value="">— choose a deck —</option></select>
+          </div>
+          <button class="btn btn-p" onclick="startSolo()" style="height:36px;white-space:nowrap;">▶ Start Practice</button>
+        </div>
+        <div id="solo-status" style="margin-top:8px;font-size:12px;color:var(--fury);min-height:16px;"></div>
+      </div>
+    </div>
+
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;margin-bottom:2rem;">
       <!-- Host -->
       <div class="dc" style="cursor:default;">
@@ -285,84 +317,163 @@
 
   <!-- GAME BOARD (hidden until match starts) -->
   <div id="play-board" style="display:none;">
-    <!-- Top bar -->
-    <div id="board-topbar">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <span id="board-title" style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;"></span>
-        <span id="board-turn-badge"></span>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-sm btn-g" onclick="endTurn()" id="end-turn-btn">End Turn</button>
-          <button class="btn btn-sm" onclick="concede()">Concede</button>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <span id="board-phase-indicator"></span>
-        <button class="btn btn-sm" onclick="toggleChat()">💬 Chat</button>
-      </div>
-    </div>
 
-    <!-- Main board area -->
-    <div id="board-main">
-      <!-- Opponent side -->
-      <div id="opp-area" class="player-area opp">
-        <div class="pa-info">
-          <span id="opp-name-label" class="player-name"></span>
-          <div class="life-row">
-            <button class="life-btn" onclick="adjustLife('opp',-1)">−</button>
-            <span id="opp-life" class="life-count">20</span>
-            <button class="life-btn" onclick="adjustLife('opp',1)">+</button>
-          </div>
-          <div style="font-size:11px;color:var(--text-muted);" id="opp-counts"></div>
+    <!-- Board arena: no topbar — info lives inside zones -->
+    <div id="board-arena">
+
+      <!-- ── BATTLEFIELD STRIP (top) ── -->
+      <div id="bf-row">
+        <div class="bz" id="opp-bf-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'opp-battlefield')">
+          <div id="opp-bf-cards" class="bz-cards"></div>
+          <span class="bz-lbl">BATTLEFIELD</span>
         </div>
-        <div id="opp-hand-area" class="hand-zone opp-hand">
-          <div class="zone-lbl">Hand (<span id="opp-hand-count">0</span>)</div>
-          <div id="opp-hand" class="card-row"></div>
+        <div class="bz" id="my-bf-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'my-battlefield')">
+          <div id="my-bf-cards" class="bz-cards"></div>
+          <span class="bz-lbl">BATTLEFIELD</span>
         </div>
       </div>
 
-      <!-- Battle zone -->
-      <div id="battle-zone" class="zone" ondragover="event.preventDefault()" ondrop="dropToZone(event,'battle')">
-        <div class="zone-lbl">Battle Field</div>
-        <div id="battle-cards" class="card-row flexible"></div>
+      <!-- ── MAIN GRID: 6 columns × 2 rows, center spans both ── -->
+      <div id="board-grid">
+
+        <!-- OPP CHAMPION -->
+        <div class="bz" id="opp-champion-zone">
+          <div class="pinfo-overlay">
+            <div id="opp-name-label" class="pinfo-name"></div>
+            <div class="pinfo-life">
+              <button class="life-btn" onclick="adjustLife('opp',-1)">−</button>
+              <span id="opp-life">20</span>
+              <button class="life-btn" onclick="adjustLife('opp',1)">+</button>
+            </div>
+            <div class="pinfo-hand">Hand: <span id="opp-hand-count">0</span></div>
+          </div>
+          <div class="bz-icon">♛</div>
+          <div id="opp-champion-cards" class="bz-cards"></div>
+          <span class="bz-lbl">CHAMPION</span>
+        </div>
+
+        <!-- OPP LEGEND -->
+        <div class="bz" id="opp-legend-zone">
+          <div class="bz-icon">★</div>
+          <div id="opp-legend-cards" class="bz-cards"></div>
+          <span class="bz-lbl">LEGEND</span>
+        </div>
+
+        <!-- OPP BATTLEFIELD LEFT -->
+        <div class="bz" id="opp-bf-left" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'opp-bf-left')">
+          <div id="opp-bf-left-cards" class="bz-cards"></div>
+          <span class="bz-lbl">BATTLEFIELD</span>
+        </div>
+
+        <!-- CENTER BASE — spans both player rows -->
+        <div class="bz" id="center-base" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battle')">
+          <div class="center-opp-units" id="opp-base-cards"></div>
+          <div class="center-divider">
+            <span id="board-turn-badge"></span>
+            <button class="bz-ctrl-btn" onclick="endTurn()" id="end-turn-btn">End Turn</button>
+            <button class="bz-ctrl-btn" onclick="toggleChat()">💬</button>
+            <button class="bz-ctrl-btn bz-ctrl-danger" onclick="concede()">Concede</button>
+          </div>
+          <div class="center-my-units" id="battle-cards"></div>
+          <div class="bz-base-hint" id="base-hint">Units Start/Return Here · Units Start Exhausted</div>
+          <span class="bz-lbl">BASE</span>
+        </div>
+
+        <!-- OPP BATTLEFIELD RIGHT -->
+        <div class="bz" id="opp-bf-right" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'opp-bf-right')">
+          <div id="opp-bf-right-cards" class="bz-cards"></div>
+          <span class="bz-lbl">BATTLEFIELD</span>
+        </div>
+
+        <!-- OPP MAIN DECK -->
+        <div class="bz bz-deck" id="opp-deck-zone">
+          <div class="bz-deck-stack">
+            <div class="bz-card-back b3"></div>
+            <div class="bz-card-back b2"></div>
+            <div class="bz-card-back b1"></div>
+          </div>
+          <div id="opp-hand" class="bz-hand-fan"></div>
+          <span class="bz-lbl">MAIN DECK</span>
+        </div>
+
+        <!-- MY CHAMPION -->
+        <div class="bz" id="my-champion-zone">
+          <div class="pinfo-overlay pinfo-mine">
+            <div class="pinfo-life">
+              <button class="life-btn" onclick="adjustLife('me',-1)">−</button>
+              <span id="my-life">20</span>
+              <button class="life-btn" onclick="adjustLife('me',1)">+</button>
+            </div>
+            <div id="my-name-label" class="pinfo-name"></div>
+          </div>
+          <div class="bz-icon">♛</div>
+          <div id="my-champion-cards" class="bz-cards"></div>
+          <span class="bz-lbl">CHAMPION</span>
+        </div>
+
+        <!-- MY LEGEND -->
+        <div class="bz" id="my-legend-zone">
+          <div class="bz-icon">★</div>
+          <div id="my-legend-cards" class="bz-cards"></div>
+          <span class="bz-lbl">LEGEND</span>
+        </div>
+
+        <!-- MY BATTLEFIELD LEFT -->
+        <div class="bz" id="my-bf-left" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'my-bf-left')">
+          <div id="my-bf-left-cards" class="bz-cards"></div>
+          <span class="bz-lbl">BATTLEFIELD</span>
+        </div>
+
+        <!-- MY BATTLEFIELD RIGHT -->
+        <div class="bz" id="my-bf-right" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'my-bf-right')">
+          <div id="my-bf-right-cards" class="bz-cards"></div>
+          <span class="bz-lbl">BATTLEFIELD</span>
+        </div>
+
+        <!-- MY MAIN DECK -->
+        <div class="bz bz-deck" id="my-deck-zone" onclick="drawCard()" title="Click to draw">
+          <div class="bz-deck-stack">
+            <div class="bz-card-back b3"></div>
+            <div class="bz-card-back b2"></div>
+            <div class="bz-card-back b1"></div>
+          </div>
+          <div id="my-deck-count" class="bz-deck-count">0</div>
+          <span class="bz-lbl">MAIN DECK</span>
+        </div>
+
+      </div><!-- /board-grid -->
+
+      <!-- ── PHASE STRIP ── -->
+      <div id="phase-strip">MOVE ▶ DEFEND ▶ ATTACK ▶ ACTIONS / REACTIONS / HIDDEN ▶ ASSIGN DAMAGE ▶ HEAL</div>
+
+      <!-- ── BOTTOM ROW ── -->
+      <div id="bottom-row">
+        <div class="bz bz-deck" id="rune-deck-zone">
+          <div class="bz-deck-stack">
+            <div class="bz-card-back b3"></div>
+            <div class="bz-card-back b1"></div>
+          </div>
+          <div id="my-rune-count" class="bz-deck-count">0</div>
+          <span class="bz-lbl">RUNE DECK</span>
+        </div>
+        <div class="bz" id="runes-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'support')">
+          <div id="support-cards" class="bz-cards"></div>
+          <span class="bz-lbl">RUNES</span>
+        </div>
+        <div class="bz" id="trash-zone" onclick="viewDiscard()" style="cursor:pointer;">
+          <div class="bz-icon" style="font-size:20px;">🗑</div>
+          <div id="my-disc-count" class="bz-deck-count">0</div>
+          <span class="bz-lbl">TRASH</span>
+        </div>
       </div>
 
-      <!-- Support zone -->
-      <div id="support-zone" class="zone" ondragover="event.preventDefault()" ondrop="dropToZone(event,'support')">
-        <div class="zone-lbl">Support</div>
-        <div id="support-cards" class="card-row flexible"></div>
+      <!-- ── HAND STRIP ── -->
+      <div id="hand-strip">
+        <div class="hand-strip-lbl">HAND (<span id="my-hand-count">0</span>)</div>
+        <div id="my-hand" class="hand-strip-cards"></div>
       </div>
 
-      <!-- My side -->
-      <div id="my-area" class="player-area mine">
-        <div class="pa-info">
-          <span id="my-name-label" class="player-name"></span>
-          <div class="life-row">
-            <button class="life-btn" onclick="adjustLife('me',-1)">−</button>
-            <span id="my-life" class="life-count">20</span>
-            <button class="life-btn" onclick="adjustLife('me',1)">+</button>
-          </div>
-          <div style="font-size:11px;color:var(--text-muted);" id="my-counts"></div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-          <div class="mini-zone" id="my-deck-zone" onclick="drawCard()" title="Click to draw">
-            <div class="zone-lbl">Deck</div>
-            <div id="my-deck-count" class="mini-count">0</div>
-          </div>
-          <div class="mini-zone" id="my-disc-zone" onclick="viewDiscard()" title="View discard">
-            <div class="zone-lbl">Discard</div>
-            <div id="my-disc-count" class="mini-count">0</div>
-          </div>
-          <div class="mini-zone" id="my-runes-zone">
-            <div class="zone-lbl">Runes</div>
-            <div id="my-rune-count" class="mini-count">0</div>
-          </div>
-        </div>
-        <div class="hand-zone my-hand">
-          <div class="zone-lbl">Hand (<span id="my-hand-count">0</span>) — drag cards to field or click to play</div>
-          <div id="my-hand" class="card-row hand-cards"></div>
-        </div>
-      </div>
-    </div>
+    </div><!-- /board-arena -->
 
     <!-- Chat panel -->
     <div id="chat-panel" style="display:none;">
@@ -373,8 +484,11 @@
       </div>
     </div>
 
-    <!-- Card detail tooltip -->
-    <div id="card-detail-overlay" style="display:none;"></div>
+  </div><!-- /play-board -->
+
+  <!-- Discard overlay -->
+  <div id="discard-overlay">
+    <div id="discard-box"></div>
   </div>
 </div>
 

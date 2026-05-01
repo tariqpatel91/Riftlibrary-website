@@ -440,6 +440,274 @@ function goto(p,el){
 }
 
 /* ── DECKS ──────────────────────────────────────── */
+let activeDeckTab='mine';
+
+function setDeckTab(tab){
+  activeDeckTab=tab;
+  ['mine','public','team'].forEach(t=>{
+    const btn=document.getElementById('dst-'+t);
+    const content=document.getElementById('dst-'+t+'-content');
+    if(btn) btn.classList.toggle('on',t===tab);
+    if(content) content.style.display=t===tab?'':'none';
+  });
+  if(tab==='mine') renderDecks();
+  if(tab==='public') renderPublicDecks();
+  if(tab==='team') renderTeamDecksTab();
+}
+
+async function renderPublicDecks(){
+  const el=document.getElementById('public-decks-content');
+  if(!el) return;
+  el.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">Loading public decks…</div>`;
+  try{
+    const {data,error}=await _sb.from('public_decks').select('*').order('created_at',{ascending:false}).limit(50);
+    if(error) throw error;
+    if(!data||!data.length){
+      el.innerHTML=`<div style="padding:3rem;text-align:center;"><h3 style="margin-bottom:8px;">No public decks yet</h3><p style="color:var(--text-muted);font-size:13px;">Be the first to publish a deck!</p>${_buildPublishBtn()}</div>`;
+      return;
+    }
+    let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">`
+      +`<span style="font-size:13px;color:var(--text-muted);">${data.length} public deck${data.length!==1?'s':''}</span>`
+      +_buildPublishBtn()
+      +`</div>`;
+    html+=`<div class="dg">`;
+    html+=data.map(d=>{
+      const totalC=(d.cards||[]).reduce((a,c)=>a+c.cnt,0)||0;
+      const dcImg=d.legend_img||'';
+      const dcAvatar=dcImg
+        ?`<div class="dc-avatar"><img src="${dcImg}" alt="${d.legend}"></div>`
+        :`<div class="dc-avatar dc-avatar-empty"></div>`;
+      return `<div class="dc">
+        <div class="dt">
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${dcAvatar}
+            <div>
+              <div class="dn">${d.name}</div>
+              <div class="dl">${d.legend||'—'}</div>
+            </div>
+          </div>
+          <span class="ftag">${d.format||''}</span>
+        </div>
+        ${d.domains&&d.domains.length?`<div class="dr">${pills(d.domains)}</div>`:''}
+        ${d.description?`<div style="font-size:12px;color:var(--text-muted);padding:4px 0;border-top:1px solid var(--border);margin-top:6px;">${d.description.slice(0,100)}${d.description.length>100?'…':''}</div>`:''}
+        <div class="df">
+          <span><strong>${totalC||d.card_count||'?'}</strong> cards</span>
+          <span style="font-size:11px;color:var(--text-muted);">by ${d.author||'Anonymous'}</span>
+        </div>
+        <div class="da">
+          <button class="btn btn-sm btn-g" onclick="importPublicDeck('${d.id}')">Import</button>
+        </div>
+      </div>`;
+    }).join('');
+    html+=`</div>`;
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">`
+      +`<div style="margin-bottom:1rem;">Public decks aren't set up yet.</div>`
+      +_buildPublishBtn()
+      +`</div>`;
+  }
+}
+
+function _buildPublishBtn(){
+  return `<button class="btn btn-p" style="font-size:12px;padding:7px 16px;" onclick="openPublishDeckModal()">↑ Publish a Deck</button>`;
+}
+
+function openPublishDeckModal(){
+  if(!myDecks.length){toast('Create a deck first');return;}
+  const opts=myDecks.map(d=>`<option value="${d.id}">${d.name} (${d.legend})</option>`).join('');
+  const m=document.createElement('div');
+  m.id='publish-modal';
+  m.innerHTML=`<div class="modal-backdrop" onclick="document.getElementById('publish-modal').remove()"></div>
+  <div class="modal-box" style="max-width:440px;">
+    <div class="modal-header"><h2>Publish Deck</h2><button class="modal-close" onclick="document.getElementById('publish-modal').remove()">✕</button></div>
+    <div style="display:flex;flex-direction:column;gap:12px;padding:16px;">
+      <label style="font-size:13px;font-weight:600;">Select deck</label>
+      <select id="pub-deck-sel" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">${opts}</select>
+      <label style="font-size:13px;font-weight:600;">Author name (optional)</label>
+      <input id="pub-author" type="text" placeholder="Your name or handle" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
+      <label style="font-size:13px;font-weight:600;">Description (optional)</label>
+      <textarea id="pub-desc" rows="3" placeholder="Describe your deck strategy…" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);resize:vertical;"></textarea>
+      <button class="btn btn-p" onclick="submitPublicDeck()">Publish</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+async function submitPublicDeck(){
+  const deckId=document.getElementById('pub-deck-sel').value;
+  const author=(document.getElementById('pub-author').value||'').trim()||'Anonymous';
+  const description=(document.getElementById('pub-desc').value||'').trim();
+  const d=myDecks.find(x=>String(x.id)===String(deckId));
+  if(!d){toast('Deck not found');return;}
+  const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
+  const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
+  const payload={
+    name:d.name, legend:d.legend, legend_img:dcLegFull?dcLegFull.imageUrl:'',
+    format:d.format||'', domains:d.domains||[], cards:d.cards||[],
+    card_count:(d.cards||[]).reduce((a,c)=>a+c.cnt,0),
+    author, description, created_at:new Date().toISOString()
+  };
+  try{
+    const {error}=await _sb.from('public_decks').insert([payload]);
+    if(error) throw error;
+    document.getElementById('publish-modal').remove();
+    toast('Deck published!');
+    setDeckTab('public');
+  }catch(e){
+    toast('Could not publish: '+(e.message||'unknown error'));
+  }
+}
+
+async function importPublicDeck(pubId){
+  try{
+    const {data,error}=await _sb.from('public_decks').select('*').eq('id',pubId).single();
+    if(error||!data) throw error||new Error('not found');
+    const newDeck={
+      id:Date.now(), name:data.name+' (imported)', legend:data.legend,
+      format:data.format||'', domains:data.domains||[], cards:data.cards||[],
+      wins:0, losses:0, sideboard:[], results:[], runes:[], battlefields:[]
+    };
+    myDecks.push(newDeck);
+    persistDecks();
+    toast('Deck imported to My Decks!');
+    setDeckTab('mine');
+  }catch(e){
+    toast('Import failed');
+  }
+}
+
+function renderTeamDecksTab(){
+  const el=document.getElementById('team-decks-content');
+  if(!el) return;
+  const sharedFromTeam=teamDecklists||[];
+  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">`;
+  html+=`<span style="font-size:13px;color:var(--text-muted);">${sharedFromTeam.length} deck${sharedFromTeam.length!==1?'s':''} shared by the team</span>`;
+  html+=`<button class="btn btn-g" style="font-size:12px;padding:7px 16px;" onclick="openShareToTeamModal()">+ Share a Deck</button>`;
+  html+=`</div>`;
+  if(!sharedFromTeam.length){
+    html+=`<div style="padding:3rem;text-align:center;color:var(--text-muted);font-size:13px;">No team decks yet. Share one of your decks!</div>`;
+    el.innerHTML=html; return;
+  }
+  html+=`<div class="dg">`;
+  html+=sharedFromTeam.map(entry=>{
+    const d=myDecks.find(x=>x.id===entry.deckId);
+    const dcLegEntry=d?(d.cards||[]).find(c=>c.t==='Legend'):null;
+    const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
+    const dcImg=dcLegFull?dcLegFull.imageUrl:'';
+    const dcAvatar=dcImg
+      ?`<div class="dc-avatar"><img src="${dcImg}" alt="${entry.legend}"></div>`
+      :`<div class="dc-avatar dc-avatar-empty"></div>`;
+    return `<div class="dc">
+      <div class="dt">
+        <div style="display:flex;align-items:center;gap:10px;">
+          ${dcAvatar}
+          <div>
+            <div class="dn">${entry.name}</div>
+            <div class="dl">${entry.legend||'—'}</div>
+          </div>
+        </div>
+      </div>
+      <div class="df">
+        <span style="font-size:11px;color:var(--text-muted);">Shared ${new Date(entry.ts).toLocaleDateString()}</span>
+      </div>
+      <div class="da">
+        ${d?`<button class="btn btn-sm btn-g" onclick="openDD('${d.id}')">View</button>`:'<span style="font-size:11px;color:var(--text-muted);">Deck not in your library</span>'}
+        <button class="btn btn-sm btn-d" onclick="unshareTeamDecklist(${entry.id});renderTeamDecksTab()">Remove</button>
+      </div>
+    </div>`;
+  }).join('');
+  html+=`</div>`;
+  el.innerHTML=html;
+}
+
+function openShareToTeamModal(){
+  if(!myDecks.length){toast('No decks to share');return;}
+  const opts=myDecks.map(d=>`<option value="${d.id}">${d.name} (${d.legend})</option>`).join('');
+  const m=document.createElement('div');
+  m.id='share-team-modal';
+  m.innerHTML=`<div class="modal-backdrop" onclick="document.getElementById('share-team-modal').remove()"></div>
+  <div class="modal-box" style="max-width:380px;">
+    <div class="modal-header"><h2>Share to Team</h2><button class="modal-close" onclick="document.getElementById('share-team-modal').remove()">✕</button></div>
+    <div style="display:flex;flex-direction:column;gap:12px;padding:16px;">
+      <select id="share-team-deck-sel" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">${opts}</select>
+      <button class="btn btn-p" onclick="_doShareToTeam()">Share</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+let publishedPublicSet=JSON.parse(localStorage.getItem('rl_published_public')||'[]');
+function isPublishedPublic(id){return publishedPublicSet.includes(String(id));}
+function isPublishedTeam(id){return !!teamDecklists.find(x=>String(x.deckId)===String(id));}
+function persistPublishedPublic(){localStorage.setItem('rl_published_public',JSON.stringify(publishedPublicSet));}
+
+async function publishDeckToPublic(deckId){
+  const d=myDecks.find(x=>String(x.id)===String(deckId));
+  if(!d){toast('Deck not found');return;}
+  if(isPublishedPublic(deckId)){
+    if(!confirm(`"${d.name}" is already published to Public Decks. Unpublish it?`))return;
+    publishedPublicSet=publishedPublicSet.filter(x=>String(x)!==String(deckId));
+    persistPublishedPublic();
+    try{ await _sb.from('public_decks').delete().eq('local_deck_id',String(deckId)); }catch(e){}
+    toast('Removed from Public Decks');
+    renderDecks();
+    return;
+  }
+  if(!confirm(`Publish "${d.name}" to Public Decks? Anyone will be able to view and import it.`))return;
+  const author=(prompt('Publish under what author name?','Anonymous')||'').trim()||'Anonymous';
+  const description=(prompt('Short description (optional):','')||'').trim();
+  const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
+  const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
+  const payload={
+    name:d.name, legend:d.legend, legend_img:dcLegFull?dcLegFull.imageUrl:'',
+    format:d.format||'', domains:d.domains||[], cards:d.cards||[],
+    card_count:(d.cards||[]).reduce((a,c)=>a+c.cnt,0),
+    author, description, local_deck_id:String(deckId), created_at:new Date().toISOString()
+  };
+  try{
+    const {error}=await _sb.from('public_decks').insert([payload]);
+    if(error) throw error;
+    publishedPublicSet.push(String(deckId));
+    persistPublishedPublic();
+    toast('Deck published to Public Decks!');
+    renderDecks();
+  }catch(e){
+    toast('Could not publish: '+(e.message||'unknown error'));
+  }
+}
+
+function publishDeckToTeam(deckId){
+  const d=myDecks.find(x=>String(x.id)===String(deckId));
+  if(!d){toast('Deck not found');return;}
+  if(isPublishedTeam(deckId)){
+    if(!confirm(`"${d.name}" is already shared with the team. Remove it?`))return;
+    teamDecklists=teamDecklists.filter(x=>String(x.deckId)!==String(deckId));
+    localStorage.setItem('rl_team_decklists',JSON.stringify(teamDecklists));
+    toast('Removed from team decks');
+    renderDecks();
+    return;
+  }
+  if(!confirm(`Share "${d.name}" with your team?`))return;
+  teamDecklists.unshift({id:Date.now(),deckId:d.id,name:d.name,legend:d.legend,ts:new Date().toISOString()});
+  localStorage.setItem('rl_team_decklists',JSON.stringify(teamDecklists));
+  toast('Deck shared with team!');
+  renderDecks();
+}
+
+function _doShareToTeam(){
+  const sel=document.getElementById('share-team-deck-sel');
+  if(!sel) return;
+  const deckId=parseInt(sel.value);
+  const d=myDecks.find(x=>x.id===deckId);if(!d)return;
+  if(teamDecklists.find(x=>x.deckId===deckId)){toast('Already shared');return;}
+  teamDecklists.unshift({id:Date.now(),deckId,name:d.name,legend:d.legend,ts:new Date().toISOString()});
+  localStorage.setItem('rl_team_decklists',JSON.stringify(teamDecklists));
+  document.getElementById('share-team-modal').remove();
+  toast('Deck shared with team!');
+  renderTeamDecksTab();
+}
+
 function renderDecks(){
   const g=document.getElementById('dg');
   const q=document.getElementById('ds').value.toLowerCase();
@@ -479,7 +747,10 @@ function renderDecks(){
         <span class="${wrc(w)}"><strong>${w}%</strong> WR</span>
       </div>
       <div class="da">
-        <button class="btn btn-sm btn-g" onclick="event.stopPropagation();openDD('${d.id}')">View</button>
+        <div class="da-left">
+          <button class="btn btn-sm ${isPublishedPublic(d.id)?'btn-pub-on':'btn-g'}" onclick="event.stopPropagation();publishDeckToPublic('${d.id}')">${isPublishedPublic(d.id)?'✓ Published':'Publish to Public'}</button>
+          <button class="btn btn-sm ${isPublishedTeam(d.id)?'btn-pub-on':'btn-g'}" onclick="event.stopPropagation();publishDeckToTeam('${d.id}')">${isPublishedTeam(d.id)?'✓ On Team':'Publish to Team'}</button>
+        </div>
         <button class="btn btn-sm btn-d" onclick="event.stopPropagation();delDeck('${d.id}')">Delete</button>
       </div>
     </div>`;
@@ -1232,7 +1503,11 @@ function renderEditSearch(){
 
   let html='';
 
-  EF.type='';
+  html+='<div class="edit-type-tabs">';
+  TYPES.forEach(t=>{
+    html+=`<button class="edit-type-tab${EF.type===t?' on':''}" onclick="setEditType('${t}')">${TYPE_LABELS[t]}</button>`;
+  });
+  html+='</div>';
 
   html+='<div class="edit-dom-filter">';
   const filterDoms=deckDoms.length?deckDoms:DOMS;
@@ -3125,7 +3400,191 @@ function renderEvents(){
 /* ── COLLECTION TRACKER ─────────────────────────── */
 let collOwned=JSON.parse(localStorage.getItem('rl_collection')||'{}');
 let collWanted=JSON.parse(localStorage.getItem('rl_collection_wanted')||'{}');
-const CF2={q:'',type:'',dom:'',rar:'',set:'',show:'all',view:'grid'};
+let rlBinders=JSON.parse(localStorage.getItem('rl_binders')||'[]');
+// Migrate legacy binders: cards used to be string[] of IDs; now [{id,cnt}]
+rlBinders.forEach(b=>{
+  if(Array.isArray(b.cards)&&b.cards.length&&typeof b.cards[0]==='string'){
+    const map={};
+    b.cards.forEach(id=>{map[id]=(map[id]||0)+1;});
+    b.cards=Object.entries(map).map(([id,cnt])=>({id,cnt}));
+  }
+  if(!Array.isArray(b.cards)) b.cards=[];
+});
+
+function _binderTotal(b){return (b.cards||[]).reduce((a,e)=>a+(e.cnt||0),0);}
+function _binderHas(b,id){return (b.cards||[]).find(e=>e.id===id);}
+const CF2={q:'',type:'',dom:'',rar:'',set:'',show:'all',view:'grid',binder:'',binderMode:'view',collMode:'view'};
+
+function setBinderMode(mode){CF2.binderMode=mode;renderCollection();}
+function setCollMode(mode){CF2.collMode=mode;renderCollection();}
+
+function persistBinders(){localStorage.setItem('rl_binders',JSON.stringify(rlBinders));}
+
+function createBinder(){
+  const name=prompt('Binder name:','New Binder');
+  if(!name||!name.trim())return;
+  rlBinders.push({id:Date.now(),name:name.trim(),cards:[]});
+  persistBinders();renderCollection();
+}
+
+function renameBinder(id){
+  const b=rlBinders.find(x=>x.id===id);if(!b)return;
+  const name=prompt('Rename binder:',b.name);
+  if(!name||!name.trim())return;
+  b.name=name.trim();persistBinders();renderCollection();
+}
+
+function deleteBinder(id){
+  if(!confirm('Delete this binder?'))return;
+  rlBinders=rlBinders.filter(x=>x.id!==id);
+  if(CF2.binder===id)CF2.binder='';
+  persistBinders();renderCollection();
+}
+
+function setActiveBinder(id){CF2.binder=id;CF2.show='all';CF2.q='';CF2.binderMode='view';renderCollection();}
+
+function addCardToBinder(cardId,binderId){
+  if(!binderId){
+    if(!rlBinders.length){toast('Create a binder first');return;}
+    openAddToBinderModal(cardId);return;
+  }
+  const b=rlBinders.find(x=>x.id===binderId);if(!b)return;
+  const owned=collOwned[cardId]||0;
+  const entry=_binderHas(b,cardId);
+  const inBinder=entry?entry.cnt:0;
+  if(inBinder>=owned&&owned>0){toast('All '+owned+' copies are already in this binder');return;}
+  if(entry) entry.cnt+=1; else b.cards.push({id:cardId,cnt:1});
+  persistBinders();toast('Added to '+b.name);renderCollection();
+}
+
+function removeCardFromBinder(cardId,binderId){
+  const b=rlBinders.find(x=>x.id===binderId);if(!b)return;
+  const entry=_binderHas(b,cardId);
+  if(!entry)return;
+  entry.cnt-=1;
+  if(entry.cnt<=0) b.cards=b.cards.filter(e=>e.id!==cardId);
+  persistBinders();renderCollection();
+}
+
+function _addCardSilent(cardId,binderId){
+  const b=rlBinders.find(x=>x.id===binderId);if(!b)return;
+  const owned=collOwned[cardId]||0;
+  const entry=_binderHas(b,cardId);
+  const inBinder=entry?entry.cnt:0;
+  if(owned>0&&inBinder>=owned){toast('Max '+owned+' copies (you only own '+owned+')');return;}
+  if(entry) entry.cnt+=1; else b.cards.push({id:cardId,cnt:1});
+  persistBinders();renderCollection();
+}
+
+// Search state for binder edit library
+const BEF={q:'',type:'',dom:''};
+function setBefField(k,v){BEF[k]=v;renderCollection();}
+
+function renderBinderEditLayout(binder){
+  const RR={Legendary:5,Epic:4,Rare:3,Uncommon:2,Common:1,Showcase:0,Promo:0};
+  const seen=new Map();
+  CARDS.forEach(c=>{
+    const key=baseName(c.name).toLowerCase();
+    const ex=seen.get(key);
+    if(!ex||(RR[c.rarity]??1)>(RR[ex.rarity]??1)) seen.set(key,c);
+  });
+  let owned=[...seen.values()].filter(c=>collOwned[c.id]).sort((a,b)=>a.name.localeCompare(b.name));
+  if(BEF.q) owned=owned.filter(c=>c.name.toLowerCase().includes(BEF.q.toLowerCase())||(c.txt||'').toLowerCase().includes(BEF.q.toLowerCase()));
+  if(BEF.type) owned=owned.filter(c=>c.type===BEF.type||(BEF.type==='Champion'&&(c.supertype||'').toLowerCase().includes('champion')));
+  if(BEF.dom) owned=owned.filter(c=>(c.doms||[]).includes(BEF.dom));
+
+  // Build left library card thumbs
+  const leftCards=owned.map(c=>{
+    const entry=_binderHas(binder,c.id);
+    const inBinderCnt=entry?entry.cnt:0;
+    const ownedCnt=collOwned[c.id]||0;
+    const maxed=ownedCnt>0&&inBinderCnt>=ownedCnt;
+    return `<div class="be-thumb${inBinderCnt>0?' in-binder':''}${maxed?' maxed':''}" onclick="_addCardSilent('${c.id}',${binder.id})" title="${c.name} — click to add (${inBinderCnt}/${ownedCnt} in binder)">
+      <div class="be-thumb-img">
+        ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="edit-card-no-img"><div class="ecn-name">${c.name}</div></div>`}
+      </div>
+      <div class="be-thumb-owned">${inBinderCnt}/${ownedCnt}</div>
+      ${maxed?`<div class="be-thumb-incheck">✓</div>`:`<div class="be-thumb-add">+</div>`}
+      <div class="be-thumb-name">${c.name}</div>
+    </div>`;
+  }).join('');
+
+  // Group binder cards by type
+  const groupOrder=['Champion','Unit','Spell','Gear','Battlefield','Rune','Legend'];
+  const groups={};
+  binder.cards.forEach(entry=>{
+    const c=CARDS.find(x=>x.id===entry.id);
+    if(!c)return;
+    const t=c.supertype&&c.supertype.toLowerCase().includes('champion')?'Champion':(c.type||'Other');
+    if(!groups[t])groups[t]=[];
+    groups[t].push({card:c,cnt:entry.cnt});
+  });
+
+  let rightHtml='';
+  const totalInBinder=_binderTotal(binder);
+  if(!totalInBinder){
+    rightHtml=`<div style="padding:3rem 1rem;text-align:center;color:var(--text-muted);font-size:13px;">This binder is empty. Click any card on the left to add it.</div>`;
+  } else {
+    const orderedGroups=[...groupOrder.filter(t=>groups[t]),...Object.keys(groups).filter(t=>!groupOrder.includes(t))];
+    rightHtml=orderedGroups.map(t=>{
+      const cards=groups[t].sort((a,b)=>a.card.name.localeCompare(b.card.name));
+      const groupTotal=cards.reduce((a,e)=>a+e.cnt,0);
+      return `<div class="be-group">
+        <div class="be-group-header">${t.toUpperCase()} <span style="color:var(--text-muted);font-weight:500;">(${groupTotal})</span></div>
+        <div class="be-group-grid">
+          ${cards.map(({card:c,cnt})=>{
+            return `<div class="be-binder-card" onclick="removeCardFromBinder('${c.id}',${binder.id})" title="${c.name} — click to remove one copy">
+              ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="be-binder-no-img">${c.name}</div>`}
+              <div class="be-binder-cnt">×${cnt}</div>
+              <div class="be-binder-rm">−</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Filters above the library
+  const types=['','Champion','Unit','Spell','Gear','Battlefield','Rune'];
+  const doms=['','fury','chaos','calm','mind','body','order'];
+  const filtersHtml=`
+    <div class="be-search-wrap">
+      <span class="be-search-icon">⌕</span>
+      <input class="be-search" type="text" placeholder="Search owned cards…" value="${BEF.q.replace(/"/g,'&quot;')}" oninput="setBefField('q',this.value)">
+    </div>
+    <div class="be-filter-row">
+      ${types.map(t=>`<button class="be-pill${BEF.type===t?' on':''}" onclick="setBefField('type','${t}')">${t||'All'}</button>`).join('')}
+    </div>
+    <div class="be-filter-row">
+      ${doms.map(d=>`<button class="be-dom-pill ${d}${BEF.dom===d?' on':''}" onclick="setBefField('dom','${d}')">${d?d[0].toUpperCase()+d.slice(1):'All'}</button>`).join('')}
+    </div>`;
+
+  return `<div class="binder-edit-grid">
+    <div class="be-left">
+      <div class="be-section-title">Your Collection <span style="color:var(--text-muted);font-weight:400;">(${owned.length} cards)</span></div>
+      ${filtersHtml}
+      <div class="be-library-grid">
+        ${leftCards||'<div style="padding:2rem;color:var(--text-muted);font-size:12px;text-align:center;">No owned cards match.</div>'}
+      </div>
+    </div>
+    <div class="be-right">
+      <div class="be-section-title">${binder.name} <span style="color:var(--text-muted);font-weight:400;">(${totalInBinder} cards)</span></div>
+      ${rightHtml}
+    </div>
+  </div>`;
+}
+
+function openAddToBinderModal(cardId){
+  const m=document.createElement('div');
+  m.id='add-binder-modal';
+  const opts=rlBinders.map(b=>`<button class="btn btn-g" style="width:100%;text-align:left;" onclick="addCardToBinder('${cardId}',${b.id});document.getElementById('add-binder-modal').remove()">${b.name}</button>`).join('');
+  m.innerHTML=`<div class="modal-backdrop" onclick="document.getElementById('add-binder-modal').remove()"></div>
+  <div class="modal-box" style="max-width:300px;">
+    <div class="modal-header"><h2>Add to Binder</h2><button class="modal-close" onclick="document.getElementById('add-binder-modal').remove()">✕</button></div>
+    <div style="display:flex;flex-direction:column;gap:8px;padding:16px;">${opts}</div>
+  </div>`;
+  document.body.appendChild(m);
+}
 
 const SET_META={
   UNL:{label:'Unleashed',   grad:'linear-gradient(135deg,#c8006a 0%,#6a0030 60%,#1a000d 100%)',accent:'#f050a0',textShadow:'0 0 20px rgba(200,0,106,0.6)'},
@@ -3206,60 +3665,127 @@ function renderCollection(){
   const SET_ORDER=['UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
   const orderedSets=[...SET_ORDER.filter(s=>setMap[s]),...Object.keys(setMap).filter(s=>!SET_ORDER.includes(s))];
 
-  let html=`<div class="ph"><h1>My Collection</h1><p>Track your Riftbound card collection</p></div>`;
-
-  // overall mini stat bar
-  const overallPct=totalUnique?Math.round(totalOwned/totalUnique*100):0;
-  html+=`<div style="display:flex;align-items:center;gap:16px;margin-bottom:1.5rem;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
-    <div style="display:flex;gap:20px;flex-wrap:wrap;flex:1;">
-      <div><span style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--accent);">${overallPct}%</span><span style="font-size:12px;color:var(--text-muted);margin-left:6px;">overall</span></div>
-      <div><span style="font-weight:700;">${totalOwned}</span><span style="font-size:12px;color:var(--text-muted);"> / ${totalUnique} unique owned</span></div>
-      <div><span style="font-weight:700;color:var(--calm);">${totalPlaysets}</span><span style="font-size:12px;color:var(--text-muted);"> playsets</span></div>
-      <div><span style="font-weight:700;">${totalCopies}</span><span style="font-size:12px;color:var(--text-muted);"> total copies</span></div>
-      <div><span style="font-weight:700;color:var(--chaos);">${totalWanted}</span><span style="font-size:12px;color:var(--text-muted);"> wishlisted</span></div>
+  // ── Binder sidebar ──
+  const activeBinder=CF2.binder?rlBinders.find(x=>x.id===CF2.binder):null;
+  let sidebarHtml=`<div class="coll-binder-sidebar">
+    <div class="cbs-header">
+      <span>Binders</span>
+      <button class="cbs-new-btn" onclick="createBinder()" title="New binder">+</button>
     </div>
-  </div>`;
-
-  // set cards grid
-  html+=`<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;">Sets</div>`;
-  html+=`<div class="coll-set-grid">`;
-  orderedSets.forEach(sid=>{
-    const sd=setMap[sid];
-    const meta=SET_META[sid]||{label:sd.label||sid,grad:'linear-gradient(135deg,var(--surface3),var(--surface2))',accent:'var(--accent)',textShadow:'none'};
-    const setCards=[...sd.cards.values()];
-    const setTotal=setCards.length;
-    const setOwned=setCards.filter(c=>collOwned[c.id]).length;
-    const setComplete=setCards.filter(c=>(collOwned[c.id]||0)>=3).length;
-    const setPct=setTotal?Math.round(setOwned/setTotal*100):0;
-    const isActive=CF2.set===sid;
-    const releaseYear=setCards[0]?'':'' ;
-    html+=`<div class="coll-set-card${isActive?' active':''}" onclick="setCollSet('${sid}')">
-      <div class="coll-set-art" style="background:${meta.grad};">
-        <div class="coll-set-name" style="color:${meta.accent};text-shadow:${meta.textShadow};">${meta.label||sd.label}</div>
-      </div>
-      <div class="coll-set-body">
-        <div class="coll-set-info">
-          <span class="coll-set-id">${sid}</span>
-          <span class="coll-set-count">${setTotal} cards</span>
-          <span class="coll-set-pct" style="color:${setPct===100?'var(--calm)':'var(--accent)'};">${setPct}%</span>
-        </div>
-        <div class="coll-set-prog-track"><div class="coll-set-prog-fill" style="width:${setPct}%;background:${setPct===100?'var(--calm)':meta.accent};"></div></div>
-        <div class="coll-set-bottom">
-          <span style="font-size:11px;color:var(--text-muted);">${setOwned} / ${setTotal}</span>
-          ${setComplete>0?`<span style="font-size:11px;color:var(--calm);">${setComplete} complete</span>`:''}
-        </div>
+    <button class="cbs-item${!CF2.binder?' active':''}" onclick="setActiveBinder('')">
+      <span class="cbs-label">All Cards</span>
+      <span class="cbs-count">${allUnique.length}</span>
+    </button>`;
+  rlBinders.forEach(b=>{
+    sidebarHtml+=`<div class="cbs-item-wrap${CF2.binder===b.id?' active':''}">
+      <button class="cbs-item${CF2.binder===b.id?' active':''}" onclick="setActiveBinder(${b.id})">
+        <span class="cbs-label">📁 ${b.name}</span>
+        <span class="cbs-count">${_binderTotal(b)}</span>
+      </button>
+      <div class="cbs-actions">
+        <button class="cbs-act-btn" onclick="renameBinder(${b.id})" title="Rename">✎</button>
+        <button class="cbs-act-btn cbs-act-del" onclick="deleteBinder(${b.id})" title="Delete">✕</button>
       </div>
     </div>`;
   });
-  html+=`</div>`;
+  sidebarHtml+=`</div>`;
 
-  // divider + card grid section
-  html+=`<div style="margin-top:2rem;margin-bottom:1rem;display:flex;align-items:center;gap:10px;">
-    ${CF2.set?`<div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;">${SET_META[CF2.set]?.label||CF2.set}</div><button class="coll-pill" onclick="setCollSet('')" style="font-size:11px;">✕ Show all sets</button>`:''}
-  </div>`;
+  let html=`<div class="ph coll-ph-centered"><h1>My Collection</h1><p>Track your Riftbound card collection</p></div>`;
+  if(!activeBinder){
+    html+=`<div class="coll-mode-toggle-wrap">
+      <button class="cmt ${CF2.collMode==='view'?'on':''}" onclick="setCollMode('view')">👁 View my Collection</button>
+      <button class="cmt ${CF2.collMode==='edit'?'on':''}" onclick="setCollMode('edit')">✎ Edit my Collection</button>
+    </div>`;
+  }
+  html+=`<div class="coll-layout">${sidebarHtml}<div class="coll-main">`;
+
+  if(!activeBinder){
+    // overall mini stat bar
+    const overallPct=totalUnique?Math.round(totalOwned/totalUnique*100):0;
+    html+=`<div style="display:flex;align-items:center;gap:16px;margin-bottom:1.5rem;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
+      <div style="display:flex;gap:20px;flex-wrap:wrap;flex:1;">
+        <div><span style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--accent);">${overallPct}%</span><span style="font-size:12px;color:var(--text-muted);margin-left:6px;">overall</span></div>
+        <div><span style="font-weight:700;">${totalOwned}</span><span style="font-size:12px;color:var(--text-muted);"> / ${totalUnique} unique owned</span></div>
+        <div><span style="font-weight:700;color:var(--calm);">${totalPlaysets}</span><span style="font-size:12px;color:var(--text-muted);"> playsets</span></div>
+        <div><span style="font-weight:700;">${totalCopies}</span><span style="font-size:12px;color:var(--text-muted);"> total copies</span></div>
+        <div><span style="font-weight:700;color:var(--chaos);">${totalWanted}</span><span style="font-size:12px;color:var(--text-muted);"> wishlisted</span></div>
+      </div>
+    </div>`;
+
+    // set cards grid
+    html+=`<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;">Sets</div>`;
+    html+=`<div class="coll-set-grid">`;
+    orderedSets.forEach(sid=>{
+      const sd=setMap[sid];
+      const meta=SET_META[sid]||{label:sd.label||sid,grad:'linear-gradient(135deg,var(--surface3),var(--surface2))',accent:'var(--accent)',textShadow:'none'};
+      const setCards=[...sd.cards.values()];
+      const setTotal=setCards.length;
+      const setOwned=setCards.filter(c=>collOwned[c.id]).length;
+      const setComplete=setCards.filter(c=>(collOwned[c.id]||0)>=3).length;
+      const setPct=setTotal?Math.round(setOwned/setTotal*100):0;
+      const isActive=CF2.set===sid;
+      html+=`<div class="coll-set-card${isActive?' active':''}" onclick="setCollSet('${sid}')">
+        <div class="coll-set-art" style="background:${meta.grad};">
+          <div class="coll-set-name" style="color:${meta.accent};text-shadow:${meta.textShadow};">${meta.label||sd.label}</div>
+        </div>
+        <div class="coll-set-body">
+          <div class="coll-set-info">
+            <span class="coll-set-id">${sid}</span>
+            <span class="coll-set-count">${setTotal} cards</span>
+            <span class="coll-set-pct" style="color:${setPct===100?'var(--calm)':'var(--accent)'};">${setPct}%</span>
+          </div>
+          <div class="coll-set-prog-track"><div class="coll-set-prog-fill" style="width:${setPct}%;background:${setPct===100?'var(--calm)':meta.accent};"></div></div>
+          <div class="coll-set-bottom">
+            <span style="font-size:11px;color:var(--text-muted);">${setOwned} / ${setTotal}</span>
+            ${setComplete>0?`<span style="font-size:11px;color:var(--calm);">${setComplete} complete</span>`:''}
+          </div>
+        </div>
+      </div>`;
+    });
+    html+=`</div>`;
+
+    // divider
+    html+=`<div style="margin-top:2rem;margin-bottom:1rem;display:flex;align-items:center;gap:10px;">
+      ${CF2.set?`<div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;">${SET_META[CF2.set]?.label||CF2.set}</div><button class="coll-pill" onclick="setCollSet('')" style="font-size:11px;">✕ Show all sets</button>`:''}
+    </div>`;
+  } else {
+    // Binder header
+    const isEdit=CF2.binderMode==='edit';
+    html+=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
+      <span style="font-size:22px;">📁</span>
+      <div style="flex:1;min-width:140px;">
+        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">${activeBinder.name}</div>
+        <div style="font-size:12px;color:var(--text-muted);">${_binderTotal(activeBinder)} card${_binderTotal(activeBinder)!==1?'s':''} ${isEdit?'• adding from collection':''}</div>
+      </div>
+      <div class="binder-mode-toggle">
+        <button class="bmt ${!isEdit?'on':''}" onclick="setBinderMode('view')">👁 View</button>
+        <button class="bmt ${isEdit?'on':''}" onclick="setBinderMode('edit')">✎ Edit</button>
+      </div>
+      <button class="btn btn-g" style="font-size:12px;" onclick="renameBinder(${activeBinder.id})">Rename</button>
+      <button class="btn btn-d" style="font-size:12px;" onclick="deleteBinder(${activeBinder.id})">Delete</button>
+    </div>`;
+
+    // Binder Edit mode → deck-builder-style 2-column layout
+    if(isEdit){
+      html+=renderBinderEditLayout(activeBinder);
+      html+=`</div></div>`;
+      el.innerHTML=html;
+      return;
+    }
+  }
 
   // filter source — use per-set cards (not allUnique) when a set is selected so promos appear
-  let source=CF2.set&&setMap[CF2.set]?[...setMap[CF2.set].cards.values()]:allUnique;
+  let source=CF2.set&&setMap[CF2.set]&&!activeBinder?[...setMap[CF2.set].cards.values()]:allUnique;
+  // binder filter
+  if(activeBinder){
+    if(CF2.binderMode==='edit'){
+      // show only owned cards (from the user's collection) so they can pick what to add
+      source=source.filter(c=>collOwned[c.id]);
+    } else {
+      // view mode: only cards already added to the binder
+      source=source.filter(c=>!!_binderHas(activeBinder,c.id));
+    }
+  }
   if(CF2.q) source=source.filter(c=>c.name.toLowerCase().includes(CF2.q)||c.txt.toLowerCase().includes(CF2.q));
   if(CF2.type) source=source.filter(c=>c.type===CF2.type||(CF2.type==='Champion'&&(c.supertype||'').toLowerCase().includes('champion')));
   if(CF2.dom) source=source.filter(c=>c.doms.includes(CF2.dom));
@@ -3299,18 +3825,19 @@ function renderCollection(){
     </div>
   </div>`;
 
-  html+=`<div class="coll-filter-row">
+  html+=`<div class="coll-filter-row coll-filter-centered">
     ${['all','owned','missing','complete','wanted'].map(s=>`<button class="coll-pill${CF2.show===s?' on':''}" onclick="CF2.show='${s}';renderCollection()">${{all:'All',owned:'Owned',missing:'Missing',complete:'Playset',wanted:'♥ Wishlist'}[s]}</button>`).join('')}
     <span style="margin-left:4px;font-size:12px;color:var(--text-muted);">${source.length} cards</span>
-    ${(CF2.q||CF2.type||CF2.dom||CF2.rar||CF2.show!=='all')?`<button class="coll-pill" onclick="CF2.q='';CF2.type='';CF2.dom='';CF2.rar='';CF2.show='all';renderCollection()" style="margin-left:auto;">✕ Clear</button>`:''}
+    ${(CF2.q||CF2.type||CF2.dom||CF2.rar||CF2.show!=='all')?`<button class="coll-pill" onclick="CF2.q='';CF2.type='';CF2.dom='';CF2.rar='';CF2.show='all';renderCollection()">✕ Clear</button>`:''}
   </div>`;
 
-  html+=`<div class="coll-filter-row">
+  html+=`<div class="coll-filter-row coll-filter-centered">
     ${['fury','chaos','calm','mind','body','order'].map(d=>`<button class="coll-dom-pill ${d}${CF2.dom===d?' on':''}" onclick="CF2.dom=CF2.dom==='${d}'?'':'${d}';renderCollection()">${d[0].toUpperCase()+d.slice(1)}</button>`).join('')}
   </div>`;
 
   if(!source.length){
-    html+=`<div class="coll-empty">No cards match your filters.</div>`;
+    html+=`<div class="coll-empty">${activeBinder?'This binder is empty.':'No cards match your filters.'}</div>`;
+    html+=`</div></div>`;
     el.innerHTML=html;return;
   }
 
@@ -3339,16 +3866,28 @@ function renderCollection(){
           <div class="coll-card-name" style="${need>0?'color:#f87171;':'color:var(--calm);'}">${need>0?`Need ${need}`:'✓ Done'}</div>
         </div>`;
       } else {
-        html+=`<div class="coll-card ${cls}" title="${c.name}">
+        let binderRemoveBtn='';
+        if(activeBinder){
+          if(CF2.binderMode==='edit'){
+            const inBinder=!!_binderHas(activeBinder,c.id);
+            binderRemoveBtn=inBinder
+              ?`<button class="coll-binder-btn in-binder" onclick="event.stopPropagation();removeCardFromBinder('${si}',${activeBinder.id})" title="In binder — click to remove">✓</button>`
+              :`<button class="coll-binder-btn add" onclick="event.stopPropagation();_addCardSilent('${si}',${activeBinder.id})" title="Add to binder">+</button>`;
+          } else {
+            binderRemoveBtn=`<button class="coll-binder-btn remove" onclick="event.stopPropagation();removeCardFromBinder('${si}',${activeBinder.id})" title="Remove from binder">📁✕</button>`;
+          }
+        }
+        const inBinderView=!!activeBinder;
+        const hideOwnerControls=inBinderView||CF2.collMode==='view';
+        html+=`<div class="coll-card ${cls}${isWanted?' wishlisted':''}${hideOwnerControls?' in-binder-view':''}" title="${c.name}">
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
-          <div class="coll-half coll-half-left" onclick="setCollOwned('${si}',-1)"></div>
-          <div class="coll-half coll-half-right" onclick="setCollOwned('${si}',1)"></div>
-          ${owned>0?`<div class="coll-card-badge coll-badge-owned">${ownedLabel}</div>`:''}
-          <div class="coll-card-actions">
+          ${hideOwnerControls?'':`<button class="coll-wishlist-top-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>`}
+          ${binderRemoveBtn}
+          ${owned>0?`<div class="coll-card-badge coll-badge-owned">×${ownedLabel}</div>`:''}
+          ${hideOwnerControls?'':`<div class="coll-card-actions">
             <button class="coll-copy-btn coll-copy-minus" onclick="event.stopPropagation();setCollOwned('${si}',-1)" title="Remove copy">−</button>
-            <button class="coll-copy-btn coll-wishlist-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>
             <button class="coll-copy-btn coll-copy-plus" onclick="event.stopPropagation();setCollOwned('${si}',1)" title="Add copy">+</button>
-          </div>
+          </div>`}
           <div class="coll-card-name">${c.name}</div>
         </div>`;
       }
@@ -3378,6 +3917,7 @@ function renderCollection(){
     html+=`</div>`;
   }
 
+  html+=`</div></div>`; // close coll-main + coll-layout
   el.innerHTML=html;
 }
 
