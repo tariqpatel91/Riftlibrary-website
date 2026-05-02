@@ -1085,7 +1085,7 @@ body.on-play-tab #play-board{height:100vh;}
 /* ── Play board layout: hero column LEFT, big battlefields center, score track RIGHT ── */
 #play-main{flex:1;min-height:0;display:grid;grid-template-columns:130px 1fr 60px;grid-template-rows:1fr;gap:8px;padding:6px;position:relative;}
 #hero-column{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:8px;min-height:0;}
-#bf-stage{grid-column:2;grid-row:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0;}
+#bf-stage{grid-column:2;grid-row:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0;height:65%;align-self:start;}
 #score-track{grid-column:3;grid-row:1;display:grid;grid-template-columns:18px 1fr 18px;align-items:stretch;min-height:0;}
 .bf-large{position:relative;background:linear-gradient(160deg,rgba(60,90,180,0.18),rgba(20,30,80,0.18));border:1px solid rgba(180,140,50,0.35);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;}
 .bf-large .bz-cards{position:absolute;inset:8px;display:flex;align-items:center;justify-content:center;padding:0;}
