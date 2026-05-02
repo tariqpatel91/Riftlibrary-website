@@ -1082,9 +1082,11 @@ body.on-play-tab #play-board{height:100vh;}
 #opp-pieces{top:6px;}
 #my-pieces{bottom:6px;}
 .piece-bz{width:90px;height:130px;}
-/* ── New play board layout: 2 big battlefields + vertical track + hero column ── */
-#play-main{flex:1;min-height:0;display:grid;grid-template-columns:1fr 60px 130px;grid-template-rows:1fr auto;gap:8px;padding:6px;}
-#bf-stage{grid-column:1;grid-row:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0;}
+/* ── Play board layout: hero column LEFT, big battlefields center, score track RIGHT ── */
+#play-main{flex:1;min-height:0;display:grid;grid-template-columns:130px 1fr 60px;grid-template-rows:1fr auto;gap:8px;padding:6px;position:relative;}
+#hero-column{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:8px;min-height:0;}
+#bf-stage{grid-column:2;grid-row:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0;}
+#score-track{grid-column:3;grid-row:1;display:grid;grid-template-columns:18px 1fr 18px;align-items:stretch;min-height:0;}
 .bf-large{position:relative;background:linear-gradient(160deg,rgba(60,90,180,0.18),rgba(20,30,80,0.18));border:1px solid rgba(180,140,50,0.35);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;}
 .bf-large .bz-cards{position:absolute;inset:8px;display:flex;align-items:center;justify-content:center;padding:0;}
 .bf-large .board-card{width:auto;height:90%;}
@@ -1094,7 +1096,7 @@ body.on-play-tab #play-board{height:100vh;}
 .bf-large.drag-over{border-color:#e8d47a;box-shadow:0 0 18px rgba(232,212,122,0.4);}
 
 /* Score track — vertical column 8→0 with rotated player names on either side */
-#score-track{grid-column:2;grid-row:1;display:grid;grid-template-columns:18px 1fr 18px;align-items:stretch;min-height:0;}
+.track-noop{}
 .track-name{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.18em;color:rgba(232,212,122,0.7);writing-mode:vertical-rl;text-orientation:mixed;display:flex;align-items:center;justify-content:center;padding:4px 0;}
 .track-name-me{transform:rotate(180deg);}
 .track-col{display:grid;grid-template-rows:repeat(9,1fr);gap:3px;padding:4px 0;}
@@ -1103,10 +1105,9 @@ body.on-play-tab #play-board{height:100vh;}
 .track-slot.lit-me{background:rgba(232,212,122,0.85);color:#0a1428;border-color:#e8d47a;box-shadow:0 0 8px rgba(232,212,122,0.45);}
 .track-slot.lit-opp{background:rgba(220,80,60,0.7);color:#fff;border-color:#ff6b4a;}
 
-/* Hero column on the right */
-#hero-column{grid-column:3;grid-row:1;display:flex;flex-direction:column;gap:8px;min-height:0;}
+/* Hero column shared rules */
 .hero-half{flex:1;display:flex;flex-direction:column;gap:6px;min-height:0;}
-.hero-half .piece-bz{flex:1;width:100%;min-height:0;}
+.hero-half .piece-bz{flex:1;width:100%;min-height:0;position:relative;}
 
 /* BASE strip across the bottom of the play area */
 #play-main #center-base{grid-column:1/4;grid-row:2;flex:none;height:130px;display:flex;flex-direction:column;padding:4px 6px;position:relative;}

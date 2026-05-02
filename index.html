@@ -326,44 +326,20 @@
     <!-- Board arena: no topbar — info lives inside zones -->
     <div id="board-arena">
 
-      <!-- ── New play layout: 2 big battlefields + vertical score track + hero column + chat ── -->
+      <!-- ── Play layout: hero column on LEFT, big battlefields center, score track right ── -->
       <div id="play-main">
 
-        <!-- Two large central battlefield zones -->
-        <div id="bf-stage">
-          <div class="bz bf-large" id="bf-left" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battlefield-left')">
-            <div id="bf-left-cards" class="bz-cards"></div>
-            <button class="bf-add-btn" title="Drop a battlefield card here">+</button>
-            <span class="bz-lbl">BATTLEFIELD</span>
-          </div>
-          <div class="bz bf-large" id="bf-right" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battlefield-right')">
-            <div id="bf-right-cards" class="bz-cards"></div>
-            <button class="bf-add-btn" title="Drop a battlefield card here">+</button>
-            <span class="bz-lbl">BATTLEFIELD</span>
-          </div>
-        </div>
-
-        <!-- Vertical score track (8 → 0). One column shared, name labels run vertically on each side -->
-        <div id="score-track">
-          <div class="track-name track-name-me" id="track-name-me">asd</div>
-          <div class="track-col" id="track-col">
-            <button class="track-slot" data-v="8">8</button>
-            <button class="track-slot" data-v="7">7</button>
-            <button class="track-slot" data-v="6">6</button>
-            <button class="track-slot" data-v="5">5</button>
-            <button class="track-slot" data-v="4">4</button>
-            <button class="track-slot" data-v="3">3</button>
-            <button class="track-slot" data-v="2">2</button>
-            <button class="track-slot" data-v="1">1</button>
-            <button class="track-slot" data-v="0">0</button>
-          </div>
-          <div class="track-name track-name-opp" id="track-name-opp">Goldfish</div>
-        </div>
-
-        <!-- Hero column: opp champion + legend (top), my legend + champion (bottom) -->
+        <!-- Hero column on the LEFT: opp champion+legend on top, my legend+champion on bottom -->
         <div id="hero-column">
           <div class="hero-half hero-opp">
             <div class="bz piece-bz" id="opp-champion-zone">
+              <div class="pinfo-overlay">
+                <div class="pinfo-life">
+                  <button class="life-btn" onclick="adjustLife('opp',-1)">−</button>
+                  <span id="opp-life">20</span>
+                  <button class="life-btn" onclick="adjustLife('opp',1)">+</button>
+                </div>
+              </div>
               <div class="bz-icon">♛</div>
               <div id="opp-champion-cards" class="bz-cards"></div>
               <span class="bz-lbl">CHAMPION</span>
@@ -381,6 +357,13 @@
               <span class="bz-lbl">LEGEND</span>
             </div>
             <div class="bz piece-bz" id="my-champion-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'champion')">
+              <div class="pinfo-overlay pinfo-mine">
+                <div class="pinfo-life">
+                  <button class="life-btn" onclick="adjustLife('me',-1)">−</button>
+                  <span id="my-life">20</span>
+                  <button class="life-btn" onclick="adjustLife('me',1)">+</button>
+                </div>
+              </div>
               <div class="bz-icon">♛</div>
               <div id="my-champion-cards" class="bz-cards"></div>
               <span class="bz-lbl">CHAMPION</span>
@@ -388,7 +371,38 @@
           </div>
         </div>
 
-        <!-- BASE strip (units zone) sits along the bottom of the play area -->
+        <!-- Two large central battlefield zones -->
+        <div id="bf-stage">
+          <div class="bz bf-large" id="bf-left" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battlefield-left')">
+            <div id="bf-left-cards" class="bz-cards"></div>
+            <button class="bf-add-btn" title="Drop a battlefield card here">+</button>
+            <span class="bz-lbl">BATTLEFIELD</span>
+          </div>
+          <div class="bz bf-large" id="bf-right" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battlefield-right')">
+            <div id="bf-right-cards" class="bz-cards"></div>
+            <button class="bf-add-btn" title="Drop a battlefield card here">+</button>
+            <span class="bz-lbl">BATTLEFIELD</span>
+          </div>
+        </div>
+
+        <!-- Vertical score track (8 → 0). Rotated player names on either side -->
+        <div id="score-track">
+          <div class="track-name track-name-me" id="track-name-me">asd</div>
+          <div class="track-col" id="track-col">
+            <button class="track-slot" data-v="8">8</button>
+            <button class="track-slot" data-v="7">7</button>
+            <button class="track-slot" data-v="6">6</button>
+            <button class="track-slot" data-v="5">5</button>
+            <button class="track-slot" data-v="4">4</button>
+            <button class="track-slot" data-v="3">3</button>
+            <button class="track-slot" data-v="2">2</button>
+            <button class="track-slot" data-v="1">1</button>
+            <button class="track-slot" data-v="0">0</button>
+          </div>
+          <div class="track-name track-name-opp" id="track-name-opp">Goldfish</div>
+        </div>
+
+        <!-- BASE strip (units zone) sits along the bottom; controls bar centers horizontally -->
         <div class="bz" id="center-base" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battle')">
           <div class="center-opp-units" id="opp-base-cards"></div>
           <div class="center-divider">
