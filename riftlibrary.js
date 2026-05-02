@@ -457,7 +457,7 @@ function goto(p,el){
   if(p==='search'&&cardsLoaded)renderCards();
   if(p==='statistics')renderStatistics();
   if(p==='events')renderEvents();
-  if(p==='collection'){CF2.binder='';CF2.show='all';CF2.q='';CF2.binderMode='view';renderCollection();}
+  if(p==='collection'){CF2.binder='';CF2.show=(CF2.collMode==='view'?'owned':'all');CF2.q='';CF2.binderMode='view';renderCollection();}
   if(p==='team')renderTeam();
   if(p==='play'&&typeof populateDeckSelectors==='function')populateDeckSelectors();
   if(p==='articles')renderArticles();
@@ -3688,11 +3688,18 @@ rlBinders.forEach(b=>{
 
 function _binderTotal(b){return (b.cards||[]).reduce((a,e)=>a+(e.cnt||0),0);}
 function _binderHas(b,id){return (b.cards||[]).find(e=>e.id===id);}
-const CF2={q:'',type:'',dom:'',rar:'',set:'',show:'all',view:'grid',binder:'',binderMode:'view',collMode:'view',showGrey:true};
+const CF2={q:'',type:'',dom:'',rar:'',set:'',show:'all',view:'grid',binder:'',binderMode:'view',collMode:'edit',showGrey:true};
 function toggleCollGrey(){CF2.showGrey=!CF2.showGrey;renderCollection();}
 
 function setBinderMode(mode){CF2.binderMode=mode;renderCollection();}
-function setCollMode(mode){CF2.collMode=mode;renderCollection();}
+function setCollMode(mode){
+  CF2.collMode=mode;
+  // Switching INTO View mode → default the show filter to Owned (more useful when browsing)
+  if(mode==='view') CF2.show='owned';
+  // Switching back to Edit mode → reset to All so filtering doesn't surprise the user
+  else if(mode==='edit') CF2.show='all';
+  renderCollection();
+}
 
 function persistBinders(){localStorage.setItem('rl_binders',JSON.stringify(rlBinders));}
 
