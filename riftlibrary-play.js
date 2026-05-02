@@ -356,6 +356,7 @@ function renderFullBoard() {
   // Center BASE: my units at bottom half, opp units at top half
   renderZone('battle-cards', GS.me.battle);
   renderZone('opp-base-cards', GS.opp.battle);
+  renderZone('play-base-cards', GS.me.battle);
   // Other zones
   renderZone('support-cards', GS.me.support);
   renderZone('bf-left-cards',  GS.me.bfLeft  || []);

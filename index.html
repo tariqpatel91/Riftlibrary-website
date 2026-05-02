@@ -371,7 +371,7 @@
           </div>
         </div>
 
-        <!-- Two large central battlefield zones -->
+        <!-- Two large central battlefield zones (top half) -->
         <div id="bf-stage">
           <div class="bz bf-large" id="bf-left" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battlefield-left')">
             <div id="bf-left-cards" class="bz-cards"></div>
@@ -381,6 +381,12 @@
             <div id="bf-right-cards" class="bz-cards"></div>
             <span class="bz-lbl">BATTLEFIELD</span>
           </div>
+        </div>
+
+        <!-- Player BASE zone — sits below the midline divider, mirrors the battlefield half above -->
+        <div class="bz" id="play-base-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battle')">
+          <div id="play-base-cards" class="bz-cards"></div>
+          <span class="bz-lbl">BASE</span>
         </div>
 
         <!-- Vertical score track (8 → 0). Rotated player names on either side -->
