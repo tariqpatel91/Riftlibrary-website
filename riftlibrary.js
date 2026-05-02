@@ -1672,8 +1672,50 @@ function toggleEFDrop(id,btn){
 /* ── DRAG AND DROP ───────────────────────────────── */
 function editLibDragStart(id,name,type){_DRAG={src:'library',id,n:name,t:type};}
 function editDeckDragStart(id,name,type){_DRAG={src:'deck',id,n:name,t:type};}
+function editSideboardDragStart(id,name,type){_DRAG={src:'sideboard',id,n:name,t:type};}
 function editZoneDragOver(e){e.preventDefault();e.currentTarget.classList.add('drag-over');}
 function editZoneDragLeave(e){if(!e.relatedTarget||!e.currentTarget.contains(e.relatedTarget))e.currentTarget.classList.remove('drag-over');}
+
+function moveSBToDeck(cardId,cardName,cardType){
+  _DRAG={src:'sideboard',id:cardId,n:cardName,t:cardType};
+  _moveSideboardToDeck();
+  _DRAG=null;
+}
+function _moveSideboardToDeck(){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d||!_DRAG)return;
+  const sbIdx=(d.sideboard||[]).findIndex(c=>c.id===_DRAG.id);
+  if(sbIdx<0)return;
+  // Enforce 3-copy limit including sideboard variants
+  const _bn=baseName(_DRAG.n);
+  const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
+  const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
+  if((deckCntBN+sbCntBN)>3){toast('Max 3 copies (including variants)');return;}
+  // Decrement sideboard
+  d.sideboard[sbIdx].cnt--;
+  if(d.sideboard[sbIdx].cnt<=0) d.sideboard.splice(sbIdx,1);
+  // Increment deck
+  const deckEntry=(d.cards=d.cards||[]).find(c=>c.id===_DRAG.id);
+  if(deckEntry) deckEntry.cnt++;
+  else d.cards.push({id:_DRAG.id,n:_DRAG.n,t:_DRAG.t,cnt:1});
+  persist();renderEditSearch();renderEditPreview();
+}
+function _moveDeckToSideboard(){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d||!_DRAG)return;
+  if(_DRAG.t==='Legend'){toast('Legend cards cannot go to the sideboard');return;}
+  const sbTotal=(d.sideboard||[]).reduce((a,c)=>a+c.cnt,0);
+  if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}
+  const dIdx=(d.cards||[]).findIndex(c=>c.id===_DRAG.id);
+  if(dIdx<0)return;
+  // Decrement deck
+  d.cards[dIdx].cnt--;
+  if(d.cards[dIdx].cnt<=0) d.cards.splice(dIdx,1);
+  // Increment sideboard
+  if(!d.sideboard) d.sideboard=[];
+  const sbEntry=d.sideboard.find(c=>c.id===_DRAG.id);
+  if(sbEntry) sbEntry.cnt++;
+  else d.sideboard.push({id:_DRAG.id,n:_DRAG.n,t:_DRAG.t,cnt:1});
+  persist();renderEditSearch();renderEditPreview();
+}
 function editZoneDrop(e,zone){
   e.preventDefault();e.currentTarget.classList.remove('drag-over');
   if(!_DRAG)return;
@@ -1707,6 +1749,11 @@ function editZoneDrop(e,zone){
   } else if(zone==='deck'){
     if(_DRAG.t==='Battlefield'){toast('Battlefield cards go in battlefield zones');_DRAG=null;return;}
     if(_DRAG.src==='library') editDeckCard(_DRAG.id,_DRAG.n,_DRAG.t,1);
+    else if(_DRAG.src==='sideboard') _moveSideboardToDeck();
+  } else if(zone==='sideboard'){
+    if(_DRAG.t==='Legend'||_DRAG.t==='Battlefield'){toast('Only deck cards go in the sideboard');_DRAG=null;return;}
+    if(_DRAG.src==='deck') _moveDeckToSideboard();
+    else if(_DRAG.src==='library') addToSB(activeDeckId,_DRAG.id,_DRAG.n,_DRAG.t);
   }
   _DRAG=null;
 }
@@ -1943,12 +1990,12 @@ function renderEditPreview(targetEl){
   }
   html+='</div>';
 
-  // Sideboard section — card image grid like main deck
+  // Sideboard section — card image grid like main deck (drop zone for deck → sideboard)
   const sb=d.sideboard||[];
   const sbTotal=sb.reduce((a,c)=>a+c.cnt,0);
-  html+=`<div class="deck-section deck-sb-section"><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">Sideboard <span class="ds-count">(${sbTotal}/8)</span></div>`;
+  html+=`<div class="deck-section deck-sb-section drop-zone"${isEdit?' ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,\'sideboard\')"':''}><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">Sideboard <span class="ds-count">(${sbTotal}/8)</span></div>`;
   if(!sb.length){
-    html+=`<div style="font-size:12px;color:var(--text-muted);">${isEdit?'None — hover a card and use "Add to sideboard"':'Add cards in the Edit tab'}</div>`;
+    html+=`<div style="font-size:12px;color:var(--text-muted);">${isEdit?'None — drag a deck card here, or hover a card and use "Add to sideboard"':'Add cards in the Edit tab'}</div>`;
   } else {
     const sbSorted=sb.slice().sort((a,b)=>a.n.localeCompare(b.n));
     html+='<div class="deck-type-auto-grid">';
@@ -1957,14 +2004,16 @@ function renderEditPreview(targetEl){
       const img=full?full.imageUrl:'';
       const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const st=(c.t||'').replace(/'/g,"\\'");
       html+='<div class="deck-col-stack">';
       for(let i=0;i<c.cnt;i++){
-        html+=`<div class="deck-card-item deck-card-main" title="${c.n}" data-hover-img="${img||''}">`;
+        html+=`<div class="deck-card-item deck-card-main" title="${c.n}" draggable="true" ondragstart="editSideboardDragStart('${si}','${sn}','${st}')" data-hover-img="${img||''}">`;
         if(img) html+=`<img src="${img}" alt="" loading="lazy">`;
         else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
         html+=bannedBanner(c.n);
         html+=`<div class="deck-card-actions">`;
         html+=`<div class="dca-btn" onclick="adjustSB(${d.id},'${si}',1)"><span>＋</span> Add 1 copy</div>`;
+        html+=`<div class="dca-btn" onclick="moveSBToDeck('${si}','${sn}','${st}')"><span>↑</span> Move to deck</div>`;
         html+=`<div class="dca-btn dca-danger" onclick="adjustSB(${d.id},'${si}',-1)"><span>✕</span> Remove</div>`;
         html+=`</div>`;
         if(c.cnt>1&&i===0) html+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
