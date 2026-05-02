@@ -422,21 +422,29 @@
           <span class="bz-lbl">BASE</span>
         </div>
 
-        <!-- Vertical score track (8 → 0). Rotated player names on either side -->
+        <!-- Vertical score track: opp top (0→8), shared 8 middle, my bottom (8→0). First to 8 wins. -->
         <div id="score-track">
-          <div class="track-name track-name-me" id="track-name-me">asd</div>
-          <div class="track-col" id="track-col">
-            <button class="track-slot" data-v="8">8</button>
-            <button class="track-slot" data-v="7">7</button>
-            <button class="track-slot" data-v="6">6</button>
-            <button class="track-slot" data-v="5">5</button>
-            <button class="track-slot" data-v="4">4</button>
-            <button class="track-slot" data-v="3">3</button>
-            <button class="track-slot" data-v="2">2</button>
-            <button class="track-slot" data-v="1">1</button>
-            <button class="track-slot" data-v="0">0</button>
-          </div>
           <div class="track-name track-name-opp" id="track-name-opp">Goldfish</div>
+          <div class="track-col" id="track-col">
+            <button class="track-slot track-opp" data-side="opp" data-v="0" title="Goldfish · 0">0</button>
+            <button class="track-slot track-opp" data-side="opp" data-v="1" title="Goldfish · 1">1</button>
+            <button class="track-slot track-opp" data-side="opp" data-v="2" title="Goldfish · 2">2</button>
+            <button class="track-slot track-opp" data-side="opp" data-v="3" title="Goldfish · 3">3</button>
+            <button class="track-slot track-opp" data-side="opp" data-v="4" title="Goldfish · 4">4</button>
+            <button class="track-slot track-opp" data-side="opp" data-v="5" title="Goldfish · 5">5</button>
+            <button class="track-slot track-opp" data-side="opp" data-v="6" title="Goldfish · 6">6</button>
+            <button class="track-slot track-opp" data-side="opp" data-v="7" title="Goldfish · 7">7</button>
+            <button class="track-slot track-win" data-v="8" title="First to 8 wins">8</button>
+            <button class="track-slot track-me" data-side="me" data-v="7" title="You · 7">7</button>
+            <button class="track-slot track-me" data-side="me" data-v="6" title="You · 6">6</button>
+            <button class="track-slot track-me" data-side="me" data-v="5" title="You · 5">5</button>
+            <button class="track-slot track-me" data-side="me" data-v="4" title="You · 4">4</button>
+            <button class="track-slot track-me" data-side="me" data-v="3" title="You · 3">3</button>
+            <button class="track-slot track-me" data-side="me" data-v="2" title="You · 2">2</button>
+            <button class="track-slot track-me" data-side="me" data-v="1" title="You · 1">1</button>
+            <button class="track-slot track-me" data-side="me" data-v="0" title="You · 0">0</button>
+          </div>
+          <div class="track-name track-name-me" id="track-name-me">You</div>
         </div>
 
         <!-- BASE strip (units zone) sits along the bottom; controls bar centers horizontally -->

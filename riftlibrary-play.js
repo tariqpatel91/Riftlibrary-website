@@ -323,28 +323,57 @@ function _bindScoreTrack() {
   slots.forEach(s => {
     s.onclick = (e) => {
       const v = parseInt(s.getAttribute('data-v'), 10) || 0;
-      // Left-click = your score, right-click = opponent's
-      if (e.shiftKey || e.altKey) GS.opp.score = v;
-      else GS.me.score = v;
-      _renderScoreTrack();
+      const side = s.getAttribute('data-side');
+      // Win slot (the middle 8): right-click = opp, left-click = me
+      if (s.classList.contains('track-win')) {
+        if (e.shiftKey || e.altKey || e.button === 2) GS.opp.score = 8;
+        else GS.me.score = 8;
+      } else if (side === 'me') {
+        GS.me.score = v;
+      } else if (side === 'opp') {
+        GS.opp.score = v;
+      }
+      _renderScoreTrack(true);
     };
     s.oncontextmenu = (e) => {
       e.preventDefault();
-      const v = parseInt(s.getAttribute('data-v'), 10) || 0;
-      GS.opp.score = v;
-      _renderScoreTrack();
+      // Right-click on the middle 8 → award opp the win
+      if (s.classList.contains('track-win')) {
+        GS.opp.score = 8;
+      } else if (s.getAttribute('data-side') === 'me') {
+        // Right-click on a "me" slot → set opp to that value mirrored on the opp track
+        GS.opp.score = parseInt(s.getAttribute('data-v'), 10) || 0;
+      } else {
+        GS.opp.score = parseInt(s.getAttribute('data-v'), 10) || 0;
+      }
+      _renderScoreTrack(true);
     };
   });
 }
 
-function _renderScoreTrack() {
+function _renderScoreTrack(animate) {
   const slots = document.querySelectorAll('.track-slot');
-  const me = GS.me.score || 0;
+  const me  = GS.me.score  || 0;
   const opp = GS.opp.score || 0;
   slots.forEach(s => {
     const v = parseInt(s.getAttribute('data-v'), 10) || 0;
-    s.classList.toggle('lit-me',  v === me);
-    s.classList.toggle('lit-opp', v === opp);
+    const side = s.getAttribute('data-side');
+    const isWin = s.classList.contains('track-win');
+    let lit = false, who = '';
+    if (isWin) {
+      if (me >= 8)  { lit = true; who = 'me'; }
+      else if (opp >= 8) { lit = true; who = 'opp'; }
+    } else if (side === 'me' && v === me) { lit = true; who = 'me'; }
+    else if (side === 'opp' && v === opp) { lit = true; who = 'opp'; }
+    const wasLit = s.classList.contains('lit-me') || s.classList.contains('lit-opp');
+    s.classList.toggle('lit-me',  lit && who === 'me');
+    s.classList.toggle('lit-opp', lit && who === 'opp');
+    if (animate && lit && !wasLit) {
+      s.classList.remove('glint');
+      // Force reflow then add to retrigger animation
+      void s.offsetWidth;
+      s.classList.add('glint');
+    }
   });
 }
 
@@ -577,6 +606,14 @@ function dropToZone(e, toZone) {
     case 'battlefield-area':
       GS.me.bfArea = GS.me.bfArea || [];
       GS.me.bfArea.push(card);
+      break;
+    case 'battlefield-left':
+      GS.me.bfLeft = GS.me.bfLeft || [];
+      GS.me.bfLeft.push(card);
+      break;
+    case 'battlefield-right':
+      GS.me.bfRight = GS.me.bfRight || [];
+      GS.me.bfRight.push(card);
       break;
     case 'hand':
       GS.me.hand.push(card);
