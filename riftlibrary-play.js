@@ -305,6 +305,8 @@ function startBoard(isFirst) {
   _setText('track-name-me', GS.me.name || 'You');
   _setText('track-name-opp', GS.opp.name || 'Opponent');
   _bindScoreTrack();
+  // Wait one frame so the grid layout settles, then make the battlefield zones drag/resize-able
+  requestAnimationFrame(() => _initBfDragResize());
   renderFullBoard();
   updateTurnBadge();
   appendChat('System', 'Game started! ' + (GS.myTurn ? 'You go first.' : (GS.opp.name||'Opponent') + ' goes first.'));
@@ -1161,4 +1163,111 @@ function showDeckCustomizer(deckId, opts) {
   overlay.classList.add('open');
   _bindDropTargets();
   refresh();
+}
+
+/* ── Battlefield zones — drag + resize from corners ─────────────── */
+function _initBfDragResize() {
+  const stage = document.getElementById('bf-stage');
+  if (!stage) return;
+  document.querySelectorAll('.bf-large').forEach(el => {
+    if (el._bfDragInit) return;
+    el._bfDragInit = true;
+
+    // Snapshot current grid-rendered position into absolute coordinates
+    const stageRect = stage.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
+    const saved = JSON.parse(localStorage.getItem('rl_bf_pos_' + el.id) || 'null');
+    el.classList.add('bf-floating');
+    if (saved) {
+      el.style.left = saved.left + 'px';
+      el.style.top = saved.top + 'px';
+      el.style.width = saved.width + 'px';
+      el.style.height = saved.height + 'px';
+    } else {
+      el.style.left = (rect.left - stageRect.left) + 'px';
+      el.style.top = (rect.top - stageRect.top) + 'px';
+      el.style.width = rect.width + 'px';
+      el.style.height = rect.height + 'px';
+    }
+
+    // Add 4 corner resize handles
+    ['nw','ne','sw','se'].forEach(dir => {
+      const h = document.createElement('div');
+      h.className = 'bf-resize-handle bf-resize-' + dir;
+      el.appendChild(h);
+      h.addEventListener('mousedown', e => _bfStartResize(e, el, dir));
+    });
+
+    // Drag the body
+    el.addEventListener('mousedown', e => {
+      // Skip drag if the user clicked a corner handle, a card, or the + button
+      if (e.target.closest('.bf-resize-handle, .board-card, .bf-add-btn, button')) return;
+      _bfStartDrag(e, el);
+    });
+  });
+  // Once both bf zones are floating, the grid has nothing left to lay out — collapse to 0 height row
+  stage.style.minHeight = stage.style.height || '300px';
+}
+
+function _bfStartDrag(e, el) {
+  const stage = el.parentElement;
+  const startX = e.clientX, startY = e.clientY;
+  const startLeft = parseFloat(el.style.left) || 0;
+  const startTop  = parseFloat(el.style.top)  || 0;
+  function onMove(ev) {
+    el.style.left = (startLeft + ev.clientX - startX) + 'px';
+    el.style.top  = (startTop  + ev.clientY - startY) + 'px';
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    _bfSavePos(el);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+  e.preventDefault();
+}
+
+function _bfStartResize(e, el, dir) {
+  e.stopPropagation();
+  e.preventDefault();
+  const startX = e.clientX, startY = e.clientY;
+  const startLeft = parseFloat(el.style.left) || 0;
+  const startTop  = parseFloat(el.style.top)  || 0;
+  const startW    = parseFloat(el.style.width)  || el.offsetWidth;
+  const startH    = parseFloat(el.style.height) || el.offsetHeight;
+  function onMove(ev) {
+    const dx = ev.clientX - startX;
+    const dy = ev.clientY - startY;
+    if (dir.includes('e')) el.style.width  = Math.max(60, startW + dx) + 'px';
+    if (dir.includes('s')) el.style.height = Math.max(60, startH + dy) + 'px';
+    if (dir.includes('w')) {
+      const w = Math.max(60, startW - dx);
+      el.style.width = w + 'px';
+      el.style.left  = (startLeft + (startW - w)) + 'px';
+    }
+    if (dir.includes('n')) {
+      const h = Math.max(60, startH - dy);
+      el.style.height = h + 'px';
+      el.style.top    = (startTop + (startH - h)) + 'px';
+    }
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    _bfSavePos(el);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+function _bfSavePos(el) {
+  try {
+    localStorage.setItem('rl_bf_pos_' + el.id, JSON.stringify({
+      left:   parseFloat(el.style.left)   || 0,
+      top:    parseFloat(el.style.top)    || 0,
+      width:  parseFloat(el.style.width)  || 0,
+      height: parseFloat(el.style.height) || 0
+    }));
+  } catch(e) {}
 }
