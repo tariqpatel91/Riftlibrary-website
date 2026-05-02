@@ -536,6 +536,11 @@ select option{background:#1e1e2a;}
 .deck-card-main{width:100%;aspect-ratio:2.5/3.5;}
 .deck-sb-section{border-top:1px solid var(--border);padding-top:12px;margin-top:4px;display:flex;flex-direction:column;align-items:center;}
 .deck-sb-section .deck-all-types{width:100%;}
+.deck-mb-section{margin-top:18px;border:1px dashed rgba(120,140,200,0.35);border-radius:10px;padding:12px;background:rgba(80,100,160,0.05);}
+.deck-mb-section.drag-over{border-color:rgba(140,160,220,0.85);background:rgba(120,140,200,0.18);}
+.deck-mb-section .deck-section-hdr{color:#9bb3e6;}
+.deck-mb-section .ds-count{color:rgba(155,179,230,0.7);}
+.deck-mb-section .deck-all-types{width:100%;}
 .deck-rune-section{border-top:1px solid var(--border);padding-top:12px;margin-top:4px;display:flex;flex-direction:column;align-items:center;}
 .deck-rune-section .rune-domains-row{width:100%;}
 .bf-zone{width:100%;aspect-ratio:3.5/2.5;border-radius:10px;border:2px dashed rgba(200,168,75,0.35);background:var(--surface2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:border-color 0.2s,background 0.2s;position:relative;overflow:hidden;}

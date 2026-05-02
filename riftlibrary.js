@@ -386,19 +386,27 @@ function mapCard(c){
   const meta=c.metadata||{};
   const doms=(cls.domain||[]).map(d=>d.toLowerCase());
   const dom=doms[0]||'order';
+  // Legends, Battlefields, and Runes are non-statted resource/identity cards — clamp their stats to 0
+  // so range filters (Energy/Power/Might) treat them as zero rather than null (which currently bypasses filters)
+  const _ctype=cls.type||'Unit';
+  const _stype=cls.supertype||'';
+  const _statless=_ctype==='Legend'||_ctype==='Battlefield'||_ctype==='Rune'||_stype==='Legend';
+  const _cost  = _statless ? 0 : (attr.energy ?? null);
+  const _might = _statless ? 0 : (attr.might  ?? null);
+  const _power = _statless ? 0 : (attr.power  ?? null);
   return{
     id:c.id||c.riftbound_id||c.name,
     name:c.name,
-    type:cls.type||'Unit',
-    supertype:cls.supertype||'',
+    type:_ctype,
+    supertype:_stype,
     isSignature:meta.signature||false,
     isAltArt:meta.alternate_art||false,
     isOvernumbered:meta.overnumbered||false,
     variant:(meta.alternate_art?'Alt Art':meta.overnumbered?'Overnumbered':(cls.rarity==='Promo'?'Promo':'Standard')),
     dom,doms,
-    cost:attr.energy??null,
-    might:attr.might??null,
-    power:attr.power??null,
+    cost:_cost,
+    might:_might,
+    power:_power,
     rarity:cls.rarity||'',
     set:set.set_id||'',
     setLabel:set.label||'',
@@ -1687,6 +1695,87 @@ function toggleEFDrop(id,btn){
 function editLibDragStart(id,name,type){_DRAG={src:'library',id,n:name,t:type};}
 function editDeckDragStart(id,name,type){_DRAG={src:'deck',id,n:name,t:type};}
 function editSideboardDragStart(id,name,type){_DRAG={src:'sideboard',id,n:name,t:type};}
+function editMaybeboardDragStart(id,name,type){_DRAG={src:'maybeboard',id,n:name,t:type};}
+
+const MAYBE_MAX=50;
+function adjustMB(deckId,cardId,delta){
+  const d=myDecks.find(x=>x.id===deckId);if(!d)return;
+  if(!d.maybeboard) d.maybeboard=[];
+  const entry=d.maybeboard.find(c=>c.id===cardId);
+  if(entry){
+    if(delta>0){
+      const total=d.maybeboard.reduce((a,c)=>a+c.cnt,0);
+      if(total>=MAYBE_MAX){toast('Maybe board is full ('+MAYBE_MAX+' cards max)');return;}
+    }
+    entry.cnt=Math.max(0,entry.cnt+delta);
+    if(entry.cnt===0) d.maybeboard=d.maybeboard.filter(c=>c.id!==cardId);
+  }
+  persist();renderEditPreview();
+}
+function addToMaybeboard(deckId,cardId,cardName,cardType){
+  const d=myDecks.find(x=>x.id===deckId);if(!d)return;
+  if(!d.maybeboard) d.maybeboard=[];
+  const total=d.maybeboard.reduce((a,c)=>a+c.cnt,0);
+  if(total>=MAYBE_MAX){toast('Maybe board is full ('+MAYBE_MAX+' cards max)');return;}
+  const existing=d.maybeboard.find(c=>c.id===cardId);
+  if(existing) existing.cnt++;
+  else d.maybeboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
+  persist();renderEditPreview();
+}
+function _moveDeckToMaybeboard(){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d||!_DRAG)return;
+  if(!d.maybeboard) d.maybeboard=[];
+  const total=d.maybeboard.reduce((a,c)=>a+c.cnt,0);
+  if(total>=MAYBE_MAX){toast('Maybe board is full ('+MAYBE_MAX+' cards max)');return;}
+  const dIdx=(d.cards||[]).findIndex(c=>c.id===_DRAG.id);
+  if(dIdx<0)return;
+  d.cards[dIdx].cnt--;
+  if(d.cards[dIdx].cnt<=0) d.cards.splice(dIdx,1);
+  const mb=d.maybeboard.find(c=>c.id===_DRAG.id);
+  if(mb) mb.cnt++; else d.maybeboard.push({id:_DRAG.id,n:_DRAG.n,t:_DRAG.t,cnt:1});
+  persist();renderEditSearch();renderEditPreview();
+}
+function _moveMaybeboardToDeck(){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d||!_DRAG)return;
+  if(!d.maybeboard) return;
+  // 40-card deck cap
+  const deckTotal=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
+  if(deckTotal>=40){toast('Deck is full (40 cards max)');return;}
+  // 3-copy combined cap
+  const _bn=baseName(_DRAG.n);
+  const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
+  const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
+  const zoneCnt=(d.champion&&baseName(d.champion.n)===_bn)?1:0;
+  if(deckCntBN+sbCntBN+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
+  const mIdx=d.maybeboard.findIndex(c=>c.id===_DRAG.id);
+  if(mIdx<0)return;
+  d.maybeboard[mIdx].cnt--;
+  if(d.maybeboard[mIdx].cnt<=0) d.maybeboard.splice(mIdx,1);
+  const dEntry=(d.cards=d.cards||[]).find(c=>c.id===_DRAG.id);
+  if(dEntry) dEntry.cnt++;
+  else d.cards.push({id:_DRAG.id,n:_DRAG.n,t:_DRAG.t,cnt:1});
+  persist();renderEditSearch();renderEditPreview();
+}
+function _moveMaybeboardToSideboard(){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d||!_DRAG)return;
+  if(!d.maybeboard) return;
+  if(_DRAG.t==='Legend'||_DRAG.t==='Battlefield'){toast('Only deck cards go in the sideboard');return;}
+  const sbTotal=(d.sideboard||[]).reduce((a,c)=>a+c.cnt,0);
+  if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}
+  const _bn=baseName(_DRAG.n);
+  const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
+  const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
+  if(deckCntBN+sbCntBN>=3){toast('Max 3 copies (including variants)');return;}
+  const mIdx=d.maybeboard.findIndex(c=>c.id===_DRAG.id);
+  if(mIdx<0)return;
+  d.maybeboard[mIdx].cnt--;
+  if(d.maybeboard[mIdx].cnt<=0) d.maybeboard.splice(mIdx,1);
+  if(!d.sideboard) d.sideboard=[];
+  const sbEntry=d.sideboard.find(c=>c.id===_DRAG.id);
+  if(sbEntry) sbEntry.cnt++;
+  else d.sideboard.push({id:_DRAG.id,n:_DRAG.n,t:_DRAG.t,cnt:1});
+  persist();renderEditSearch();renderEditPreview();
+}
 function editZoneDragOver(e){e.preventDefault();e.currentTarget.classList.add('drag-over');}
 function editZoneDragLeave(e){if(!e.relatedTarget||!e.currentTarget.contains(e.relatedTarget))e.currentTarget.classList.remove('drag-over');}
 
@@ -1699,6 +1788,9 @@ function _moveSideboardToDeck(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d||!_DRAG)return;
   const sbIdx=(d.sideboard||[]).findIndex(c=>c.id===_DRAG.id);
   if(sbIdx<0)return;
+  // 40-card deck cap
+  const deckTotal=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
+  if(deckTotal>=40){toast('Deck is full (40 cards max)');return;}
   // Enforce 3-copy limit including sideboard variants
   const _bn=baseName(_DRAG.n);
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
@@ -1764,10 +1856,30 @@ function editZoneDrop(e,zone){
     if(_DRAG.t==='Battlefield'){toast('Battlefield cards go in battlefield zones');_DRAG=null;return;}
     if(_DRAG.src==='library') editDeckCard(_DRAG.id,_DRAG.n,_DRAG.t,1);
     else if(_DRAG.src==='sideboard') _moveSideboardToDeck();
+    else if(_DRAG.src==='maybeboard') _moveMaybeboardToDeck();
   } else if(zone==='sideboard'){
     if(_DRAG.t==='Legend'||_DRAG.t==='Battlefield'){toast('Only deck cards go in the sideboard');_DRAG=null;return;}
     if(_DRAG.src==='deck') _moveDeckToSideboard();
     else if(_DRAG.src==='library') addDirectToSB(activeDeckId,_DRAG.id,_DRAG.n,_DRAG.t);
+    else if(_DRAG.src==='maybeboard') _moveMaybeboardToSideboard();
+  } else if(zone==='maybeboard'){
+    if(_DRAG.src==='deck') _moveDeckToMaybeboard();
+    else if(_DRAG.src==='library') addToMaybeboard(activeDeckId,_DRAG.id,_DRAG.n,_DRAG.t);
+    else if(_DRAG.src==='sideboard'){
+      // Move sideboard → maybeboard
+      const d=myDecks.find(x=>x.id===activeDeckId);
+      if(!d){_DRAG=null;return;}
+      const sbIdx=(d.sideboard||[]).findIndex(c=>c.id===_DRAG.id);
+      if(sbIdx<0){_DRAG=null;return;}
+      if(!d.maybeboard) d.maybeboard=[];
+      const total=d.maybeboard.reduce((a,c)=>a+c.cnt,0);
+      if(total>=MAYBE_MAX){toast('Maybe board is full ('+MAYBE_MAX+' cards max)');_DRAG=null;return;}
+      d.sideboard[sbIdx].cnt--;
+      if(d.sideboard[sbIdx].cnt<=0) d.sideboard.splice(sbIdx,1);
+      const mb=d.maybeboard.find(c=>c.id===_DRAG.id);
+      if(mb) mb.cnt++; else d.maybeboard.push({id:_DRAG.id,n:_DRAG.n,t:_DRAG.t,cnt:1});
+      persist();renderEditPreview();
+    }
   }
   _DRAG=null;
 }
@@ -2041,6 +2153,40 @@ function renderEditPreview(targetEl){
   }
   html+='</div>';
 
+  // Maybe board section — capped at 50 cards, fully separate from deck/sideboard
+  const mb=d.maybeboard||[];
+  const mbTotal=mb.reduce((a,c)=>a+c.cnt,0);
+  html+=`<div class="deck-section deck-mb-section drop-zone"${isEdit?' ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,\'maybeboard\')"':''}><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">Maybe Board <span class="ds-count">(${mbTotal}/${MAYBE_MAX})</span></div>`;
+  if(!mb.length){
+    html+=`<div style="font-size:12px;color:var(--text-muted);">${isEdit?'None — drag cards here to set them aside while building your deck':'Nothing in the maybe board'}</div>`;
+  } else {
+    const mbSorted=mb.slice().sort((a,b)=>a.n.localeCompare(b.n));
+    html+='<div class="deck-type-auto-grid">';
+    mbSorted.forEach(c=>{
+      const full=CARDS.find(x=>x.id===c.id);
+      const img=full?full.imageUrl:'';
+      const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const st=(c.t||'').replace(/'/g,"\\'");
+      html+='<div class="deck-col-stack">';
+      for(let i=0;i<c.cnt;i++){
+        html+=`<div class="deck-card-item deck-card-main" title="${c.n}" draggable="true" ondragstart="editMaybeboardDragStart('${si}','${sn}','${st}')" data-hover-img="${img||''}">`;
+        if(img) html+=`<img src="${img}" alt="" loading="lazy">`;
+        else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
+        html+=bannedBanner(c.n);
+        html+=`<div class="deck-card-actions">`;
+        html+=`<div class="dca-btn" onclick="adjustMB(${d.id},'${si}',1)"><span>＋</span> Add 1 copy</div>`;
+        html+=`<div class="dca-btn dca-danger" onclick="adjustMB(${d.id},'${si}',-1)"><span>✕</span> Remove</div>`;
+        html+=`</div>`;
+        if(c.cnt>1&&i===0) html+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
+        html+='</div>';
+      }
+      html+='</div>';
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+
   right.innerHTML=html;
 }
 
@@ -2050,6 +2196,9 @@ function editDeckCard(cardId,cardName,cardType,delta){
   if(!d.cards) d.cards=[];
   const idx=d.cards.findIndex(c=>c.id===cardId);
   if(delta>0){
+    // 40-card deck cap (Legends + Champion zone + non-rune cards count toward deck size)
+    const deckTotal=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
+    if(cardType!=='Legend'&&deckTotal>=40){toast('Deck is full (40 cards max)');return;}
     const bn=baseName(cardName);
     const deckCnt=(d.cards||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
     const sbCnt=(d.sideboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
