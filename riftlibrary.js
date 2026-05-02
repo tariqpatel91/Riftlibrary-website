@@ -386,14 +386,15 @@ function mapCard(c){
   const meta=c.metadata||{};
   const doms=(cls.domain||[]).map(d=>d.toLowerCase());
   const dom=doms[0]||'order';
-  // Legends, Battlefields, and Runes are non-statted resource/identity cards — clamp their stats to 0
-  // so range filters (Energy/Power/Might) treat them as zero rather than null (which currently bypasses filters)
+  // Stat normalisation: any missing API stat becomes 0 (so range filters work uniformly).
+  // Legends / Battlefields / Runes / Tokens are explicitly 0 across the board — they're identity / resource cards
+  // and the user wants them to behave that way in filters (e.g. Power slider 1-2 should exclude them).
   const _ctype=cls.type||'Unit';
   const _stype=cls.supertype||'';
-  const _statless=_ctype==='Legend'||_ctype==='Battlefield'||_ctype==='Rune'||_stype==='Legend';
-  const _cost  = _statless ? 0 : (attr.energy ?? null);
-  const _might = _statless ? 0 : (attr.might  ?? null);
-  const _power = _statless ? 0 : (attr.power  ?? null);
+  const _statless=_ctype==='Legend'||_ctype==='Battlefield'||_ctype==='Rune'||_ctype==='Token'||_stype==='Legend'||_stype==='Token';
+  const _cost  = _statless ? 0 : (attr.energy ?? 0);
+  const _might = _statless ? 0 : (attr.might  ?? 0);
+  const _power = _statless ? 0 : (attr.power  ?? 0);
   return{
     id:c.id||c.riftbound_id||c.name,
     name:c.name,
@@ -2923,7 +2924,6 @@ function renderCards(){
         ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
         :`<div class="ct-img-wrap no-img"><div class="ct-img-placeholder" style="background:var(--surface3);display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`
       }
-      ${c.cost!==null?`<div class="cost">${c.cost}</div>`:''}
       <div class="ct-name">${c.name}</div>
       <div class="ct-sub">${domPills}${domPills?`<span style="color:var(--text-muted);margin:0 2px;">·</span>`:''}${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>
     </div>`;
@@ -3091,7 +3091,6 @@ function openArtistModal(artistName){
         ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
         :`<div class="ct-img-wrap no-img"><div class="ct-img-placeholder" style="background:var(--surface3);display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`
       }
-      ${c.cost!==null?`<div class="cost">${c.cost}</div>`:''}
       <div class="ct-name">${c.name}</div>
       <div class="ct-sub">${c.doms.map(d=>`<span class="pill ${d}">${d[0].toUpperCase()+d.slice(1)}</span>`).join('')}</div>
     </div>`;
