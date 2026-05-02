@@ -1186,6 +1186,10 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 /* ── Bottom row: rune deck | runes | main deck | trash ── */
 /* Bottom row: rune-deck, narrow runes strip, dead space (where hand sits), deck, trash */
 #bottom-row{display:grid;grid-template-columns:90px minmax(0,640px) 1fr 78px 78px;gap:4px;height:120px;flex-shrink:0;}
+#rune-deck-zone{grid-column:1;}
+#runes-zone{grid-column:2;}
+#my-deck-zone{grid-column:4;}
+#trash-zone{grid-column:5;}
 .bz-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:4px 4px 12px;}
 .bz-mini .mini-stack{width:60px;height:84px;margin-bottom:0;position:relative;}
 .bz-mini .mini-stack .bz-card-back{width:58px;height:82px;border-radius:5px;}
