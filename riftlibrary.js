@@ -1436,16 +1436,22 @@ function addToSB(deckId,cardId,cardName,cardType){
 function addDirectToSB(deckId,cardId,cardName,cardType){
   if(cardType==='Battlefield'){toast('Battlefield cards go in battlefield zones');return;}
   if(cardType==='Rune'){toast('Rune cards go in rune slots');return;}
+  if(cardType==='Legend'){toast('Legends cannot go to the sideboard');return;}
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   if(!d.sideboard) d.sideboard=[];
   const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
   if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}
+  // Enforce combined 3-copy cap across deck + sideboard + champion zone (variants share the cap by base name)
+  const bn=baseName(cardName);
+  const deckCnt=(d.cards||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
+  const sbCnt=(d.sideboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
+  const zoneCnt=(d.champion&&baseName(d.champion.n)===bn)?1:0;
+  if(deckCnt+sbCnt+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
   const existing=d.sideboard.find(c=>c.id===cardId);
-  if(existing){if(existing.cnt>=3){toast('Max 3 copies');return;}existing.cnt++;}
+  if(existing) existing.cnt++;
   else d.sideboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
   showAddBanner('Added 1 copy to sideboard');
   persist();renderEditSearch();renderEditPreview();
-  toast(cardName+' added to sideboard');
 }
 
 function renderEditSearch(){
@@ -1761,7 +1767,7 @@ function editZoneDrop(e,zone){
   } else if(zone==='sideboard'){
     if(_DRAG.t==='Legend'||_DRAG.t==='Battlefield'){toast('Only deck cards go in the sideboard');_DRAG=null;return;}
     if(_DRAG.src==='deck') _moveDeckToSideboard();
-    else if(_DRAG.src==='library') addToSB(activeDeckId,_DRAG.id,_DRAG.n,_DRAG.t);
+    else if(_DRAG.src==='library') addDirectToSB(activeDeckId,_DRAG.id,_DRAG.n,_DRAG.t);
   }
   _DRAG=null;
 }
@@ -1902,7 +1908,9 @@ function renderEditPreview(targetEl){
     return ea!==eb?ea-eb:a.n.localeCompare(b.n);
   }
   if(!deckCards.length){
-    html+='<div style="font-size:12px;color:var(--text-muted);padding:4px 0;">No cards yet — click cards on the left to add</div>';
+    html+=`<div class="deck-all-types drop-zone deck-empty-drop"${isEdit?' ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,\'deck\')"':''} style="min-height:120px;display:flex;align-items:center;justify-content:center;">
+      <div style="font-size:13px;color:var(--text-muted);text-align:center;">${isEdit?'Empty deck — drag cards here from the left, or click them to add':'No cards yet'}</div>
+    </div>`;
   } else {
     const sorted=deckCards.slice().sort((a,b)=>typeSort(a.t,b.t)||(deckSortMode==='energy'?energySort(a,b):a.n.localeCompare(b.n)));
     const byType={};
