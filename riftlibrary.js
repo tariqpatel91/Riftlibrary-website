@@ -67,7 +67,7 @@ let cardsTabView='visual';
 let deckSortMode='alpha'; // 'alpha' or 'energy'
 let authToken=null;
 const AF={doms:new Set()};
-const CF={type:'',set:'',rar:'',legend:'',subtype:'',variant:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false};
+const CF={type:'',set:'',rar:'',legend:'',subtype:'',variant:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false,classMode:false};
 const EF={type:'',dom:'',set:'',subtype:'',variant:'',rar:'',energy:[0,12],power:[0,4],might:[0,10],page:1,showAllVersions:false};
 function getEditPer(){return 18;}
 const EDIT_PER=24;
@@ -428,6 +428,14 @@ function setView(v){
   v==='cards'?renderCards():renderArtists();
 }
 function onQ(){VIEW==='cards'?renderCards():renderArtists();}
+function toggleClassSearch(on){
+  CF.classMode=!!on;
+  const cs=document.getElementById('cs');
+  if(cs) cs.placeholder=CF.classMode?'Search classifications (e.g. Mech, Piltover, Dog)…':'Search cards by name or text…';
+  const wrap=document.getElementById('class-search-toggle');
+  if(wrap) wrap.classList.toggle('on',CF.classMode);
+  if(VIEW==='cards') renderCards();
+}
 
 /* ── NAV ────────────────────────────────────────── */
 function goto(p,el){
@@ -2657,8 +2665,11 @@ function resetAll(){
   if(VIEW==='cards')resetFilters();else resetArtistFilters();
 }
 function resetFilters(){
-  CF.type='';CF.set='';CF.rar='';CF.legend='';CF.subtype='';CF.variant='';CF.doms.clear();CF.energy=[0,12];CF.power=[0,4];CF.might=[0,10];
+  CF.type='';CF.set='';CF.rar='';CF.legend='';CF.subtype='';CF.variant='';CF.doms.clear();CF.energy=[0,12];CF.power=[0,4];CF.might=[0,10];CF.classMode=false;
   document.getElementById('cs').value='';
+  const cm=document.getElementById('cs-class-mode');if(cm){cm.checked=false;}
+  const wrap=document.getElementById('class-search-toggle');if(wrap)wrap.classList.remove('on');
+  document.getElementById('cs').placeholder='Search cards by name or text…';
   ['energy','power','might'].forEach(n=>{
     const max=parseInt(document.getElementById('rhi-'+n).max);
     document.getElementById('rlo-'+n).value=0;document.getElementById('rhi-'+n).value=max;
@@ -2687,7 +2698,15 @@ function toggleShowAllVersions(v){CF.showAllVersions=v;renderCards();}
 function renderCards(){
   const q=document.getElementById('cs').value.toLowerCase();
   const list=CARDS.filter(c=>{
-    if(q&&!c.name.toLowerCase().includes(q)&&!c.txt.toLowerCase().includes(q))return false;
+    if(q){
+      if(CF.classMode){
+        // Match only against classification tags (e.g. Mech, Piltover, Dog)
+        const tags=(c.tags||[]).map(t=>String(t).toLowerCase());
+        if(!tags.some(t=>t.includes(q))) return false;
+      } else {
+        if(!c.name.toLowerCase().includes(q)&&!c.txt.toLowerCase().includes(q)) return false;
+      }
+    }
     if(CF.type==='banned'){
       const bn=c.name.replace(/\s*\([^)]*\)\s*$/,'').trim();
       if(!BANNED_CARDS.has(bn))return false;
