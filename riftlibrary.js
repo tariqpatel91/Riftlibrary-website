@@ -1582,8 +1582,8 @@ function renderEditSearch(){
     const hiZ=(lv>=hv&&lv>=max)?1:3;
     return `<div class="rg"><div class="rh"><span class="rl">${n.toUpperCase()}</span><span class="rv" id="erv-${n}">${label}</span></div>`
       +`<div class="rt" onmousedown="pickEditThumb(event,'${n}')" ontouchstart="pickEditThumb(event,'${n}')"><div class="rf" id="erf-${n}" style="left:${fl}%;width:${fw}%"></div>`
-      +`<input type="range" class="rng" id="erlo-${n}" style="z-index:${loZ}" min="0" max="${max}" value="${lv}" oninput="updateEditRange('${n}')">`
-      +`<input type="range" class="rng" id="erhi-${n}" style="z-index:${hiZ}" min="0" max="${max}" value="${hv}" oninput="updateEditRange('${n}')">`
+      +`<input type="range" class="rng" id="erlo-${n}" style="z-index:${loZ}" min="0" max="${max}" value="${lv}" oninput="updateEditRange('${n}','lo')">`
+      +`<input type="range" class="rng" id="erhi-${n}" style="z-index:${hiZ}" min="0" max="${max}" value="${hv}" oninput="updateEditRange('${n}','hi')">`
       +`</div><div class="rticks">${ticks.map(t=>`<span>${t}</span>`).join('')}</div></div>`;
   }
   html+='<div class="edit-ranges">'
@@ -1655,14 +1655,22 @@ function buildPageNums(cur,total){
   if(cur>=total-3) return [1,'…',total-4,total-3,total-2,total-1,total];
   return [1,'…',cur-1,cur,cur+1,'…',total];
 }
-function updateEditRange(n){
+function updateEditRange(n,which){
   const loEl=document.getElementById('erlo-'+n);
   const hiEl=document.getElementById('erhi-'+n);
   const max=parseInt(hiEl.max);
   let lo=parseInt(loEl.value);
   let hi=parseInt(hiEl.value);
-  if(lo>hi){loEl.value=hi;lo=hi;}
-  if(hi<lo){hiEl.value=lo;hi=lo;}
+  // Only clamp the thumb the user is actually dragging — the other one stays put.
+  // lo can equal hi but never go past it; vice versa for hi.
+  if(which==='lo'){
+    if(lo>hi){lo=hi;loEl.value=String(lo);}
+  } else if(which==='hi'){
+    if(hi<lo){hi=lo;hiEl.value=String(hi);}
+  } else {
+    if(lo>hi){loEl.value=hi;lo=hi;}
+    if(hi<lo){hiEl.value=lo;hi=lo;}
+  }
   // Update z-index NOW (before re-render destroys these elements)
   const atMax=lo>=max;
   if(lo>=hi){loEl.style.zIndex=atMax?3:1;hiEl.style.zIndex=atMax?1:3;}
@@ -2803,20 +2811,33 @@ function pickThumb(e,n){
     loEl.style.zIndex=1;hiEl.style.zIndex=3;
   }
 }
-function updateRange(n){
+function updateRange(n,which){
   const loEl=document.getElementById('rlo-'+n);
   const hiEl=document.getElementById('rhi-'+n);
   const max=parseInt(hiEl.max);
   let lo=parseInt(loEl.value);
   let hi=parseInt(hiEl.value);
-  if(lo>hi){loEl.value=hi;lo=hi;}
-  if(hi<lo){hiEl.value=lo;hi=lo;}
+  // Clamp ONLY the slider that just moved so the other thumb stays where it was.
+  // Equality is allowed (lo can match hi), but neither can cross the other.
+  if(which==='lo'){
+    if(lo>hi){lo=hi;loEl.value=String(lo);}
+  } else if(which==='hi'){
+    if(hi<lo){hi=lo;hiEl.value=String(hi);}
+  } else {
+    // Fallback for old call sites — keep the previous mutual-clamp
+    if(lo>hi){loEl.value=hi;lo=hi;}
+    if(hi<lo){hiEl.value=lo;hi=lo;}
+  }
   if(n==='energy')CF.energy=[lo,hi];
   if(n==='power') CF.power=[lo,hi];
   if(n==='might') CF.might=[lo,hi];
   document.getElementById('rv-'+n).textContent=(lo===0&&hi===max)?'Any':lo===hi?String(lo):`${lo} – ${hi}`;
   const f=document.getElementById('rf-'+n);
   f.style.left=(lo/max*100)+'%';f.style.width=((hi-lo)/max*100)+'%';
+  // Ensure the slider that's NOT being dragged stays clickable (z-index swap so the focused thumb is on top)
+  const atMax=lo>=max;
+  if(lo>=hi){loEl.style.zIndex=atMax?3:1;hiEl.style.zIndex=atMax?1:3;}
+  else{loEl.style.zIndex=1;hiEl.style.zIndex=3;}
   renderCards();
 }
 function resetAll(){
