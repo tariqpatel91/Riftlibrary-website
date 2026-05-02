@@ -1182,7 +1182,8 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 /* ── Top row (opponent): trash | deck | runes | rune-deck (mirror of bottom-row) ── */
 #top-row{display:grid;grid-template-columns:96px 96px 1fr 90px;gap:4px;height:130px;flex-shrink:0;}
 /* ── Bottom row: rune deck | runes | main deck | trash ── */
-#bottom-row{display:grid;grid-template-columns:78px 1fr 78px 78px;gap:4px;height:90px;flex-shrink:0;}
+/* Bottom row: rune-deck, narrow runes strip, dead space (where hand sits), deck, trash */
+#bottom-row{display:grid;grid-template-columns:78px minmax(0,640px) 1fr 78px 78px;gap:4px;height:90px;flex-shrink:0;}
 .bz-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding-bottom:10px;}
 .bz-mini .mini-stack{width:50px;height:70px;margin-bottom:0;position:relative;}
 .bz-mini .mini-stack .bz-card-back{width:48px;height:68px;border-radius:5px;}
@@ -1299,12 +1300,12 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 .opp-card-back{width:32px;height:46px;border-radius:4px;background:linear-gradient(145deg,#0c1a3a,#060e20);border:1px solid rgba(180,140,50,0.3);flex-shrink:0;}
 
 /* ── Floating hand fan overlay (anchored to the right of the BASE, never overlapping the deck cluster) ── */
-/* Hand fan: tucked below the bottom row by default, just the tops peek up. Hover pops a card up to reveal it. */
-.hand-fan-overlay{position:absolute;bottom:-90px;right:290px;left:auto;transform:none;display:flex;justify-content:flex-end;align-items:flex-end;height:200px;pointer-events:none;z-index:24;max-width:calc(100vw - 520px);transition:bottom 0.2s ease;}
+/* Hand fan: ~90% of the card visible by default; hover lifts higher. Centered between the runes strip and the deck/trash cluster. */
+.hand-fan-overlay{position:absolute;bottom:-16px;left:calc(50% + 100px);right:auto;transform:translateX(-50%);display:flex;justify-content:center;align-items:flex-end;height:200px;pointer-events:none;z-index:24;max-width:calc(100vw - 1000px);min-width:280px;transition:bottom 0.2s ease;}
 .hand-fan-overlay .board-card{pointer-events:auto;width:118px;height:164px;margin:0 -28px;transform-origin:top center;transition:transform 0.22s ease,box-shadow 0.22s,margin 0.22s,top 0.22s;box-shadow:0 6px 14px rgba(0,0,0,0.6);image-rendering:-webkit-optimize-contrast;position:relative;top:0;}
 .hand-fan-overlay .board-card img{image-rendering:auto;}
 /* On hover: bring the card UP so the full thing is visible, straighten + scale, push siblings apart */
-.hand-fan-overlay .board-card:hover{transform:translateY(-130px) rotate(0deg) scale(1.18) !important;z-index:55;box-shadow:0 16px 36px rgba(0,0,0,0.9),0 0 22px rgba(232,212,122,0.65);margin:0 8px;}
+.hand-fan-overlay .board-card:hover{transform:translateY(-44px) rotate(0deg) scale(1.18) !important;z-index:55;box-shadow:0 16px 36px rgba(0,0,0,0.9),0 0 22px rgba(232,212,122,0.65);margin:0 8px;}
 /* Top hand fan: mirror of bottom hand fan, anchored to top, flipped vertically */
 .hand-fan-overlay.hand-fan-top{top:18px;bottom:auto;align-items:flex-start;transform:scaleY(-1);}
 .hand-fan-overlay.hand-fan-top .board-card{transform-origin:top center;}
