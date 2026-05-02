@@ -305,13 +305,14 @@ function startBoard(isFirst) {
   _setText('track-name-me', GS.me.name || 'You');
   _setText('track-name-opp', GS.opp.name || 'Opponent');
   _bindScoreTrack();
-  // Battlefield zones use a locked grid layout — clear any drag/resize state from earlier sessions
+  // Battlefield + Base / Runes / Legend / Champion zones are locked — clear any drag/resize state from earlier sessions
   try {
-    localStorage.removeItem('rl_bf_pos_bf-left');
-    localStorage.removeItem('rl_bf_pos_bf-right');
+    ['bf-pos_bf-left','bf-pos_bf-right',
+     'size_play-base-zone','size_runes-zone',
+     'size_my-legend-zone','size_my-champion-zone',
+     'size_opp-legend-zone','size_opp-champion-zone']
+      .forEach(k => localStorage.removeItem('rl_' + k));
   } catch(e) {}
-  // Make Base / Runes / Legend / Champion zones resizable from a bottom-right grip
-  requestAnimationFrame(_initZoneResize);
   renderFullBoard();
   updateTurnBadge();
   appendChat('System', 'Game started! ' + (GS.myTurn ? 'You go first.' : (GS.opp.name||'Opponent') + ' goes first.'));
