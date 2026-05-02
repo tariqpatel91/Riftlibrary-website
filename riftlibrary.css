@@ -1182,10 +1182,10 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 /* ── Top row (opponent): trash | deck | runes | rune-deck (mirror of bottom-row) ── */
 #top-row{display:grid;grid-template-columns:96px 96px 1fr 90px;gap:4px;height:130px;flex-shrink:0;}
 /* ── Bottom row: rune deck | runes | main deck | trash ── */
-#bottom-row{display:grid;grid-template-columns:90px 1fr 96px 96px;gap:4px;height:130px;flex-shrink:0;}
-.bz-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding-bottom:14px;}
-.bz-mini .mini-stack{width:68px;height:92px;margin-bottom:0;position:relative;}
-.bz-mini .mini-stack .bz-card-back{width:66px;height:90px;border-radius:6px;}
+#bottom-row{display:grid;grid-template-columns:78px 1fr 78px 78px;gap:4px;height:90px;flex-shrink:0;}
+.bz-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding-bottom:10px;}
+.bz-mini .mini-stack{width:50px;height:70px;margin-bottom:0;position:relative;}
+.bz-mini .mini-stack .bz-card-back{width:48px;height:68px;border-radius:5px;}
 /* Count badge sits in the top-right corner so it never collides with the bottom label */
 .bz-mini .bz-deck-count{position:absolute;top:4px;right:5px;font-size:10px;font-weight:700;color:#e8d47a;background:rgba(0,0,0,0.78);padding:1px 6px;border-radius:8px;border:1px solid rgba(180,140,50,0.45);line-height:1.4;min-width:14px;text-align:center;}
 .bz-mini .bz-lbl{font-size:9px;bottom:3px;}
@@ -1196,8 +1196,8 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 #trash-zone .trash-top.has-card{border:1.5px solid rgba(220,80,60,0.7);background:rgba(40,10,10,0.6);box-shadow:0 0 8px rgba(220,80,60,0.35);}
 #trash-zone .trash-top img{width:100%;height:100%;object-fit:cover;display:block;}
 /* Runes fill left → right with larger cards so they better fill the zone */
-#runes-zone .bz-cards{justify-content:flex-start;align-content:center;align-items:center;flex-wrap:nowrap;width:100%;height:100%;padding:8px 10px;gap:6px;overflow-x:auto;}
-#runes-zone .board-card{width:78px;height:108px;}
+#runes-zone .bz-cards{justify-content:flex-start;align-content:center;align-items:center;flex-wrap:nowrap;width:100%;height:100%;padding:6px 8px;gap:4px;overflow-x:auto;}
+#runes-zone .board-card{width:54px;height:75px;}
 /* LoL-style deck back artwork — single element rendered as 3D stack */
 .bz-card-back.lol-back{
   background:linear-gradient(160deg,#102f5e 0%,#091f44 50%,#04122c 100%);
@@ -1289,7 +1289,7 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 
 /* ── Deck zone ── */
 .bz-deck{cursor:pointer;}
-.bz-deck-stack{position:relative;width:52px;height:68px;margin-bottom:4px;}
+.bz-deck-stack{position:relative;width:46px;height:60px;margin-bottom:2px;}
 .bz-card-back{position:absolute;width:50px;height:66px;border-radius:5px;background:linear-gradient(145deg,#0c1a3a 0%,#060e20 100%);border:1px solid rgba(180,140,50,0.45);}
 .bz-card-back.b1{bottom:0;left:0;}
 .bz-card-back.b2{bottom:2px;left:2px;opacity:0.7;}
@@ -1300,7 +1300,7 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 
 /* ── Floating hand fan overlay (anchored to the right of the BASE, never overlapping the deck cluster) ── */
 /* Hand fan: tucked below the bottom row by default, just the tops peek up. Hover pops a card up to reveal it. */
-.hand-fan-overlay{position:absolute;bottom:-118px;right:290px;left:auto;transform:none;display:flex;justify-content:flex-end;align-items:flex-end;height:200px;pointer-events:none;z-index:24;max-width:calc(100vw - 520px);transition:bottom 0.2s ease;}
+.hand-fan-overlay{position:absolute;bottom:-90px;right:290px;left:auto;transform:none;display:flex;justify-content:flex-end;align-items:flex-end;height:200px;pointer-events:none;z-index:24;max-width:calc(100vw - 520px);transition:bottom 0.2s ease;}
 .hand-fan-overlay .board-card{pointer-events:auto;width:118px;height:164px;margin:0 -28px;transform-origin:top center;transition:transform 0.22s ease,box-shadow 0.22s,margin 0.22s,top 0.22s;box-shadow:0 6px 14px rgba(0,0,0,0.6);image-rendering:-webkit-optimize-contrast;position:relative;top:0;}
 .hand-fan-overlay .board-card img{image-rendering:auto;}
 /* On hover: bring the card UP so the full thing is visible, straighten + scale, push siblings apart */
