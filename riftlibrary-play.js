@@ -358,14 +358,21 @@ function renderFullBoard() {
   _setText('my-deck-count', GS.me.deck.length);
   _setText('my-disc-count', GS.me.discard.length);
   _setText('my-rune-count', GS.me.runes.length);
+  _setText('opp-deck-count', GS.opp.deckCount || 0);
+  _setText('opp-disc-count', GS.opp.discardCount || 0);
+  _setText('opp-rune-count', GS.opp.runeCount || 0);
   renderTrashTop();
   renderMyHand();
   renderOppHand();
-  // Center BASE: my units at bottom half, opp units at top half
+  // BASE zones (visible wide rectangles): my units below, opp units above
+  renderZone('play-base-cards', GS.me.battle);
+  renderZone('opp-play-base-cards', GS.opp.battle);
+  // Legacy render targets (kept for backward-compat with hidden control bar)
   renderZone('battle-cards', GS.me.battle);
   renderZone('opp-base-cards', GS.opp.battle);
   // Other zones
   renderZone('support-cards', GS.me.support);
+  renderZone('opp-support-cards', GS.opp.support || []);
   renderZone('bf-left-cards',  GS.me.bfLeft  || []);
   renderZone('bf-right-cards', GS.me.bfRight || []);
   renderZone('my-battlefield-cards', GS.me.bfArea || []);
@@ -421,8 +428,17 @@ function renderTrashTop() {
 
 function renderOppHand() {
   const el = document.getElementById('opp-hand');
-  if (el) el.innerHTML = Array(Math.min(GS.opp.handCount, 10)).fill(0).map(() =>
-    `<div class="opp-card-back"></div>`).join('');
+  if (el) {
+    const n = Math.min(GS.opp.handCount, 10);
+    el.innerHTML = Array(n).fill(0).map((_, i) => {
+      const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0;
+      const maxSpread = Math.min(40, n * 5);
+      const rot = (maxSpread / 2) * t;
+      const peakLift = Math.min(48, n * 5);
+      const lift = -peakLift * (1 - t * t);
+      return `<div class="opp-card-back" style="transform:translateY(${lift}px) rotate(${rot}deg);"></div>`;
+    }).join('');
+  }
   const cnt = document.getElementById('opp-hand-count');
   if (cnt) cnt.textContent = GS.opp.handCount;
 }

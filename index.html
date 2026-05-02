@@ -326,6 +326,33 @@
     <!-- Board arena: no topbar — info lives inside zones -->
     <div id="board-arena">
 
+      <!-- ── TOP ROW (opponent): mirror of bottom row — trash | deck | runes | rune-deck ── -->
+      <div id="top-row">
+        <div class="bz bz-mini" id="opp-trash-zone" title="Opponent's discard pile">
+          <div id="opp-trash-top" class="trash-top"></div>
+          <div id="opp-disc-count" class="bz-deck-count">0</div>
+          <span class="bz-lbl">TRASH</span>
+        </div>
+        <div class="bz bz-deck bz-mini" id="opp-deck-zone" title="Opponent's main deck">
+          <div class="bz-deck-stack mini-stack">
+            <div class="bz-card-back lol-back"></div>
+          </div>
+          <div id="opp-deck-count" class="bz-deck-count">0</div>
+          <span class="bz-lbl">DECK</span>
+        </div>
+        <div class="bz" id="opp-runes-zone">
+          <div id="opp-support-cards" class="bz-cards"></div>
+          <span class="bz-lbl">RUNES</span>
+        </div>
+        <div class="bz bz-deck" id="opp-rune-deck-zone" title="Opponent's rune deck">
+          <div class="bz-deck-stack">
+            <div class="bz-card-back lol-back rune-back"></div>
+          </div>
+          <div id="opp-rune-count" class="bz-deck-count">0</div>
+          <span class="bz-lbl">RUNE DECK</span>
+        </div>
+      </div>
+
       <!-- ── Play layout: hero column on LEFT, big battlefields center, score track right ── -->
       <div id="play-main">
 
@@ -369,6 +396,12 @@
               <span class="bz-lbl">CHAMPION</span>
             </div>
           </div>
+        </div>
+
+        <!-- Opponent BASE zone: wide rectangle above the battlefields (mirror of player BASE) -->
+        <div class="bz" id="opp-play-base-zone">
+          <div id="opp-play-base-cards" class="bz-cards"></div>
+          <span class="bz-lbl">BASE</span>
         </div>
 
         <!-- Two large central battlefield zones -->
@@ -426,16 +459,9 @@
 
       </div><!-- /play-main -->
 
-      <!-- ── TOP-RIGHT CLUSTER: opponent deck ── -->
-      <div id="top-corner">
-        <div class="bz bz-deck bz-mini" id="opp-deck-zone" title="Opponent's main deck">
-          <div class="bz-deck-stack mini-stack">
-            <div class="bz-card-back lol-back"></div>
-          </div>
-          <div id="opp-hand" class="bz-hand-fan"></div>
-          <span class="bz-lbl">OPP DECK</span>
-        </div>
-      </div>
+      <!-- ── OPPONENT HAND FAN at top (mirror of my-hand) ── -->
+      <div id="opp-hand" class="hand-fan-overlay hand-fan-top"></div>
+      <div id="opp-hand-count" style="display:none;"></div>
 
       <!-- ── BOTTOM ROW: rune deck | runes | main deck | trash ── -->
       <div id="bottom-row">
