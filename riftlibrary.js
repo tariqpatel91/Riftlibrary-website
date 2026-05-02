@@ -440,7 +440,7 @@ function onQ(){VIEW==='cards'?renderCards():renderArtists();}
 function toggleClassSearch(on){
   CF.classMode=!!on;
   const cs=document.getElementById('cs');
-  if(cs) cs.placeholder=CF.classMode?'Search classifications (e.g. Mech, Piltover, Dog)…':'Search cards by name or text…';
+  if(cs) cs.placeholder=CF.classMode?'Search by card tags (e.g. Mech, Equipment, Dog)…':'Search cards by name or text…';
   const wrap=document.getElementById('class-search-toggle');
   if(wrap) wrap.classList.toggle('on',CF.classMode);
   if(VIEW==='cards') renderCards();
@@ -2879,7 +2879,7 @@ function renderCards(){
   const list=CARDS.filter(c=>{
     if(q){
       if(CF.classMode){
-        // Match only against classification tags (e.g. Mech, Piltover, Dog)
+        // Match only against card tags (e.g. Mech, Equipment, Dog)
         const tags=(c.tags||[]).map(t=>String(t).toLowerCase());
         if(!tags.some(t=>t.includes(q))) return false;
       } else {
