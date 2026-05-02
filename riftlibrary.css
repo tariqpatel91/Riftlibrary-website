@@ -1096,6 +1096,8 @@ body.on-play-tab #play-board{height:100vh;}
 /* Resize grips disabled — Base / Runes / Legend / Champion zones are locked */
 .zone-resize-grip{display:none;}
 #play-base-zone .bz-cards{position:absolute;inset:8px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;padding:0;}
+/* BASE-zone cards rendered ~40% larger than the default board card */
+#play-base-zone .board-card{width:73px;height:101px;}
 #play-base-zone.drag-over{border-color:#e8d47a;box-shadow:0 0 18px rgba(232,212,122,0.4);background:linear-gradient(160deg,rgba(200,154,58,0.18),rgba(60,90,180,0.18));}
 #score-track{grid-column:3;grid-row:1;display:grid;grid-template-columns:18px 1fr 18px;align-items:stretch;min-height:0;}
 .bf-large{position:relative;background:linear-gradient(160deg,rgba(60,90,180,0.18),rgba(20,30,80,0.18));border:1px solid rgba(180,140,50,0.35);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;}
@@ -1183,10 +1185,10 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 #top-row{display:grid;grid-template-columns:96px 96px 1fr 90px;gap:4px;height:130px;flex-shrink:0;}
 /* ── Bottom row: rune deck | runes | main deck | trash ── */
 /* Bottom row: rune-deck, narrow runes strip, dead space (where hand sits), deck, trash */
-#bottom-row{display:grid;grid-template-columns:78px minmax(0,640px) 1fr 78px 78px;gap:4px;height:90px;flex-shrink:0;}
-.bz-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding-bottom:10px;}
-.bz-mini .mini-stack{width:50px;height:70px;margin-bottom:0;position:relative;}
-.bz-mini .mini-stack .bz-card-back{width:48px;height:68px;border-radius:5px;}
+#bottom-row{display:grid;grid-template-columns:90px minmax(0,640px) 1fr 96px 96px;gap:4px;height:120px;flex-shrink:0;}
+.bz-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding-bottom:14px;}
+.bz-mini .mini-stack{width:68px;height:92px;margin-bottom:0;position:relative;}
+.bz-mini .mini-stack .bz-card-back{width:66px;height:90px;border-radius:6px;}
 /* Count badge sits in the top-right corner so it never collides with the bottom label */
 .bz-mini .bz-deck-count{position:absolute;top:4px;right:5px;font-size:10px;font-weight:700;color:#e8d47a;background:rgba(0,0,0,0.78);padding:1px 6px;border-radius:8px;border:1px solid rgba(180,140,50,0.45);line-height:1.4;min-width:14px;text-align:center;}
 .bz-mini .bz-lbl{font-size:9px;bottom:3px;}
@@ -1197,8 +1199,14 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 #trash-zone .trash-top.has-card{border:1.5px solid rgba(220,80,60,0.7);background:rgba(40,10,10,0.6);box-shadow:0 0 8px rgba(220,80,60,0.35);}
 #trash-zone .trash-top img{width:100%;height:100%;object-fit:cover;display:block;}
 /* Runes fill left → right with larger cards so they better fill the zone */
-#runes-zone .bz-cards{justify-content:flex-start;align-content:center;align-items:center;flex-wrap:nowrap;width:100%;height:100%;padding:6px 8px;gap:4px;overflow-x:auto;}
-#runes-zone .board-card{width:54px;height:75px;}
+/* Runes start side by side; when the strip would overflow they overlap progressively (no scrollbar) */
+#runes-zone .bz-cards{justify-content:flex-start;align-content:center;align-items:center;flex-wrap:nowrap;width:100%;height:100%;padding:6px 8px;gap:6px;overflow:hidden;}
+#runes-zone .board-card{width:62px;height:86px;flex-shrink:0;transition:margin-left 0.18s,transform 0.18s;}
+/* 8+ cards: pull them in. 11+: pull tighter. 14+: tighter still. */
+#runes-zone .bz-cards:has(>.board-card:nth-child(8))  .board-card+.board-card{margin-left:-32px;}
+#runes-zone .bz-cards:has(>.board-card:nth-child(11)) .board-card+.board-card{margin-left:-42px;}
+#runes-zone .bz-cards:has(>.board-card:nth-child(14)) .board-card+.board-card{margin-left:-50px;}
+#runes-zone .board-card:hover{transform:translateY(-6px) scale(1.06);z-index:5;}
 /* LoL-style deck back artwork — single element rendered as 3D stack */
 .bz-card-back.lol-back{
   background:linear-gradient(160deg,#102f5e 0%,#091f44 50%,#04122c 100%);
@@ -1290,7 +1298,7 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 
 /* ── Deck zone ── */
 .bz-deck{cursor:pointer;}
-.bz-deck-stack{position:relative;width:46px;height:60px;margin-bottom:2px;}
+.bz-deck-stack{position:relative;width:52px;height:68px;margin-bottom:4px;}
 .bz-card-back{position:absolute;width:50px;height:66px;border-radius:5px;background:linear-gradient(145deg,#0c1a3a 0%,#060e20 100%);border:1px solid rgba(180,140,50,0.45);}
 .bz-card-back.b1{bottom:0;left:0;}
 .bz-card-back.b2{bottom:2px;left:2px;opacity:0.7;}
