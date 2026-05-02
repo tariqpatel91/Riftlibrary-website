@@ -293,6 +293,8 @@ function _shuffle(arr) {
 function startBoard(isFirst) {
   GS.myTurn = isFirst;
   GS.phase = 'main';
+  GS.me.score = 0;
+  GS.opp.score = 0;
   for (let i = 0; i < 5 && GS.me.deck.length; i++) {
     GS.me.hand.push(GS.me.deck.shift());
   }
@@ -300,9 +302,42 @@ function startBoard(isFirst) {
   document.getElementById('play-board').style.display = 'flex';
   _setText('my-name-label', GS.me.name);
   _setText('opp-name-label', GS.opp.name || 'Opponent');
+  _setText('track-name-me', GS.me.name || 'You');
+  _setText('track-name-opp', GS.opp.name || 'Opponent');
+  _bindScoreTrack();
   renderFullBoard();
   updateTurnBadge();
   appendChat('System', 'Game started! ' + (GS.myTurn ? 'You go first.' : (GS.opp.name||'Opponent') + ' goes first.'));
+}
+
+function _bindScoreTrack() {
+  const slots = document.querySelectorAll('.track-slot');
+  slots.forEach(s => {
+    s.onclick = (e) => {
+      const v = parseInt(s.getAttribute('data-v'), 10) || 0;
+      // Left-click = your score, right-click = opponent's
+      if (e.shiftKey || e.altKey) GS.opp.score = v;
+      else GS.me.score = v;
+      _renderScoreTrack();
+    };
+    s.oncontextmenu = (e) => {
+      e.preventDefault();
+      const v = parseInt(s.getAttribute('data-v'), 10) || 0;
+      GS.opp.score = v;
+      _renderScoreTrack();
+    };
+  });
+}
+
+function _renderScoreTrack() {
+  const slots = document.querySelectorAll('.track-slot');
+  const me = GS.me.score || 0;
+  const opp = GS.opp.score || 0;
+  slots.forEach(s => {
+    const v = parseInt(s.getAttribute('data-v'), 10) || 0;
+    s.classList.toggle('lit-me',  v === me);
+    s.classList.toggle('lit-opp', v === opp);
+  });
 }
 
 /* ── helpers ── */
@@ -326,6 +361,7 @@ function renderFullBoard() {
   renderZone('bf-left-cards',  GS.me.bfLeft  || []);
   renderZone('bf-right-cards', GS.me.bfRight || []);
   renderZone('my-battlefield-cards', GS.me.bfArea || []);
+  _renderScoreTrack();
   // Hide base hint once units are placed
   const hint = document.getElementById('base-hint');
   if (hint) hint.style.display = (GS.me.battle.length || GS.opp.battle.length) ? 'none' : '';

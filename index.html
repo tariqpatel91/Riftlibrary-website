@@ -326,66 +326,87 @@
     <!-- Board arena: no topbar — info lives inside zones -->
     <div id="board-arena">
 
-      <!-- ── BASE arena (full width); player pieces and battlefields are absolute overlays inside ── -->
-      <div class="bz" id="center-base" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battle')">
+      <!-- ── New play layout: 2 big battlefields + vertical score track + hero column + chat ── -->
+      <div id="play-main">
 
-        <!-- Opponent's champion + legend, top-left -->
-        <div class="player-pieces" id="opp-pieces">
-          <div class="bz piece-bz" id="opp-champion-zone">
-            <div class="bz-icon">♛</div>
-            <div id="opp-champion-cards" class="bz-cards"></div>
-            <span class="bz-lbl">CHAMPION</span>
+        <!-- Two large central battlefield zones -->
+        <div id="bf-stage">
+          <div class="bz bf-large" id="bf-left" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battlefield-left')">
+            <div id="bf-left-cards" class="bz-cards"></div>
+            <button class="bf-add-btn" title="Drop a battlefield card here">+</button>
+            <span class="bz-lbl">BATTLEFIELD</span>
           </div>
-          <div class="bz piece-bz" id="opp-legend-zone">
-            <div class="bz-icon">★</div>
-            <div id="opp-legend-cards" class="bz-cards"></div>
-            <span class="bz-lbl">LEGEND</span>
+          <div class="bz bf-large" id="bf-right" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battlefield-right')">
+            <div id="bf-right-cards" class="bz-cards"></div>
+            <button class="bf-add-btn" title="Drop a battlefield card here">+</button>
+            <span class="bz-lbl">BATTLEFIELD</span>
           </div>
         </div>
 
-        <!-- Opp battlefield zones, sit just above the divider -->
-        <div class="bz bf-mini" id="bf-left" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battlefield-left')">
-          <div id="bf-left-cards" class="bz-cards"></div>
-          <span class="bz-lbl">BATTLEFIELD</span>
-        </div>
-        <div class="bz bf-mini" id="bf-right" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battlefield-right')">
-          <div id="bf-right-cards" class="bz-cards"></div>
-          <span class="bz-lbl">BATTLEFIELD</span>
+        <!-- Vertical score track (8 → 0). One column shared, name labels run vertically on each side -->
+        <div id="score-track">
+          <div class="track-name track-name-me" id="track-name-me">asd</div>
+          <div class="track-col" id="track-col">
+            <button class="track-slot" data-v="8">8</button>
+            <button class="track-slot" data-v="7">7</button>
+            <button class="track-slot" data-v="6">6</button>
+            <button class="track-slot" data-v="5">5</button>
+            <button class="track-slot" data-v="4">4</button>
+            <button class="track-slot" data-v="3">3</button>
+            <button class="track-slot" data-v="2">2</button>
+            <button class="track-slot" data-v="1">1</button>
+            <button class="track-slot" data-v="0">0</button>
+          </div>
+          <div class="track-name track-name-opp" id="track-name-opp">Goldfish</div>
         </div>
 
-        <!-- Battlefield drag area + units -->
-        <div class="center-opp-units" id="opp-base-cards"></div>
-        <div class="center-divider">
-          <span id="board-turn-badge"></span>
-          <button class="bz-ctrl-btn" onclick="endTurn()" id="end-turn-btn">End Turn</button>
-          <button class="bz-ctrl-btn" onclick="toggleChat()">💬</button>
-          <button class="bz-ctrl-btn bz-ctrl-danger" onclick="concede()">Concede</button>
+        <!-- Hero column: opp champion + legend (top), my legend + champion (bottom) -->
+        <div id="hero-column">
+          <div class="hero-half hero-opp">
+            <div class="bz piece-bz" id="opp-champion-zone">
+              <div class="bz-icon">♛</div>
+              <div id="opp-champion-cards" class="bz-cards"></div>
+              <span class="bz-lbl">CHAMPION</span>
+            </div>
+            <div class="bz piece-bz" id="opp-legend-zone">
+              <div class="bz-icon">★</div>
+              <div id="opp-legend-cards" class="bz-cards"></div>
+              <span class="bz-lbl">LEGEND</span>
+            </div>
+          </div>
+          <div class="hero-half hero-me">
+            <div class="bz piece-bz" id="my-legend-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'legend')">
+              <div class="bz-icon">★</div>
+              <div id="my-legend-cards" class="bz-cards"></div>
+              <span class="bz-lbl">LEGEND</span>
+            </div>
+            <div class="bz piece-bz" id="my-champion-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'champion')">
+              <div class="bz-icon">♛</div>
+              <div id="my-champion-cards" class="bz-cards"></div>
+              <span class="bz-lbl">CHAMPION</span>
+            </div>
+          </div>
         </div>
-        <div class="center-my-units" id="battle-cards"></div>
-        <div class="bz-base-hint" id="base-hint">Units Start/Return Here · Units Start Exhausted</div>
-        <span class="bz-lbl">BASE</span>
 
-        <!-- My battlefield zone — area for cards conquered/under your battlefield -->
-        <div class="bz battlefield-zone" id="my-battlefield-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battlefield-area')">
+        <!-- BASE strip (units zone) sits along the bottom of the play area -->
+        <div class="bz" id="center-base" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battle')">
+          <div class="center-opp-units" id="opp-base-cards"></div>
+          <div class="center-divider">
+            <span id="board-turn-badge"></span>
+            <button class="bz-ctrl-btn" onclick="endTurn()" id="end-turn-btn">End Turn</button>
+            <button class="bz-ctrl-btn" onclick="toggleChat()">💬</button>
+            <button class="bz-ctrl-btn bz-ctrl-danger" onclick="concede()">Concede</button>
+          </div>
+          <div class="center-my-units" id="battle-cards"></div>
+          <span class="bz-lbl">BASE</span>
+        </div>
+
+        <!-- Hidden but kept for backward-compat with existing logic -->
+        <div class="bz battlefield-zone" id="my-battlefield-zone" style="display:none;" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battlefield-area')">
           <div id="my-battlefield-cards" class="bz-cards"></div>
-          <span class="bz-lbl">BATTLEFIELD ZONE</span>
         </div>
 
-        <!-- My champion + legend, bottom-left -->
-        <div class="player-pieces" id="my-pieces">
-          <div class="bz piece-bz" id="my-champion-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'champion')">
-            <div class="bz-icon">♛</div>
-            <div id="my-champion-cards" class="bz-cards"></div>
-            <span class="bz-lbl">CHAMPION</span>
-          </div>
-          <div class="bz piece-bz" id="my-legend-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'legend')">
-            <div class="bz-icon">★</div>
-            <div id="my-legend-cards" class="bz-cards"></div>
-            <span class="bz-lbl">LEGEND</span>
-          </div>
-        </div>
-
-      </div><!-- /center-base -->
+      </div><!-- /play-main -->
 
       <!-- ── TOP-RIGHT CLUSTER: opponent deck ── -->
       <div id="top-corner">
