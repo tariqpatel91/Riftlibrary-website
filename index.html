@@ -383,6 +383,12 @@
           </div>
         </div>
 
+        <!-- BASE zone: wide rectangle below the battlefields, where units sit -->
+        <div class="bz" id="play-base-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battle')">
+          <div id="play-base-cards" class="bz-cards"></div>
+          <span class="bz-lbl">BASE</span>
+        </div>
+
         <!-- Vertical score track (8 → 0). Rotated player names on either side -->
         <div id="score-track">
           <div class="track-name track-name-me" id="track-name-me">asd</div>

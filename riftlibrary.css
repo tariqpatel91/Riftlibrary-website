@@ -1088,6 +1088,10 @@ body.on-play-tab #play-board{height:100vh;}
 /* Battlefield row — locked layout, equal halves, vertically centered around the midline */
 #bf-stage{grid-column:2;grid-row:1;display:grid;grid-template-columns:1fr 1fr;gap:14px;min-height:0;height:32%;align-self:center;}
 .bf-large{cursor:default;}
+/* BASE zone — wide horizontal rectangle below the battlefields */
+#play-base-zone{grid-column:2;grid-row:1;height:24%;align-self:end;margin-bottom:6px;background:linear-gradient(160deg,rgba(60,90,180,0.12),rgba(20,30,80,0.12));border:1px solid rgba(180,140,50,0.35);border-radius:10px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+#play-base-zone .bz-cards{position:absolute;inset:8px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;padding:0;}
+#play-base-zone.drag-over{border-color:#e8d47a;box-shadow:0 0 18px rgba(232,212,122,0.4);background:linear-gradient(160deg,rgba(200,154,58,0.18),rgba(60,90,180,0.18));}
 #score-track{grid-column:3;grid-row:1;display:grid;grid-template-columns:18px 1fr 18px;align-items:stretch;min-height:0;}
 .bf-large{position:relative;background:linear-gradient(160deg,rgba(60,90,180,0.18),rgba(20,30,80,0.18));border:1px solid rgba(180,140,50,0.35);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;}
 .bf-large .bz-cards{position:absolute;inset:8px;display:flex;align-items:center;justify-content:center;padding:0;}
