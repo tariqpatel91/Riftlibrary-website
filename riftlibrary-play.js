@@ -310,6 +310,8 @@ function startBoard(isFirst) {
     localStorage.removeItem('rl_bf_pos_bf-left');
     localStorage.removeItem('rl_bf_pos_bf-right');
   } catch(e) {}
+  // Make Base / Runes / Legend / Champion zones resizable from a bottom-right grip
+  requestAnimationFrame(_initZoneResize);
   renderFullBoard();
   updateTurnBadge();
   appendChat('System', 'Game started! ' + (GS.myTurn ? 'You go first.' : (GS.opp.name||'Opponent') + ' goes first.'));
@@ -1273,4 +1275,58 @@ function _bfSavePos(el) {
       height: parseFloat(el.style.height) || 0
     }));
   } catch(e) {}
+}
+
+/* ── Resizable zones (Base / Runes / Legend / Champion) ───────── */
+const _RESIZABLE_IDS = ['play-base-zone','runes-zone','my-legend-zone','my-champion-zone','opp-legend-zone','opp-champion-zone'];
+function _initZoneResize() {
+  _RESIZABLE_IDS.forEach(_makeZoneResizable);
+}
+function _makeZoneResizable(id) {
+  const el = document.getElementById(id);
+  if (!el || el._resizeInit) return;
+  el._resizeInit = true;
+  // Restore saved size
+  try {
+    const saved = JSON.parse(localStorage.getItem('rl_size_' + id) || 'null');
+    if (saved) {
+      if (saved.width)  el.style.width  = saved.width  + 'px';
+      if (saved.height) el.style.height = saved.height + 'px';
+      // Hint to flex/grid that this should respect inline sizing
+      el.style.flex = '0 0 auto';
+    }
+  } catch(e) {}
+  if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
+  // Add a corner grip
+  const grip = document.createElement('div');
+  grip.className = 'zone-resize-grip';
+  grip.title = 'Drag to resize';
+  el.appendChild(grip);
+  grip.addEventListener('mousedown', e => _zoneStartResize(e, el, id));
+}
+function _zoneStartResize(e, el, id) {
+  e.preventDefault();
+  e.stopPropagation();
+  const rect = el.getBoundingClientRect();
+  const startX = e.clientX, startY = e.clientY;
+  const startW = rect.width, startH = rect.height;
+  el.style.flex = '0 0 auto';
+  function onMove(ev) {
+    const w = Math.max(60, startW + (ev.clientX - startX));
+    const h = Math.max(60, startH + (ev.clientY - startY));
+    el.style.width  = w + 'px';
+    el.style.height = h + 'px';
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    try {
+      localStorage.setItem('rl_size_' + id, JSON.stringify({
+        width:  parseFloat(el.style.width),
+        height: parseFloat(el.style.height)
+      }));
+    } catch(e) {}
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 }
