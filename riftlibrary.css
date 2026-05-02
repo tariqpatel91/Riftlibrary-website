@@ -1083,7 +1083,7 @@ body.on-play-tab #play-board{height:100vh;}
 #my-pieces{bottom:6px;}
 .piece-bz{width:90px;height:130px;}
 /* ── Play board layout: hero column LEFT, big battlefields center, score track RIGHT ── */
-#play-main{flex:1;min-height:0;display:grid;grid-template-columns:130px 1fr 60px;grid-template-rows:1fr auto;gap:8px;padding:6px;position:relative;}
+#play-main{flex:1;min-height:0;display:grid;grid-template-columns:130px 1fr 60px;grid-template-rows:1fr;gap:8px;padding:6px;position:relative;}
 #hero-column{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:8px;min-height:0;}
 #bf-stage{grid-column:2;grid-row:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0;}
 #score-track{grid-column:3;grid-row:1;display:grid;grid-template-columns:18px 1fr 18px;align-items:stretch;min-height:0;}
@@ -1109,8 +1109,15 @@ body.on-play-tab #play-board{height:100vh;}
 .hero-half{flex:1;display:flex;flex-direction:column;gap:6px;min-height:0;}
 .hero-half .piece-bz{flex:1;width:100%;min-height:0;position:relative;}
 
-/* BASE strip across the bottom of the play area */
-#play-main #center-base{grid-column:1/4;grid-row:2;flex:none;height:130px;display:flex;flex-direction:column;padding:4px 6px;position:relative;}
+/* BASE control bar floats at the vertical middle of the play area, full width */
+#play-main #center-base{position:absolute;left:6px;right:6px;top:50%;transform:translateY(-50%);height:auto;display:flex;align-items:center;justify-content:center;flex-direction:row;padding:0;z-index:6;background:transparent;border:none;pointer-events:none;}
+#play-main #center-base .center-divider{pointer-events:auto;width:auto;max-width:560px;border-top:1px solid rgba(180,140,50,0.35);border-bottom:1px solid rgba(180,140,50,0.35);background:rgba(4,10,22,0.85);border-radius:8px;padding:6px 14px;}
+#play-main #center-base .center-opp-units,
+#play-main #center-base .center-my-units,
+#play-main #center-base .bz-base-hint,
+#play-main #center-base > .bz-lbl{display:none;}
+/* Thin horizontal divider line that runs across the entire play area at the midline */
+#play-main::before{content:'';position:absolute;left:140px;right:65px;top:50%;height:1px;background:rgba(180,140,50,0.35);z-index:5;pointer-events:none;}
 
 /* Ensure card images fit nicely in champion/legend pieces with the new flex sizing */
 .hero-half .piece-bz .bz-cards{position:absolute;inset:6px;padding:0;display:flex;align-items:center;justify-content:center;}
