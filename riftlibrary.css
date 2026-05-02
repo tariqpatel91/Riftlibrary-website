@@ -1085,23 +1085,9 @@ body.on-play-tab #play-board{height:100vh;}
 /* ── Play board layout: hero column LEFT, big battlefields center, score track RIGHT ── */
 #play-main{flex:1;min-height:0;display:grid;grid-template-columns:130px 1fr 60px;grid-template-rows:1fr;gap:8px;padding:6px;position:relative;}
 #hero-column{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:8px;min-height:0;}
-#bf-stage{grid-column:2;grid-row:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0;height:65%;align-self:start;position:relative;}
-/* Resize/drag handles on each battlefield zone */
-.bf-large{cursor:move;}
-.bf-large.bf-floating{position:absolute;}
-.bf-resize-handle{position:absolute;width:18px;height:18px;z-index:10;background:transparent;}
-.bf-resize-handle::before{content:'';position:absolute;inset:5px;border:2px solid rgba(200,154,58,0.55);border-radius:2px;transition:all 0.15s;}
-.bf-resize-handle:hover::before{border-color:#e8d47a;inset:3px;}
-.bf-resize-nw{top:0;left:0;cursor:nwse-resize;}
-.bf-resize-nw::before{border-right:none;border-bottom:none;}
-.bf-resize-ne{top:0;right:0;cursor:nesw-resize;}
-.bf-resize-ne::before{border-left:none;border-bottom:none;}
-.bf-resize-sw{bottom:0;left:0;cursor:nesw-resize;}
-.bf-resize-sw::before{border-right:none;border-top:none;}
-.bf-resize-se{bottom:0;right:0;cursor:nwse-resize;}
-.bf-resize-se::before{border-left:none;border-top:none;}
-/* Hide the default decorative corners on bf-large since the handles replace them */
-.bf-large::before,.bf-large::after{display:none;}
+/* Battlefield row — locked layout, equal halves, vertically centered around the midline */
+#bf-stage{grid-column:2;grid-row:1;display:grid;grid-template-columns:1fr 1fr;gap:14px;min-height:0;height:32%;align-self:center;}
+.bf-large{cursor:default;}
 #score-track{grid-column:3;grid-row:1;display:grid;grid-template-columns:18px 1fr 18px;align-items:stretch;min-height:0;}
 .bf-large{position:relative;background:linear-gradient(160deg,rgba(60,90,180,0.18),rgba(20,30,80,0.18));border:1px solid rgba(180,140,50,0.35);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;}
 .bf-large .bz-cards{position:absolute;inset:8px;display:flex;align-items:center;justify-content:center;padding:0;}

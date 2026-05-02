@@ -305,8 +305,11 @@ function startBoard(isFirst) {
   _setText('track-name-me', GS.me.name || 'You');
   _setText('track-name-opp', GS.opp.name || 'Opponent');
   _bindScoreTrack();
-  // Wait one frame so the grid layout settles, then make the battlefield zones drag/resize-able
-  requestAnimationFrame(() => _initBfDragResize());
+  // Battlefield zones use a locked grid layout — clear any drag/resize state from earlier sessions
+  try {
+    localStorage.removeItem('rl_bf_pos_bf-left');
+    localStorage.removeItem('rl_bf_pos_bf-right');
+  } catch(e) {}
   renderFullBoard();
   updateTurnBadge();
   appendChat('System', 'Game started! ' + (GS.myTurn ? 'You go first.' : (GS.opp.name||'Opponent') + ' goes first.'));
