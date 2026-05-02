@@ -353,6 +353,19 @@
         </div>
       </div>
 
+      <!-- Left-side floating options bar -->
+      <button id="play-options-toggle" onclick="togglePlayOptions()" title="Game options">≡</button>
+      <div id="play-options-panel">
+        <div class="po-header">
+          <span class="po-title">Game</span>
+          <button class="po-close" onclick="togglePlayOptions(false)">✕</button>
+        </div>
+        <div class="po-status" id="po-turn-status">⚡ Your Turn</div>
+        <button class="po-action po-end" onclick="endTurn()" id="po-end-turn">End Turn</button>
+        <button class="po-action" onclick="toggleChat()">💬 Chat</button>
+        <button class="po-action po-concede" onclick="concede()">Concede</button>
+      </div>
+
       <!-- ── Play layout: hero column on LEFT, big battlefields center, score track right ── -->
       <div id="play-main">
 

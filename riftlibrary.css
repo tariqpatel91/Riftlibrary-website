@@ -1123,15 +1123,34 @@ body.on-play-tab #play-board{height:100vh;}
 .track-slot.glint{animation:track-glint 0.6s ease-out;}
 @keyframes track-glint{0%{transform:scale(1);}40%{transform:scale(1.6);box-shadow:0 0 24px rgba(232,212,122,0.95);}100%{transform:scale(1);}}
 
-/* Hero column shared rules — pieces lock to card aspect ratio so the full art is visible */
-.hero-half{flex:1;display:flex;flex-direction:column;gap:6px;min-height:0;align-items:center;justify-content:flex-start;}
-.hero-half .piece-bz{flex:0 0 auto;width:100%;aspect-ratio:2.5/3.5;height:auto;min-height:0;position:relative;}
+/* Hero column shared rules — pieces FILL their half cleanly, never overflow into BASE/runes/etc */
+.hero-half{flex:1;display:flex;flex-direction:column;gap:6px;min-height:0;align-items:center;justify-content:center;overflow:hidden;}
+.hero-half .piece-bz{flex:1 1 0;width:100%;height:auto;min-height:0;max-height:calc(50% - 3px);position:relative;overflow:hidden;}
 .hero-half .piece-bz .bz-cards{position:absolute;inset:4px;padding:0;display:flex;align-items:center;justify-content:center;}
 .hero-half .piece-bz .board-card{width:100%;height:100%;}
 .hero-half .piece-bz .board-card img{width:100%;height:100%;object-fit:contain;}
 
-/* BASE control bar floats at the vertical middle of the play area, full width */
-#play-main #center-base{position:absolute;left:6px;right:6px;top:50%;transform:translateY(-50%);height:auto;display:flex;align-items:center;justify-content:center;flex-direction:row;padding:0;z-index:6;background:transparent;border:none;pointer-events:none;}
+/* BASE midline divider is hidden — its buttons moved to the left options panel */
+#play-main #center-base{display:none;}
+/* Left-side game options panel + hamburger toggle */
+#play-options-toggle{position:fixed;top:50%;left:8px;transform:translateY(-50%);width:36px;height:60px;border-radius:0 14px 14px 0;border:1px solid rgba(200,154,58,0.5);border-left:none;background:rgba(10,18,36,0.95);color:#e8d47a;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:62;transition:all 0.18s;box-shadow:0 6px 18px rgba(0,0,0,0.6);}
+body:not(.on-play-tab) #play-options-toggle{display:none;}
+#play-options-toggle:hover{background:rgba(200,154,58,0.25);width:40px;}
+#play-options-panel{position:fixed;top:50%;left:-280px;transform:translateY(-50%);width:240px;background:linear-gradient(160deg,rgba(15,30,55,0.98),rgba(4,10,22,0.98));border:1px solid rgba(200,154,58,0.5);border-radius:0 14px 14px 0;padding:18px;display:flex;flex-direction:column;gap:10px;z-index:63;transition:left 0.25s ease,box-shadow 0.25s;box-shadow:0 10px 30px rgba(0,0,0,0.7);}
+body:not(.on-play-tab) #play-options-panel{display:none;}
+#play-options-panel.open{left:0;box-shadow:0 12px 40px rgba(0,0,0,0.85),0 0 24px rgba(200,154,58,0.25);}
+.po-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.po-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#e8d47a;letter-spacing:0.1em;text-transform:uppercase;}
+.po-close{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+.po-close:hover{background:var(--surface3);color:var(--text);}
+.po-status{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#ff9b65;background:rgba(255,107,74,0.12);border:1px solid rgba(255,107,74,0.4);border-radius:8px;padding:8px 12px;text-align:center;margin-bottom:4px;}
+.po-status.opp-turn{color:rgba(232,212,122,0.6);background:rgba(180,140,50,0.08);border-color:rgba(180,140,50,0.3);}
+.po-action{padding:10px 14px;border-radius:8px;border:1px solid rgba(200,154,58,0.45);background:rgba(10,18,36,0.6);color:#e8d47a;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-align:left;transition:all 0.15s;}
+.po-action:hover{background:rgba(200,154,58,0.25);border-color:#e8d47a;}
+.po-action.po-end{border-color:rgba(232,184,85,0.6);background:rgba(232,184,85,0.18);color:#fff8c4;}
+.po-action.po-end:hover{background:rgba(232,184,85,0.4);}
+.po-action.po-concede{border-color:rgba(220,80,60,0.5);color:#ff9b8a;}
+.po-action.po-concede:hover{background:rgba(220,80,60,0.25);color:#fff;}
 #play-main #center-base .center-divider{pointer-events:auto;width:auto;max-width:560px;border-top:1px solid rgba(180,140,50,0.35);border-bottom:1px solid rgba(180,140,50,0.35);background:rgba(4,10,22,0.85);border-radius:8px;padding:6px 14px;}
 #play-main #center-base .center-opp-units,
 #play-main #center-base .center-my-units,

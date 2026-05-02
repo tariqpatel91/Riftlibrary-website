@@ -858,11 +858,27 @@ function leaveBoard() {
 
 function updateTurnBadge() {
   const badge = document.getElementById('board-turn-badge');
-  if (!badge) return;
-  badge.textContent = GS.myTurn ? '⚡ Your Turn' : "Opponent's Turn";
-  badge.className = 'board-turn-badge' + (GS.myTurn ? ' my-turn' : '');
+  if (badge) {
+    badge.textContent = GS.myTurn ? '⚡ Your Turn' : "Opponent's Turn";
+    badge.className = 'board-turn-badge' + (GS.myTurn ? ' my-turn' : '');
+  }
   const btn = document.getElementById('end-turn-btn');
   if (btn) btn.disabled = !GS.myTurn;
+  // Mirror state into the left options panel
+  const status = document.getElementById('po-turn-status');
+  if (status) {
+    status.textContent = GS.myTurn ? '⚡ Your Turn' : "Opponent's Turn";
+    status.classList.toggle('opp-turn', !GS.myTurn);
+  }
+  const poEnd = document.getElementById('po-end-turn');
+  if (poEnd) poEnd.disabled = !GS.myTurn;
+}
+
+function togglePlayOptions(force) {
+  const p = document.getElementById('play-options-panel');
+  if (!p) return;
+  const open = (typeof force === 'boolean') ? force : !p.classList.contains('open');
+  p.classList.toggle('open', open);
 }
 
 /* ── DRAG OVER HIGHLIGHT ── */
