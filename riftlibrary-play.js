@@ -413,33 +413,55 @@ function renderFullBoard() {
   if (GS.me.legend) renderZone('my-legend-cards', [GS.me.legend]);
   if (GS.me.champion) renderZone('my-champion-cards', [GS.me.champion]);
   _updateCounts();
-  _initBfResizeGrips();
+  _initResizableZones();
 }
 
-// Add a draggable resize grip to each .bf-large zone so the user can change
-// its width / height. Sizes are persisted to localStorage per zone id.
-function _initBfResizeGrips() {
-  document.querySelectorAll('.bf-large').forEach(el => {
-    if (el._bfGripInit) return;
-    el._bfGripInit = true;
-    // Restore any saved size before adding the grip so layout is stable
+// Resizable zones: each gets a corner grip that drags to change width/height.
+// Battlefields additionally get a "move" grip so they can be repositioned via
+// transform:translate after resizing. Sizes/offsets are persisted in
+// localStorage per zone id so they survive a refresh.
+const _RESIZABLE_ZONE_IDS = ['bf-left', 'bf-right', 'runes-zone'];
+const _MOVABLE_ZONE_IDS = ['bf-left', 'bf-right'];
+
+function _initResizableZones() {
+  _RESIZABLE_ZONE_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || el._zoneResizeInit) return;
+    el._zoneResizeInit = true;
+    // Restore saved size before adding the grip so layout is stable
     try {
-      const saved = JSON.parse(localStorage.getItem('rl_bf_size_' + el.id) || 'null');
+      const saved = JSON.parse(localStorage.getItem('rl_zone_size_' + id) || 'null');
       if (saved) {
-        if (saved.width)  el.style.flex = '0 0 ' + saved.width + 'px';
-        if (saved.width)  el.style.width = saved.width + 'px';
+        if (saved.width)  { el.style.flex = '0 0 ' + saved.width + 'px'; el.style.width = saved.width + 'px'; }
         if (saved.height) el.style.height = saved.height + 'px';
       }
     } catch (e) {}
     const grip = document.createElement('div');
     grip.className = 'bf-resize-grip';
-    grip.title = 'Drag to resize battlefield';
-    grip.addEventListener('mousedown', e => _bfGripStart(e, el));
+    grip.title = 'Drag to resize';
+    grip.addEventListener('mousedown', e => _zoneResizeStart(e, el, id));
     el.appendChild(grip);
+  });
+  _MOVABLE_ZONE_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || el._zoneMoveInit) return;
+    el._zoneMoveInit = true;
+    // Restore saved offset
+    try {
+      const saved = JSON.parse(localStorage.getItem('rl_zone_offset_' + id) || 'null');
+      if (saved && (saved.x || saved.y)) {
+        el.style.transform = `translate(${saved.x||0}px, ${saved.y||0}px)`;
+      }
+    } catch (e) {}
+    const move = document.createElement('div');
+    move.className = 'bf-move-grip';
+    move.title = 'Drag to reposition';
+    move.addEventListener('mousedown', e => _zoneMoveStart(e, el, id));
+    el.appendChild(move);
   });
 }
 
-function _bfGripStart(e, el) {
+function _zoneResizeStart(e, el, id) {
   e.preventDefault();
   e.stopPropagation();
   const rect = el.getBoundingClientRect();
@@ -457,9 +479,37 @@ function _bfGripStart(e, el) {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     try {
-      localStorage.setItem('rl_bf_size_' + el.id, JSON.stringify({
+      localStorage.setItem('rl_zone_size_' + id, JSON.stringify({
         width:  parseFloat(el.style.width)  || 0,
         height: parseFloat(el.style.height) || 0,
+      }));
+    } catch (e) {}
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+function _zoneMoveStart(e, el, id) {
+  e.preventDefault();
+  e.stopPropagation();
+  // Parse the current translate offset from existing transform if any
+  const cur = (el.style.transform || '').match(/translate\(\s*(-?\d+(?:\.\d+)?)px\s*,\s*(-?\d+(?:\.\d+)?)px/);
+  const startTX = cur ? parseFloat(cur[1]) : 0;
+  const startTY = cur ? parseFloat(cur[2]) : 0;
+  const startX = e.clientX, startY = e.clientY;
+  function onMove(ev) {
+    const tx = startTX + (ev.clientX - startX);
+    const ty = startTY + (ev.clientY - startY);
+    el.style.transform = `translate(${tx}px, ${ty}px)`;
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    const m = (el.style.transform || '').match(/translate\(\s*(-?\d+(?:\.\d+)?)px\s*,\s*(-?\d+(?:\.\d+)?)px/);
+    try {
+      localStorage.setItem('rl_zone_offset_' + id, JSON.stringify({
+        x: m ? parseFloat(m[1]) : 0,
+        y: m ? parseFloat(m[2]) : 0,
       }));
     } catch (e) {}
   }

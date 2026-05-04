@@ -1088,9 +1088,13 @@ body.on-play-tab #play-board{height:100vh;}
 /* Battlefield row — locked layout, equal halves, vertically centered around the midline */
 #bf-stage{grid-column:2;grid-row:1;display:flex;flex-direction:row;gap:14px;min-height:0;height:32%;align-self:center;position:relative;}
 .bf-large{flex:1 1 0;min-width:120px;min-height:80px;position:relative;}
-/* Battlefield resize handle (bottom-right corner — drag to change zone size) */
+/* Generic resize handle (bottom-right corner) — used by battlefields and the runes box */
 .bf-resize-grip{position:absolute;bottom:0;right:0;width:18px;height:18px;cursor:se-resize;z-index:11;background:linear-gradient(135deg,transparent 0%,transparent 45%,rgba(232,184,85,0.85) 45%,rgba(232,184,85,0.85) 55%,transparent 55%,transparent 70%,rgba(232,184,85,0.85) 70%,rgba(232,184,85,0.85) 80%,transparent 80%);border-bottom-right-radius:10px;}
 .bf-resize-grip:hover{background:linear-gradient(135deg,transparent 0%,transparent 35%,rgba(232,184,85,1) 35%,rgba(232,184,85,1) 100%);}
+/* Battlefield "move" grip — top-left corner, drag to reposition the zone via transform:translate */
+.bf-move-grip{position:absolute;top:2px;left:2px;width:20px;height:20px;cursor:move;z-index:11;background:rgba(0,0,0,0.7);border:1px solid rgba(232,184,85,0.65);border-radius:4px;display:flex;align-items:center;justify-content:center;color:#e8d47a;font:700 12px/1 'DM Sans',sans-serif;transition:background 0.15s,transform 0.15s;}
+.bf-move-grip:hover{background:rgba(232,184,85,0.45);color:#fff;transform:scale(1.1);}
+.bf-move-grip::before{content:'\002725';font-size:11px;}
 .bf-large{cursor:default;}
 /* BASE zone — wide horizontal rectangle below the battlefields, extends nearly to the runes row */
 #play-base-zone{grid-column:2;grid-row:1;height:40%;align-self:end;margin-bottom:0;background:linear-gradient(160deg,rgba(60,90,180,0.12),rgba(20,30,80,0.12));border:1px solid rgba(180,140,50,0.35);border-radius:10px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
@@ -1196,12 +1200,13 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 /* ── Bottom row: rune deck | runes (fills available width) | main deck | trash ── */
 /* The runes strip now spans the full middle of the bottom row so the runes can
    spread out into the previously-empty gap. The hand fan sits *above* this row
-   and is positioned independently, so it no longer collides with the runes. */
-#bottom-row{display:grid;grid-template-columns:90px 1fr 78px 78px;gap:4px;height:120px;flex-shrink:0;}
-#rune-deck-zone{grid-column:1;}
-#runes-zone{grid-column:2;}
-#my-deck-zone{grid-column:3;}
-#trash-zone{grid-column:4;}
+   and is positioned independently, so it no longer collides with the runes.
+   Switched to flex so explicit widths set by the runes-zone resize grip apply. */
+#bottom-row{display:flex;flex-direction:row;gap:4px;height:120px;flex-shrink:0;align-items:stretch;}
+#rune-deck-zone{flex:0 0 90px;}
+#runes-zone{flex:1 1 0;min-width:120px;position:relative;}
+#my-deck-zone{flex:0 0 78px;}
+#trash-zone{flex:0 0 78px;}
 .bz-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:4px 4px 12px;}
 .bz-mini .mini-stack{width:60px;height:84px;margin-bottom:0;position:relative;}
 .bz-mini .mini-stack .bz-card-back{width:58px;height:82px;border-radius:5px;}
