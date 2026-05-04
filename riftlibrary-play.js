@@ -806,7 +806,18 @@ function _pluckMyCard(uid, zone) {
     const c = GS.me.champion; GS.me.champion = null; return c;
   }
   GS.me.bfArea = GS.me.bfArea || [];
-  const zones = { hand:GS.me.hand, battle:GS.me.battle, support:GS.me.support, discard:GS.me.discard, trash:GS.me.discard, 'battlefield-area':GS.me.bfArea, 'my-battlefield-cards':GS.me.bfArea };
+  GS.me.bfLeft = GS.me.bfLeft || [];
+  GS.me.bfRight = GS.me.bfRight || [];
+  const zones = {
+    hand:GS.me.hand, battle:GS.me.battle, support:GS.me.support,
+    discard:GS.me.discard, trash:GS.me.discard,
+    'battlefield-area':GS.me.bfArea, 'my-battlefield-cards':GS.me.bfArea,
+    'battle-cards':GS.me.battle, 'support-cards':GS.me.support,
+    // Battlefield zones — let cards be dragged BACK out of bf-left / bf-right
+    // (the rowId zones used at render time) into hand / battle / support / trash / etc.
+    'bf-left-cards':GS.me.bfLeft, 'bf-right-cards':GS.me.bfRight,
+    bfLeft:GS.me.bfLeft, bfRight:GS.me.bfRight,
+  };
   const arr = zones[zone];
   if (!arr) {
     // Unknown zone — search every list as a fallback so drag still works

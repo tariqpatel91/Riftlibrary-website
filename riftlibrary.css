@@ -1187,13 +1187,15 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 
 /* ── Top row (opponent): trash | deck | runes | rune-deck (mirror of bottom-row) ── */
 #top-row{display:grid;grid-template-columns:96px 96px 1fr 90px;gap:4px;height:130px;flex-shrink:0;}
-/* ── Bottom row: rune deck | runes | main deck | trash ── */
-/* Bottom row: rune-deck, narrow runes strip, dead space (where hand sits), deck, trash */
-#bottom-row{display:grid;grid-template-columns:90px minmax(0,640px) 1fr 78px 78px;gap:4px;height:120px;flex-shrink:0;}
+/* ── Bottom row: rune deck | runes (fills available width) | main deck | trash ── */
+/* The runes strip now spans the full middle of the bottom row so the runes can
+   spread out into the previously-empty gap. The hand fan sits *above* this row
+   and is positioned independently, so it no longer collides with the runes. */
+#bottom-row{display:grid;grid-template-columns:90px 1fr 78px 78px;gap:4px;height:120px;flex-shrink:0;}
 #rune-deck-zone{grid-column:1;}
 #runes-zone{grid-column:2;}
-#my-deck-zone{grid-column:4;}
-#trash-zone{grid-column:5;}
+#my-deck-zone{grid-column:3;}
+#trash-zone{grid-column:4;}
 .bz-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:4px 4px 12px;}
 .bz-mini .mini-stack{width:60px;height:84px;margin-bottom:0;position:relative;}
 .bz-mini .mini-stack .bz-card-back{width:58px;height:82px;border-radius:5px;}
@@ -1321,7 +1323,7 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
    or whether the JS overlap calculation runs. The clip-path top inset is negative so hovered
    cards can still lift upward and the bottom inset is negative so the rune-back stem of the
    top fan can extend down. */
-.hand-fan-overlay{position:absolute;bottom:-16px;left:calc(50% + 30px);right:180px;transform:none;display:flex;justify-content:center;align-items:flex-end;height:200px;pointer-events:none;z-index:24;min-width:0;transition:bottom 0.2s ease;overflow:visible;clip-path:inset(-260px 0 -40px 0);background:rgba(4,10,22,0.18);border:1px dashed rgba(200,154,58,0.18);border-radius:10px;}
+.hand-fan-overlay{position:absolute;bottom:-60px;left:calc(50% + 30px);right:180px;transform:none;display:flex;justify-content:center;align-items:flex-end;height:200px;pointer-events:none;z-index:24;min-width:0;transition:bottom 0.2s ease;overflow:visible;clip-path:inset(-260px 0 -60px 0);background:rgba(4,10,22,0.18);border:1px dashed rgba(200,154,58,0.18);border-radius:10px;}
 /* Card overlap is set dynamically by renderMyHand() via the --hand-card-mx CSS variable so the fan always fits between the orange boundaries regardless of hand size. Cards never march past the left edge because the per-card stride is clamped to stay positive. */
 .hand-fan-overlay .board-card{pointer-events:auto;width:118px;height:164px;margin:0 var(--hand-card-mx,-28px);transform-origin:top center;transition:transform 0.22s ease,box-shadow 0.22s,margin 0.22s,top 0.22s;box-shadow:0 6px 14px rgba(0,0,0,0.6);image-rendering:-webkit-optimize-contrast;position:relative;top:0;}
 /* CSS-only fallback that progressively tightens overlap as the hand grows — guarantees containment even if the JS render path is stale-cached and the per-card inline margin/CSS variable haven't been applied. Capped at -57px so cards always march rightward. */
@@ -1348,10 +1350,13 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 .board-card:hover{transform:translateY(-5px) scale(1.06);box-shadow:0 8px 20px rgba(0,0,0,0.8),0 0 8px rgba(180,140,50,0.3);}
 .board-card img{width:100%;height:100%;object-fit:cover;display:block;}
 .board-card.exhausted{transform:rotate(90deg);opacity:0.85;}
-/* Hover effects must preserve the 90° tap rotation — without these rules the
+/* Runes specifically tap to a 45° angle — softer visual than the 90° flop used
+   for board units, matching the standard Riftbound rune presentation. */
+#runes-zone .board-card.exhausted,#opp-runes-zone .board-card.exhausted{transform:rotate(45deg);}
+/* Hover effects must preserve the tap rotation — without these rules the
    generic :hover transform would visually un-exhaust the card. */
 .board-card.exhausted:hover{transform:translateY(-5px) scale(1.06) rotate(90deg);}
-#runes-zone .board-card.exhausted:hover,#opp-runes-zone .board-card.exhausted:hover{transform:translateY(-6px) scale(1.06) rotate(90deg);}
+#runes-zone .board-card.exhausted:hover,#opp-runes-zone .board-card.exhausted:hover{transform:translateY(-6px) scale(1.06) rotate(45deg);}
 .board-card.bf-card{width:76px;height:50px;}
 /* Champion / Legend cards fill their zones */
 #my-champion-zone .bz-cards,#opp-champion-zone .bz-cards,
