@@ -1083,7 +1083,7 @@ body.on-play-tab #play-board{height:100vh;}
 #my-pieces{bottom:6px;}
 .piece-bz{width:90px;height:130px;}
 /* ── Play board layout: hero column LEFT, big battlefields center, score track RIGHT ── */
-#play-main{flex:1;min-height:0;display:grid;grid-template-columns:130px 1fr 60px;grid-template-rows:1fr;gap:8px;padding:6px;position:relative;}
+#play-main{flex:1;min-height:0;display:grid;grid-template-columns:130px minmax(0,1fr) 70px;grid-template-rows:1fr;gap:8px;padding:6px;position:relative;}
 #hero-column{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:8px;min-height:0;}
 /* Battlefield row — locked layout, equal halves, vertically centered around the midline */
 #bf-stage{grid-column:2;grid-row:1;display:flex;flex-direction:row;gap:14px;min-height:0;height:32%;align-self:center;position:relative;}
@@ -1105,15 +1105,18 @@ body.on-play-tab #play-board{height:100vh;}
 .zone-resize-grip{display:none;}
 #play-base-zone .bz-cards{position:absolute;inset:8px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;padding:0;}
 /* BASE-zone cards rendered ~40% larger than the default board card */
-#play-base-zone .board-card{width:80px;height:111px;}
-#opp-play-base-zone .board-card{width:80px;height:111px;}
+#play-base-zone .board-card{width:88px;height:122px;}
+#opp-play-base-zone .board-card{width:88px;height:122px;}
 #play-base-zone.drag-over{border-color:#e8d47a;box-shadow:0 0 18px rgba(232,212,122,0.4);background:linear-gradient(160deg,rgba(200,154,58,0.18),rgba(60,90,180,0.18));}
-#score-track{grid-column:3;grid-row:1;display:grid;grid-template-columns:18px 1fr 18px;align-items:stretch;min-height:0;}
+/* Score track (the right-side life/score column) — z-index keeps it on top of
+   any battlefield zone that's been dragged via the move grip, and explicit
+   width/display:grid rules ensure it can never collapse to nothing. */
+#score-track{grid-column:3;grid-row:1;display:grid !important;grid-template-columns:18px 1fr 18px;align-items:stretch;min-height:0;width:70px;min-width:70px;z-index:50;position:relative;background:rgba(4,10,22,0.55);border-radius:8px;}
 .bf-large{position:relative;background:linear-gradient(160deg,rgba(60,90,180,0.18),rgba(20,30,80,0.18));border:1px solid rgba(180,140,50,0.35);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;}
 .bf-large .bz-cards{position:absolute;inset:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;padding:0;}
-/* Cards dropped onto a battlefield from BASE match the BASE-card size — kept ~10%
-   bigger than the original 73x101 so units are easier to read at a glance. */
-.bf-large .board-card{width:80px;height:111px;}
+/* Cards dropped onto a battlefield from BASE match the BASE-card size — sized
+   ~20% bigger than the original 73x101 so units are easier to read at a glance. */
+.bf-large .board-card{width:88px;height:122px;}
 .bf-large .board-card img{object-fit:cover;}
 /* True battlefield-type cards remain landscape and fill the zone as background art */
 .bf-large .board-card.bf-card{width:auto;height:90%;}
@@ -1197,16 +1200,15 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 
 /* ── Top row (opponent): trash | deck | runes | rune-deck (mirror of bottom-row) ── */
 #top-row{display:grid;grid-template-columns:96px 96px 1fr 90px;gap:4px;height:130px;flex-shrink:0;}
-/* ── Bottom row: rune deck | runes (fills available width) | main deck | trash ── */
-/* The runes strip now spans the full middle of the bottom row so the runes can
-   spread out into the previously-empty gap. The hand fan sits *above* this row
-   and is positioned independently, so it no longer collides with the runes.
-   Switched to flex so explicit widths set by the runes-zone resize grip apply. */
-#bottom-row{display:flex;flex-direction:row;gap:4px;height:120px;flex-shrink:0;align-items:stretch;}
+/* ── Bottom row: rune deck | runes (resizable) | main deck | trash ── */
+/* Bottom-row uses flex for the rune-deck + runes pair. Main-deck and trash are
+   absolutely positioned to the right edge so resizing the runes box never
+   pushes them — they stay anchored regardless of how wide the runes grow. */
+#bottom-row{display:flex;flex-direction:row;gap:4px;height:120px;flex-shrink:0;align-items:stretch;position:relative;padding-right:160px;}
 #rune-deck-zone{flex:0 0 90px;}
-#runes-zone{flex:1 1 0;min-width:120px;position:relative;}
-#my-deck-zone{flex:0 0 78px;}
-#trash-zone{flex:0 0 78px;}
+#runes-zone{flex:1 1 0;min-width:120px;max-width:100%;position:relative;}
+#my-deck-zone{position:absolute;top:0;bottom:0;right:82px;width:78px;}
+#trash-zone{position:absolute;top:0;bottom:0;right:0;width:78px;}
 .bz-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:4px 4px 12px;}
 .bz-mini .mini-stack{width:60px;height:84px;margin-bottom:0;position:relative;}
 .bz-mini .mini-stack .bz-card-back{width:58px;height:82px;border-radius:5px;}
