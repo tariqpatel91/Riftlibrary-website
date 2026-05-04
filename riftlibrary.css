@@ -1221,14 +1221,10 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 #trash-zone .trash-top{width:58px;height:82px;border-radius:5px;border:1.5px dashed rgba(180,140,50,0.4);background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(180,140,50,0.5);overflow:hidden;margin-bottom:0;}
 #trash-zone .trash-top.has-card{border:1.5px solid rgba(220,80,60,0.7);background:rgba(40,10,10,0.6);box-shadow:0 0 8px rgba(220,80,60,0.35);}
 #trash-zone .trash-top img{width:100%;height:100%;object-fit:cover;display:block;}
-/* Runes fill left → right with larger cards so they better fill the zone */
-/* Runes start side by side; when the strip would overflow they overlap progressively (no scrollbar) */
+/* Runes fill left → right side-by-side. No overlap — if there are too many to
+   fit, the user can drag the resize grip to widen the runes box. */
 #runes-zone .bz-cards{justify-content:flex-start;align-content:center;align-items:center;flex-wrap:nowrap;width:100%;height:100%;padding:6px 8px;gap:6px;overflow:hidden;}
-#runes-zone .board-card{width:62px;height:86px;flex-shrink:0;transition:margin-left 0.18s,transform 0.18s;}
-/* 8+ cards: pull them in. 11+: pull tighter. 14+: tighter still. */
-#runes-zone .bz-cards:has(>.board-card:nth-child(8))  .board-card+.board-card{margin-left:-32px;}
-#runes-zone .bz-cards:has(>.board-card:nth-child(11)) .board-card+.board-card{margin-left:-42px;}
-#runes-zone .bz-cards:has(>.board-card:nth-child(14)) .board-card+.board-card{margin-left:-50px;}
+#runes-zone .board-card{width:62px;height:86px;flex-shrink:0;transition:transform 0.18s;}
 #runes-zone .board-card:hover{transform:translateY(-6px) scale(1.06);z-index:5;}
 /* Small "send to bottom of deck" button anchored in each rune card's bottom-left corner */
 .rune-deck-btn{position:absolute;bottom:2px;left:2px;width:14px;height:14px;border:1px solid rgba(200,154,58,0.6);background:rgba(0,0,0,0.85);color:#e8d47a;font:700 9px/1 'DM Sans',sans-serif;cursor:pointer;border-radius:3px;padding:0;display:flex;align-items:center;justify-content:center;z-index:10;transition:background 0.15s,transform 0.15s;}

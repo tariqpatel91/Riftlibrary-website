@@ -939,11 +939,14 @@ function _findMyCard(uid, zone) {
 }
 
 function _pluckMyCard(uid, zone) {
-  // Singleton zones first
-  if (zone === 'legend' && GS.me.legend && GS.me.legend._uid === uid) {
+  // Singleton zones first — match by uid regardless of which "zone" name was
+  // passed. The render code uses rowIds like 'my-legend-cards' / 'my-champion-cards'
+  // for these slots, so a strict zone === 'legend' check would miss them and
+  // the drag would silently fail.
+  if (GS.me.legend && GS.me.legend._uid === uid) {
     const c = GS.me.legend; GS.me.legend = null; return c;
   }
-  if (zone === 'champion' && GS.me.champion && GS.me.champion._uid === uid) {
+  if (GS.me.champion && GS.me.champion._uid === uid) {
     const c = GS.me.champion; GS.me.champion = null; return c;
   }
   GS.me.bfArea = GS.me.bfArea || [];
