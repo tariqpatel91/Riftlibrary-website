@@ -486,7 +486,7 @@
 
       <!-- ── BOTTOM ROW: rune deck | runes | main deck | trash ── -->
       <div id="bottom-row">
-        <div class="bz bz-deck" id="rune-deck-zone" onclick="playRune()" title="Click to play 1 rune (tapped)">
+        <div class="bz bz-deck" id="rune-deck-zone" onclick="playRune()" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'rune-deck')" title="Click to play 1 rune — drop a rune here to put on top">
           <div class="bz-deck-stack">
             <div class="bz-card-back lol-back rune-back"></div>
           </div>

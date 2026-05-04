@@ -530,8 +530,14 @@ function boardCardHTML(card, zone) {
         : `onclick="event.stopPropagation();_toggleExhaustAny('${card._uid}')" oncontextmenu="event.preventDefault();showBoardCardMenu(event,'${cardJson}','${zone}')"`)
     : '';
   const safeName = (card.name||'').replace(/"/g,'&quot;');
+  // For runes only: a small button in the bottom-left to send the rune to the bottom of the deck.
+  const isRuneZone = zone === 'support-cards' || zone === 'support';
+  const runeBtn = (isRuneZone && mine)
+    ? `<button class="rune-deck-btn" onclick="event.stopPropagation();_runeBottomOfDeck('${card._uid}')" title="Send to bottom of deck">⤓</button>`
+    : '';
   return `<div class="board-card${exhausted}${bfClass}" ${drag} ${click} title="${safeName}" data-uid="${card._uid||''}" data-img="${img}" data-name="${safeName}">
     ${img ? `<img src="${img}" alt="${safeName}">` : `<div style="padding:4px;font-size:9px;color:rgba(255,255,255,0.5);text-align:center;word-break:break-word;">${card.name||'?'}</div>`}
+    ${runeBtn}
   </div>`;
 }
 
@@ -609,9 +615,18 @@ if (typeof window !== 'undefined' && !window._handFanResizeBound) {
 }
 
 function _isMyCard(card) {
+  // Includes battlefield arrays so cards rendered into bf-left / bf-right /
+  // bfArea also get the draggable="true" + ondragstart attributes from
+  // boardCardHTML, allowing them to be dragged back out to any other zone.
+  const bfL = GS.me.bfLeft || [];
+  const bfR = GS.me.bfRight || [];
+  const bfA = GS.me.bfArea || [];
   return GS.me.hand.some(c=>c._uid===card._uid) ||
          GS.me.battle.some(c=>c._uid===card._uid) ||
          GS.me.support.some(c=>c._uid===card._uid) ||
+         bfL.some(c=>c._uid===card._uid) ||
+         bfR.some(c=>c._uid===card._uid) ||
+         bfA.some(c=>c._uid===card._uid) ||
          (GS.me.legend && GS.me.legend._uid===card._uid) ||
          (GS.me.champion && GS.me.champion._uid===card._uid);
 }
@@ -675,6 +690,12 @@ function dropToZone(e, toZone) {
     case 'deck':
       // Drop on top of deck (next draw will pick this up)
       GS.me.deck.unshift(card);
+      break;
+    case 'rune-deck':
+      // Drop on top of the rune deck — used to return runes to the unrevealed pile
+      GS.me.runes = GS.me.runes || [];
+      GS.me.runes.unshift(card);
+      _setText('my-rune-count', GS.me.runes.length);
       break;
     case 'trash':
     case 'discard':
@@ -790,6 +811,24 @@ function _moveToZone(uid, fromZone, toZone) {
 function _discardCard(uid, zone) {
   const card = _pluckMyCard(uid, zone);
   if (card) { GS.me.discard.push(card); _sendHandCount(); renderFullBoard(); }
+}
+
+// Send a rune from the runes zone to the bottom of the rune deck (or main deck
+// if no rune deck exists). Triggered by the small ⤓ button rendered on every
+// face-up rune in #runes-zone. Cards dragged to the deck zone go to the TOP
+// (via dropToZone's GS.me.deck.unshift) — this button is the "bottom" variant.
+function _runeBottomOfDeck(uid) {
+  const i = GS.me.support.findIndex(c => c && c._uid === uid);
+  if (i === -1) return;
+  const c = GS.me.support.splice(i, 1)[0];
+  c._exhausted = false;
+  // Riftbound: runes return to the rune deck. Fall back to the main deck if
+  // a separate rune deck array isn't tracked.
+  const targetDeck = Array.isArray(GS.me.runes) ? GS.me.runes : GS.me.deck;
+  targetDeck.push(c); // bottom of the deck
+  _setText('my-deck-count', GS.me.deck.length);
+  if (typeof _setText === 'function') _setText('my-rune-count', (GS.me.runes||[]).length);
+  renderFullBoard();
 }
 
 function _findMyCard(uid, zone) {
