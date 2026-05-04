@@ -1101,9 +1101,13 @@ body.on-play-tab #play-board{height:100vh;}
 #play-base-zone.drag-over{border-color:#e8d47a;box-shadow:0 0 18px rgba(232,212,122,0.4);background:linear-gradient(160deg,rgba(200,154,58,0.18),rgba(60,90,180,0.18));}
 #score-track{grid-column:3;grid-row:1;display:grid;grid-template-columns:18px 1fr 18px;align-items:stretch;min-height:0;}
 .bf-large{position:relative;background:linear-gradient(160deg,rgba(60,90,180,0.18),rgba(20,30,80,0.18));border:1px solid rgba(180,140,50,0.35);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;}
-.bf-large .bz-cards{position:absolute;inset:8px;display:flex;align-items:center;justify-content:center;padding:0;}
-.bf-large .board-card{width:auto;height:90%;}
-.bf-large .board-card img{object-fit:contain;}
+.bf-large .bz-cards{position:absolute;inset:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;padding:0;}
+/* Cards dropped onto a battlefield from BASE keep BASE-card size (73x101) */
+.bf-large .board-card{width:73px;height:101px;}
+.bf-large .board-card img{object-fit:cover;}
+/* True battlefield-type cards remain landscape and fill the zone as background art */
+.bf-large .board-card.bf-card{width:auto;height:90%;}
+.bf-large .board-card.bf-card img{object-fit:contain;}
 .bf-add-btn{position:absolute;bottom:8px;left:8px;width:30px;height:30px;border-radius:50%;border:1px solid rgba(180,140,50,0.4);background:rgba(0,0,0,0.55);color:#e8d47a;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:5;}
 .bf-add-btn:hover{background:rgba(200,154,58,0.3);}
 .bf-large.drag-over{border-color:#e8d47a;box-shadow:0 0 18px rgba(232,212,122,0.4);}
@@ -1311,23 +1315,43 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 .bz-hand-fan{display:flex;justify-content:center;gap:3px;flex-wrap:nowrap;margin-bottom:4px;}
 .opp-card-back{width:32px;height:46px;border-radius:4px;background:linear-gradient(145deg,#0c1a3a,#060e20);border:1px solid rgba(180,140,50,0.3);flex-shrink:0;}
 
-/* ── Floating hand fan overlay (anchored to the right of the BASE, never overlapping the deck cluster) ── */
-/* Hand fan: ~90% of the card visible by default; hover lifts higher. Centered between the runes strip and the deck/trash cluster. */
-.hand-fan-overlay{position:absolute;bottom:-16px;left:calc(50% + 100px);right:auto;transform:translateX(-50%);display:flex;justify-content:center;align-items:flex-end;height:200px;pointer-events:none;z-index:24;max-width:calc(100vw - 1000px);min-width:280px;transition:bottom 0.2s ease;}
-.hand-fan-overlay .board-card{pointer-events:auto;width:118px;height:164px;margin:0 -28px;transform-origin:top center;transition:transform 0.22s ease,box-shadow 0.22s,margin 0.22s,top 0.22s;box-shadow:0 6px 14px rgba(0,0,0,0.6);image-rendering:-webkit-optimize-contrast;position:relative;top:0;}
+/* ── Floating hand fan overlay (confined between the BASE divider and the deck/trash cluster) ── */
+/* Hand fan is a defined "hand zone" box. Cards are HARD-clipped horizontally via clip-path
+   so they can NEVER spill past the left/right boundaries no matter how big the hand grows
+   or whether the JS overlap calculation runs. The clip-path top inset is negative so hovered
+   cards can still lift upward and the bottom inset is negative so the rune-back stem of the
+   top fan can extend down. */
+.hand-fan-overlay{position:absolute;bottom:-16px;left:calc(50% + 30px);right:180px;transform:none;display:flex;justify-content:center;align-items:flex-end;height:200px;pointer-events:none;z-index:24;min-width:0;transition:bottom 0.2s ease;overflow:visible;clip-path:inset(-260px 0 -40px 0);background:rgba(4,10,22,0.18);border:1px dashed rgba(200,154,58,0.18);border-radius:10px;}
+/* Card overlap is set dynamically by renderMyHand() via the --hand-card-mx CSS variable so the fan always fits between the orange boundaries regardless of hand size. Cards never march past the left edge because the per-card stride is clamped to stay positive. */
+.hand-fan-overlay .board-card{pointer-events:auto;width:118px;height:164px;margin:0 var(--hand-card-mx,-28px);transform-origin:top center;transition:transform 0.22s ease,box-shadow 0.22s,margin 0.22s,top 0.22s;box-shadow:0 6px 14px rgba(0,0,0,0.6);image-rendering:-webkit-optimize-contrast;position:relative;top:0;}
+/* CSS-only fallback that progressively tightens overlap as the hand grows — guarantees containment even if the JS render path is stale-cached and the per-card inline margin/CSS variable haven't been applied. Capped at -57px so cards always march rightward. */
+.hand-fan-overlay:has(>.board-card:nth-child(7))  .board-card{margin:0 -36px;}
+.hand-fan-overlay:has(>.board-card:nth-child(9))  .board-card{margin:0 -42px;}
+.hand-fan-overlay:has(>.board-card:nth-child(11)) .board-card{margin:0 -47px;}
+.hand-fan-overlay:has(>.board-card:nth-child(13)) .board-card{margin:0 -50px;}
+.hand-fan-overlay:has(>.board-card:nth-child(15)) .board-card{margin:0 -53px;}
+.hand-fan-overlay:has(>.board-card:nth-child(17)) .board-card{margin:0 -55px;}
+.hand-fan-overlay:has(>.board-card:nth-child(20)) .board-card{margin:0 -57px;}
 .hand-fan-overlay .board-card img{image-rendering:auto;}
 /* On hover: bring the card UP so the full thing is visible, straighten + scale, push siblings apart */
-.hand-fan-overlay .board-card:hover{transform:translateY(-44px) rotate(0deg) scale(1.18) !important;z-index:55;box-shadow:0 16px 36px rgba(0,0,0,0.9),0 0 22px rgba(232,212,122,0.65);margin:0 8px;}
-/* Top hand fan: mirror of bottom hand fan, anchored to top, flipped vertically */
-.hand-fan-overlay.hand-fan-top{top:18px;bottom:auto;align-items:flex-start;transform:scaleY(-1);}
+/* margin uses !important so it overrides the inline-style margin renderMyHand sets per card */
+.hand-fan-overlay .board-card:hover{transform:translateY(-44px) rotate(0deg) scale(1.18) !important;z-index:55;box-shadow:0 16px 36px rgba(0,0,0,0.9),0 0 22px rgba(232,212,122,0.65);margin:0 8px !important;}
+/* Top hand fan: mirror of bottom hand fan, anchored to top, flipped vertically.
+   clip-path is set in element-natural orientation (before scaleY), so the negative
+   bottom inset becomes the visible "upward" lift after the flip. */
+.hand-fan-overlay.hand-fan-top{top:18px;bottom:auto;align-items:flex-start;transform:scaleY(-1);clip-path:inset(-40px 0 -260px 0);}
 .hand-fan-overlay.hand-fan-top .board-card{transform-origin:top center;}
-.hand-fan-overlay.hand-fan-top .opp-card-back{width:118px;height:164px;margin:0 -28px;border-radius:9px;background:linear-gradient(160deg,#102f5e 0%,#091f44 50%,#04122c 100%);border:1.5px solid rgba(200,154,58,0.55);box-shadow:0 6px 14px rgba(0,0,0,0.6);pointer-events:auto;}
+.hand-fan-overlay.hand-fan-top .opp-card-back{width:118px;height:164px;margin:0 var(--hand-card-mx,-28px);border-radius:9px;background:linear-gradient(160deg,#102f5e 0%,#091f44 50%,#04122c 100%);border:1.5px solid rgba(200,154,58,0.55);box-shadow:0 6px 14px rgba(0,0,0,0.6);pointer-events:auto;}
 
 /* ── Board cards ── */
 .board-card{width:52px;height:72px;border-radius:5px;overflow:hidden;cursor:grab;border:1px solid rgba(180,140,50,0.3);background:rgba(10,18,36,0.9);position:relative;flex-shrink:0;transition:transform 0.12s,box-shadow 0.12s;}
 .board-card:hover{transform:translateY(-5px) scale(1.06);box-shadow:0 8px 20px rgba(0,0,0,0.8),0 0 8px rgba(180,140,50,0.3);}
 .board-card img{width:100%;height:100%;object-fit:cover;display:block;}
-.board-card.exhausted{transform:rotate(45deg);opacity:0.85;}
+.board-card.exhausted{transform:rotate(90deg);opacity:0.85;}
+/* Hover effects must preserve the 90° tap rotation — without these rules the
+   generic :hover transform would visually un-exhaust the card. */
+.board-card.exhausted:hover{transform:translateY(-5px) scale(1.06) rotate(90deg);}
+#runes-zone .board-card.exhausted:hover,#opp-runes-zone .board-card.exhausted:hover{transform:translateY(-6px) scale(1.06) rotate(90deg);}
 .board-card.bf-card{width:76px;height:50px;}
 /* Champion / Legend cards fill their zones */
 #my-champion-zone .bz-cards,#opp-champion-zone .bz-cards,

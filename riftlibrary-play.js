@@ -415,11 +415,42 @@ function renderFullBoard() {
   _updateCounts();
 }
 
+// Compute the per-card horizontal margin so a fan of `n` cards (each cardW px wide)
+// always fits inside `containerW`. The stride (visible width per extra card) is
+// clamped to stay positive so cards always march rightward — they can never pile up
+// off the left edge no matter how big the hand grows.
+function _handCardMargin(n, containerW, cardW) {
+  if (n <= 1) return -28;
+  const safety = 24; // small padding inside the container
+  const targetStride = (containerW - cardW - safety) / (n - 1);
+  // Loose default overlap when the hand is small enough to fan out comfortably.
+  if (targetStride >= cardW - 56) return -28;
+  // Otherwise compute the overlap that exactly fills the container.
+  // stride = cardW - 2|m|  →  |m| = (cardW - stride) / 2.
+  // Stride must stay >= 4 so cards always advance right and remain identifiable.
+  const stride = Math.max(4, targetStride);
+  const m = Math.round((cardW - stride) / 2);
+  // Cap the absolute overlap so it never exceeds (cardW - 4) / 2 = 57 — beyond that
+  // cards would visually march leftward, which is exactly what we're preventing.
+  return -Math.min(57, Math.max(28, m));
+}
+
+// Width of the hand-fan box in pixels. Computed from the viewport so it matches
+// the CSS `left:calc(50% + 30px); right:180px` declaration on .hand-fan-overlay.
+// This avoids relying on `clientWidth`, which can return 0 / stale values for
+// absolutely-positioned flex containers whose content overflows.
+function _handFanWidth() {
+  const vw = window.innerWidth || document.documentElement.clientWidth || 1200;
+  return Math.max(260, vw * 0.5 - 210);
+}
+
 function renderMyHand() {
   _setText('my-hand-count', GS.me.hand.length);
   const el = document.getElementById('my-hand');
   if (!el) return;
   const n = GS.me.hand.length;
+  const mx = _handCardMargin(n, _handFanWidth(), 118);
+  el.style.setProperty('--hand-card-mx', mx + 'px');
   el.innerHTML = GS.me.hand.map((c, i) => {
     // Arch fan: middle cards sit highest, edges sweep down (parabolic arch)
     const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0; // -1 .. 1
@@ -428,9 +459,11 @@ function renderMyHand() {
     const peakLift = Math.min(48, n * 5); // px lift at center peak
     const lift = -peakLift * (1 - t * t); // arch: 0 at edges, -peak at middle
     const html = boardCardHTML(c, 'hand');
+    // Apply the margin inline as well as via the CSS variable so nothing in the
+    // cascade can leave a card at the default -28px when many cards are drawn.
     return html.replace(
       'class="board-card',
-      `style="transform:translateY(${lift}px) rotate(${rot}deg);" class="board-card`
+      `style="transform:translateY(${lift}px) rotate(${rot}deg);margin:0 ${mx}px;" class="board-card`
     );
   }).join('');
 }
@@ -459,13 +492,15 @@ function renderOppHand() {
   const el = document.getElementById('opp-hand');
   if (el) {
     const n = Math.min(GS.opp.handCount, 10);
+    const mx = _handCardMargin(n, _handFanWidth(), 118);
+    el.style.setProperty('--hand-card-mx', mx + 'px');
     el.innerHTML = Array(n).fill(0).map((_, i) => {
       const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0;
       const maxSpread = Math.min(40, n * 5);
       const rot = (maxSpread / 2) * t;
       const peakLift = Math.min(48, n * 5);
       const lift = -peakLift * (1 - t * t);
-      return `<div class="opp-card-back" style="transform:translateY(${lift}px) rotate(${rot}deg);"></div>`;
+      return `<div class="opp-card-back" style="transform:translateY(${lift}px) rotate(${rot}deg);margin:0 ${mx}px;"></div>`;
     }).join('');
   }
   const cnt = document.getElementById('opp-hand-count');
@@ -486,12 +521,13 @@ function boardCardHTML(card, zone) {
   const mine = _isMyCard(card);
   const drag = mine ? `draggable="true" ondragstart="boardDragStart(event,'${card._uid}','${zone}')"` : '';
   const cardJson = JSON.stringify(card).replace(/'/g,"\\'").replace(/"/g,'&quot;');
-  // Runes (support zone) toggle exhaust on click; everything else opens the action menu
-  const isRuneZone = zone === 'support-cards' || zone === 'support';
+  // Click on a card on the board taps it (90° right). Hand cards still open the action menu on click.
+  // Right-click on any in-play card opens the action menu.
+  const isHand = zone === 'hand';
   const click = mine
-    ? (isRuneZone
-        ? `onclick="event.stopPropagation();_toggleExhaust('${card._uid}','support')"`
-        : `onclick="showBoardCardMenu(event,'${cardJson}','${zone}')"`)
+    ? (isHand
+        ? `onclick="showBoardCardMenu(event,'${cardJson}','${zone}')"`
+        : `onclick="event.stopPropagation();_toggleExhaustAny('${card._uid}')" oncontextmenu="event.preventDefault();showBoardCardMenu(event,'${cardJson}','${zone}')"`)
     : '';
   const safeName = (card.name||'').replace(/"/g,'&quot;');
   return `<div class="board-card${exhausted}${bfClass}" ${drag} ${click} title="${safeName}" data-uid="${card._uid||''}" data-img="${img}" data-name="${safeName}">
@@ -506,6 +542,9 @@ function _onBoardHover(e) {
   const card = e.target.closest(_HOVER_SEL);
   if (!card) return;
   if (card === _hoveredCard) return; // still inside same card
+  // Hover zoom is disabled for any rune-zone card or rune-deck stack — hovering
+  // a rune should not pop up the floating card preview.
+  if (card.closest('#runes-zone, #opp-runes-zone, #rune-deck-zone, #opp-rune-deck-zone')) return;
   _hoveredCard = card;
   const img = card.getAttribute('data-img') || (card.querySelector('img') && card.querySelector('img').src) || '';
   const name = card.getAttribute('data-name') || (card.querySelector('img') && card.querySelector('img').alt) || '';
@@ -552,6 +591,21 @@ if (typeof window !== 'undefined' && !window._cardHoverBound) {
   window._cardHoverBound = true;
   document.addEventListener('mouseover', _onBoardHover);
   document.addEventListener('mouseout',  _onBoardHoverOut);
+}
+
+// Recompute hand-fan overlap when the viewport width changes so cards keep fitting
+// inside the orange-line boundaries.
+if (typeof window !== 'undefined' && !window._handFanResizeBound) {
+  window._handFanResizeBound = true;
+  let _handResizeRaf = 0;
+  window.addEventListener('resize', () => {
+    if (_handResizeRaf) return;
+    _handResizeRaf = requestAnimationFrame(() => {
+      _handResizeRaf = 0;
+      if (typeof renderMyHand === 'function') renderMyHand();
+      if (typeof renderOppHand === 'function') renderOppHand();
+    });
+  });
 }
 
 function _isMyCard(card) {
@@ -694,6 +748,28 @@ function closeBoardCardMenu() {
 function _toggleExhaust(uid, zone) {
   const card = _findMyCard(uid, zone);
   if (card) { card._exhausted = !card._exhausted; renderFullBoard(); }
+}
+
+// Toggle exhaust for any of my cards regardless of which zone it lives in.
+// Used by the click-to-tap handler so any board card rotates 90° on click.
+function _toggleExhaustAny(uid) {
+  const arrays = [
+    GS.me.hand, GS.me.battle, GS.me.support,
+    GS.me.bfLeft, GS.me.bfRight, GS.me.bfArea
+  ];
+  for (const arr of arrays) {
+    if (!arr) continue;
+    const c = arr.find(x => x && x._uid === uid);
+    if (c) { c._exhausted = !c._exhausted; renderFullBoard(); return; }
+  }
+  if (GS.me.legend && GS.me.legend._uid === uid) {
+    GS.me.legend._exhausted = !GS.me.legend._exhausted;
+    renderFullBoard(); return;
+  }
+  if (GS.me.champion && GS.me.champion._uid === uid) {
+    GS.me.champion._exhausted = !GS.me.champion._exhausted;
+    renderFullBoard(); return;
+  }
 }
 
 function _moveToHand(uid, zone) {
