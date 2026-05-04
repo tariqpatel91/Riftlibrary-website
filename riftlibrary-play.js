@@ -413,6 +413,58 @@ function renderFullBoard() {
   if (GS.me.legend) renderZone('my-legend-cards', [GS.me.legend]);
   if (GS.me.champion) renderZone('my-champion-cards', [GS.me.champion]);
   _updateCounts();
+  _initBfResizeGrips();
+}
+
+// Add a draggable resize grip to each .bf-large zone so the user can change
+// its width / height. Sizes are persisted to localStorage per zone id.
+function _initBfResizeGrips() {
+  document.querySelectorAll('.bf-large').forEach(el => {
+    if (el._bfGripInit) return;
+    el._bfGripInit = true;
+    // Restore any saved size before adding the grip so layout is stable
+    try {
+      const saved = JSON.parse(localStorage.getItem('rl_bf_size_' + el.id) || 'null');
+      if (saved) {
+        if (saved.width)  el.style.flex = '0 0 ' + saved.width + 'px';
+        if (saved.width)  el.style.width = saved.width + 'px';
+        if (saved.height) el.style.height = saved.height + 'px';
+      }
+    } catch (e) {}
+    const grip = document.createElement('div');
+    grip.className = 'bf-resize-grip';
+    grip.title = 'Drag to resize battlefield';
+    grip.addEventListener('mousedown', e => _bfGripStart(e, el));
+    el.appendChild(grip);
+  });
+}
+
+function _bfGripStart(e, el) {
+  e.preventDefault();
+  e.stopPropagation();
+  const rect = el.getBoundingClientRect();
+  const startW = rect.width;
+  const startH = rect.height;
+  const startX = e.clientX, startY = e.clientY;
+  function onMove(ev) {
+    const w = Math.max(120, startW + (ev.clientX - startX));
+    const h = Math.max(80,  startH + (ev.clientY - startY));
+    el.style.flex = '0 0 ' + w + 'px';
+    el.style.width = w + 'px';
+    el.style.height = h + 'px';
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    try {
+      localStorage.setItem('rl_bf_size_' + el.id, JSON.stringify({
+        width:  parseFloat(el.style.width)  || 0,
+        height: parseFloat(el.style.height) || 0,
+      }));
+    } catch (e) {}
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 }
 
 // Compute the per-card horizontal margin so a fan of `n` cards (each cardW px wide)
