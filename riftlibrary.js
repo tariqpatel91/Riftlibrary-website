@@ -361,7 +361,12 @@ function showAddBanner(msg){const b=document.getElementById('add-banner');if(!b)
 async function fetchAllCards(){
   document.getElementById('cg').innerHTML=`<div class="spinner" style="grid-column:1/-1;"><div class="spin"></div>Loading card data…</div>`;
   try{
-    const r=await fetch('./cards.json',{cache:'no-cache'});
+    // cache:'reload' forces a fresh network request bypassing the browser's
+    // disk cache. This guarantees that every visit picks up the latest
+    // cards.json the moment it deploys — without it, GitHub Pages's
+    // long-lived cache headers can serve a stale copy for hours after
+    // a rebuild.
+    const r=await fetch('./cards.json',{cache:'reload'});
     if(!r.ok)throw new Error('HTTP '+r.status);
     const data=await r.json();
     CARDS=Array.isArray(data)?data:[];
