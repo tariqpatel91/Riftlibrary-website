@@ -12,6 +12,13 @@ function populateLegendDropdowns(){
 let CARDS=[], cardsLoaded=false;
 let myDecks=[], nextId=1;
 const BANNED_CARDS=new Set(['Called Shot','Draven, Vanquisher','Draven - Vanquisher','Fight or Flight','Scrapheap','Dreaming Tree','The Dreaming Tree','Obelisk of Power',"Reaver's Row"]);
+// DotGG carries a per-card banned flag in cards.json. Combine the two sources:
+// any card whose name is on the static list OR whose card.banned is true.
+function isBannedCard(card){
+  if(!card)return false;
+  if(card.banned===true)return true;
+  return BANNED_CARDS.has(baseName(card.name||''));
+}
 function baseName(n){return(n||'').replace(/\s*\([^)]*\)\s*$/,'').trim();}
 let myEvents=JSON.parse(localStorage.getItem('rl_myEvents')||'[]');
 let activeEvtTab='all';
@@ -1622,7 +1629,7 @@ function renderEditSearch(){
       const domPills=c.doms.map(dm=>`<span class="pill ${dm}">${dm[0].toUpperCase()+dm.slice(1)}</span>`).join('');
       const isRune=c.type==='Rune';
       const isBF=c.type==='Battlefield';
-      const isBanned=BANNED_CARDS.has(baseName(c.name));
+      const isBanned=isBannedCard(c);
       const addFn=isBanned?`toast('This card is banned')`:(isRune?`addRune('${si}','${sn}')`:isBF?`addBattlefield(-1,'${si}','${sn}')`:(variantTotal<3?`editDeckCard('${si}','${sn}','${at}',1)`:''));
       const dragAttrs=isBanned?'draggable="false"':`draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')"`;
       html+=`<div class="ct ct-img lib-card${isBF?' lib-card-bf':''}${isBanned?' lib-card-banned':''}" ${dragAttrs} title="${c.name}" onclick="${addFn}">`;
@@ -1996,8 +2003,13 @@ function renderEditPreview(targetEl){
   const total=nonLegendCards.reduce((a,c)=>a+c.cnt,0);
 
   function bannedBanner(name){
+    // Check both the hardcoded list and the DotGG-sourced banned flag on the
+    // matching CARDS entry (when one exists).
     const bn=name.replace(/\s*\([^)]*\)\s*$/,'').trim();
-    return BANNED_CARDS.has(bn)?'<div class="banned-banner">BANNED</div>':'';
+    if(BANNED_CARDS.has(bn))return '<div class="banned-banner">BANNED</div>';
+    const card=CARDS.find(x=>baseName(x.name||'')===bn);
+    if(card&&card.banned===true)return '<div class="banned-banner">BANNED</div>';
+    return '';
   }
 
   function cardItem(c,cls){
@@ -3025,8 +3037,7 @@ function renderCards(){
       }
     }
     if(CF.type==='banned'){
-      const bn=c.name.replace(/\s*\([^)]*\)\s*$/,'').trim();
-      if(!BANNED_CARDS.has(bn))return false;
+      if(!isBannedCard(c))return false;
     } else if(CF.type){
       const match=c.supertype===CF.type||c.type===CF.type;
       if(!match)return false;
@@ -3078,10 +3089,12 @@ function renderCards(){
     const domPills=c.doms.map(d=>`<span class="pill ${d}">${d[0].toUpperCase()+d.slice(1)}</span>`).join('');
     const safeId=c.id.replace(/'/g,"\\'");
     const isBF=c.type==='Battlefield';
+    // Small "$X.XX" badge on the image when DotGG has a price for this card
+    const priceTag=(typeof c.price==='number'&&c.price>0)?`<div class="ct-price-badge" title="TCGPlayer market price">$${c.price.toFixed(2)}</div>`:'';
     return`<div class="ct ct-img${isBF?' ct-bf':''}" onclick="openCardModal('${safeId}')">
       ${c.imageUrl
-        ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
-        :`<div class="ct-img-wrap no-img"><div class="ct-img-placeholder" style="background:var(--surface3);display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`
+        ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')">${priceTag}</div>`
+        :`<div class="ct-img-wrap no-img"><div class="ct-img-placeholder" style="background:var(--surface3);display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div>${priceTag}</div>`
       }
       <div class="ct-name">${c.name}</div>
       <div class="ct-sub">${domPills}${domPills?`<span style="color:var(--text-muted);margin:0 2px;">·</span>`:''}${c.supertype||c.type}${c.rarity?`<span style="color:var(--text-muted);margin:0 2px;">·</span>${c.rarity}`:''}</div>
@@ -3142,6 +3155,26 @@ function openCardModal(cardId){
     c.might!==null?`<div class="cm-stat"><span class="cm-stat-lbl">Might</span><span class="cm-stat-val">⚔ ${c.might}</span></div>`:'',
     c.power!==null?`<div class="cm-stat"><span class="cm-stat-lbl">Power</span><span class="cm-stat-val">💪 ${c.power}</span></div>`:'',
   ].filter(Boolean).join('');
+  // DotGG-sourced pricing block (shown only when we have any price data)
+  const fmtPrice=p=>(typeof p==='number'&&p>0)?'$'+p.toFixed(2):'—';
+  const fmtDelta=d=>{
+    if(typeof d!=='number'||d===0)return '';
+    const sign=d>0?'+':'';
+    const cls=d>0?'cm-price-up':'cm-price-down';
+    return `<span class="cm-price-delta ${cls}">${sign}${d.toFixed(2)}</span>`;
+  };
+  const tcgUrl=c.tcgPlayerId?`https://www.tcgplayer.com/product/${c.tcgPlayerId}`:'';
+  const cmUrl=c.cardmarketId?`https://www.cardmarket.com/en/Riftbound/Products/Singles/${c.cardmarketId}`:'';
+  const hasAnyPrice=(typeof c.price==='number'&&c.price>0)||(typeof c.foilPrice==='number'&&c.foilPrice>0);
+  const priceBlock=hasAnyPrice?`
+    <div class="cm-prices">
+      <div class="cm-price-row"><span class="cm-price-lbl">Regular</span><span class="cm-price-val">${fmtPrice(c.price)} ${fmtDelta(c.deltaPrice)}</span></div>
+      ${c.hasFoil||(typeof c.foilPrice==='number'&&c.foilPrice>0)?`<div class="cm-price-row"><span class="cm-price-lbl">Foil ✦</span><span class="cm-price-val">${fmtPrice(c.foilPrice)}</span></div>`:''}
+      <div class="cm-price-links">
+        ${tcgUrl?`<a href="${tcgUrl}" target="_blank" rel="noreferrer noopener" class="cm-price-link">TCGPlayer →</a>`:''}
+        ${cmUrl?`<a href="${cmUrl}" target="_blank" rel="noreferrer noopener" class="cm-price-link">Cardmarket →</a>`:''}
+      </div>
+    </div>`:'';
   const deckDeck=myDecks.find(d=>d.id===activeDeckId);
   const inDeck=deckDeck?(deckDeck.cards||[]).find(x=>x.id===c.id):null;
   const owned=collOwned[c.id]||0;
@@ -3171,6 +3204,7 @@ function openCardModal(cardId){
         ${c.txt?`<div class="cm-txt">${renderCardText(c.txt)}</div>`:''}
         ${c.flavour?`<div class="cm-flavour">"${c.flavour}"</div>`:''}
         ${c.tags&&c.tags.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">${c.tags.map(t=>`<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface3);color:var(--text-muted);border:1px solid var(--border);">${t}</span>`).join('')}</div>`:''}
+        ${priceBlock}
         ${c.artist&&c.artist!=='Unknown'?`<div style="font-size:11px;color:var(--text-muted);margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">✦ Art by ${c.artist}</div>`:''}
       </div>
     </div>`;

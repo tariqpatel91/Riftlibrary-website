@@ -146,6 +146,7 @@ function bool01(s) {
   let hits = 0;
   let misses = 0;
   const merged = [];
+  const usedDotGGIds = new Set();
   for (const raw of rcItems) {
     const m = mapCard(raw);
     if (!m) continue;
@@ -158,6 +159,7 @@ function bool01(s) {
     }
     if (dg) {
       hits++;
+      usedDotGGIds.add(dg.id);
       m.price = num(dg.price);
       m.foilPrice = num(dg.foilPrice);
       m.deltaPrice = num(dg.deltaPrice);
@@ -167,6 +169,8 @@ function bool01(s) {
       m.cardmarketId = dg.cmid || null;
       m.hasFoil = bool01(dg.hasFoil);
       m.banned = bool01(dg.banned);
+      // DotGG webp art is smaller and consistent — surface as an alt image
+      m.imageUrlAlt = dg.image || null;
     } else {
       misses++;
       m.price = null;
@@ -178,8 +182,67 @@ function bool01(s) {
       m.cardmarketId = null;
       m.hasFoil = false;
       m.banned = false;
+      m.imageUrlAlt = null;
     }
     merged.push(m);
+  }
+
+  // Now add DotGG-only cards (alt-art versions / additions Riftcodex hasn't
+  // indexed yet). Construct a card object from DotGG fields with the same
+  // shape; fields DotGG doesn't expose (power, artist, alt-art flags) stay
+  // null/Unknown so the rest of the app keeps working.
+  let dotggOnly = 0;
+  for (const dg of dgItems) {
+    if (!dg.id || usedDotGGIds.has(dg.id)) continue;
+    const setId = (dg.id.split('-')[0] || '').toUpperCase();
+    const colors = Array.isArray(dg.color) ? dg.color : [];
+    const doms = colors.map(c => String(c).toLowerCase()).filter(c => c && c !== 'colorless');
+    const cardType = dg.type || 'Unit';
+    const stype = dg.supertype || '';
+    const statless = (
+      cardType === 'Legend' || cardType === 'Battlefield' || cardType === 'Rune' || cardType === 'Token' ||
+      stype === 'Legend' || stype === 'Token'
+    );
+    const cost = statless ? 0 : (num(dg.cost) ?? 0);
+    const might = statless ? 0 : (num(dg.might) ?? 0);
+    const stripHtml = s => String(s || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim();
+    merged.push({
+      id: dg.id,
+      name: dg.name,
+      type: cardType,
+      supertype: stype,
+      isSignature: false,
+      isAltArt: false,
+      isOvernumbered: false,
+      variant: dg.rarity === 'Promo' ? 'Promo' : 'Standard',
+      dom: doms[0] || 'order',
+      doms,
+      cost,
+      might,
+      power: 0,
+      rarity: dg.rarity || '',
+      set: setId,
+      setLabel: dg.set_name || '',
+      txt: stripHtml(dg.effect),
+      flavour: dg.flavor || '',
+      artist: 'Unknown',
+      imageUrl: dg.image || '',
+      imageUrlAlt: null,
+      tags: Array.isArray(dg.tags) ? dg.tags : [],
+      riftboundId: '',
+      tcgplayerId: dg.marketIds || '',
+      price: num(dg.price),
+      foilPrice: num(dg.foilPrice),
+      deltaPrice: num(dg.deltaPrice),
+      delta7dPrice: num(dg.delta7dPrice),
+      cardmarketPrice: num(dg.cmPrice),
+      tcgPlayerId: dg.marketIds || null,
+      cardmarketId: dg.cmid || null,
+      hasFoil: bool01(dg.hasFoil),
+      banned: bool01(dg.banned),
+      _dotggOnly: true,
+    });
+    dotggOnly++;
   }
 
   // Stable sort: by set then collector number when known, else by name
@@ -192,7 +255,9 @@ function bool01(s) {
   fs.writeFileSync(outPath, JSON.stringify(merged));
   const sizeKb = (fs.statSync(outPath).size / 1024).toFixed(1);
 
-  console.log(`\nMerged ${merged.length} cards (${hits} matched DotGG, ${misses} no DotGG match)`);
+  console.log(`\nMerged ${merged.length} cards`);
+  console.log(`  Riftcodex: ${rcItems.length} cards (${hits} matched DotGG, ${misses} no DotGG match)`);
+  console.log(`  DotGG-only additions: ${dotggOnly}`);
   console.log(`Wrote ${outPath} (${sizeKb} KB) in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 })().catch(err => {
   console.error(err);

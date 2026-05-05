@@ -119,10 +119,26 @@ select option{background:#1e1e2a;}
 .cm-info-col{padding:1.75rem;}
 .cm-name{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;letter-spacing:-0.02em;line-height:1.2;}
 .cm-meta{font-size:13px;color:var(--text-muted);margin-top:4px;}
+/* Small price badge on each card thumbnail in the main cards grid */
+.ct-price-badge{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.78);border:1px solid rgba(232,184,85,0.55);color:#e8d47a;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px;letter-spacing:0.02em;backdrop-filter:blur(4px);pointer-events:none;}
+.ct-img-wrap{position:relative;}
 .cm-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:var(--surface2);border-radius:10px;}
 .cm-stat{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:50px;}
 .cm-stat-lbl{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;}
 .cm-stat-val{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--text);}
+/* Price block — TCGPlayer / Cardmarket data sourced from DotGG. Shown only
+   when the card has any price data. */
+.cm-prices{margin-top:14px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;}
+.cm-price-row{display:flex;align-items:center;justify-content:space-between;font-size:13px;padding:3px 0;}
+.cm-price-row + .cm-price-row{border-top:1px solid var(--border);padding-top:6px;margin-top:4px;}
+.cm-price-lbl{color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;font-size:11px;}
+.cm-price-val{font-family:'Syne',sans-serif;font-weight:700;color:var(--text);font-size:15px;}
+.cm-price-delta{font-size:11px;font-weight:600;margin-left:8px;font-family:'DM Sans',sans-serif;}
+.cm-price-up{color:#5fc16e;}
+.cm-price-down{color:#ff6b4a;}
+.cm-price-links{display:flex;gap:10px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.cm-price-link{font-size:11px;color:var(--accent);text-decoration:none;letter-spacing:0.04em;text-transform:uppercase;font-weight:600;transition:color 0.15s;}
+.cm-price-link:hover{color:#fff8c4;}
 .cm-txt{font-size:13px;color:var(--text-soft);line-height:1.6;margin-bottom:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--accent);}
 .cm-flavour{font-size:12px;color:var(--text-muted);font-style:italic;line-height:1.5;padding:8px 12px;border-left:2px solid var(--border);margin-top:8px;}
 /* inline card text icons */
