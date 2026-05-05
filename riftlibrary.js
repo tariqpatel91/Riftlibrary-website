@@ -65,6 +65,20 @@ let activeDDTab='cards';
 let currentUser=null;
 let cardsTabView='visual';
 let deckSortMode='alpha'; // 'alpha' or 'energy'
+let deckCardSize=parseInt(localStorage.getItem('rl_deck_card_size')||'130',10); // px max-width for deck/sideboard cards
+function setDeckCardSize(v){
+  deckCardSize=Math.max(60,Math.min(220,parseInt(v,10)||130));
+  try{localStorage.setItem('rl_deck_card_size',deckCardSize);}catch(e){}
+  document.documentElement.style.setProperty('--deck-card-size',deckCardSize+'px');
+  const lbl=document.getElementById('deck-card-size-val');
+  if(lbl) lbl.textContent=deckCardSize+'px';
+}
+// Apply on first load so a refresh keeps the user's chosen size
+if(typeof document!=='undefined'){
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.documentElement.style.setProperty('--deck-card-size',deckCardSize+'px');
+  });
+}
 let authToken=null;
 const AF={doms:new Set()};
 const CF={type:'',set:'',rar:'',legend:'',subtype:'',variant:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false,classMode:false};
@@ -1493,7 +1507,21 @@ function renderEditSearch(){
     if(EF.subtype==='Action') source=source.filter(c=>c.txt.toLowerCase().includes('[action]'));
     else if(EF.subtype==='Reaction') source=source.filter(c=>c.txt.toLowerCase().includes('[reaction]'));
     else if(EF.subtype==='Champion') source=source.filter(c=>c.supertype==='Champion');
-    else if(EF.subtype==='Signature Card') source=source.filter(c=>c.supertype==='Signature');
+    else if(EF.subtype==='Signature Card'){
+      source=source.filter(c=>c.supertype==='Signature');
+      // Only show signature cards belonging to the deck's chosen legend.
+      // Each signature card references its champion in the name, text, or tags
+      // (e.g. Diana's "Moonfall" mentions "Diana, Scorn of the Moon"), so we
+      // match the lowercased base legend name against any of those fields.
+      const _legBase=(d.legend||'').split(/\s*[-–]\s*/)[0].toLowerCase().trim();
+      if(_legBase){
+        source=source.filter(c=>
+          c.name.toLowerCase().includes(_legBase) ||
+          c.txt.toLowerCase().includes(_legBase) ||
+          (c.tags||[]).some(t=>String(t).toLowerCase().includes(_legBase))
+        );
+      }
+    }
     else if(EF.subtype==='Token') source=source.filter(c=>c.type==='Token'||c.supertype==='Token');
   }
   if(EF.variant){
@@ -2018,8 +2046,13 @@ function renderEditPreview(targetEl){
     const av=ai<0?99:ai;const bv=bi<0?99:bi;
     return av!==bv?av-bv:a.localeCompare(b);
   }
-  // Sort toggle button for edit tab
-  html+=`<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px;">
+  // Sort toggle + card-size slider for the edit tab
+  html+=`<div style="display:flex;justify-content:flex-end;align-items:center;gap:14px;margin-bottom:8px;flex-wrap:wrap;">
+    <div class="deck-size-slider" title="Card size">
+      <span class="dss-icon">▭</span>
+      <input type="range" min="60" max="220" value="${deckCardSize}" oninput="setDeckCardSize(this.value)">
+      <span id="deck-card-size-val" class="dss-val">${deckCardSize}px</span>
+    </div>
     <span style="font-size:12px;color:var(--text-muted);font-family:'Syne',sans-serif;letter-spacing:0.04em;">Sort by:</span>
     <button class="cvt-btn sort-tog-btn${deckSortMode==='energy'?' on':''}" onclick="toggleDeckSort()" title="Toggle sort order" style="font-size:12px;padding:6px 14px;">${deckSortMode==='energy'?'⚡ Energy':'🔤 Alphabetical'}</button>
   </div>`;

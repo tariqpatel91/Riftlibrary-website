@@ -586,7 +586,12 @@ select option{background:#1e1e2a;}
 .deck-type-block{display:flex;flex-direction:column;gap:8px;align-items:center;}
 .deck-type-lbl{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;font-weight:700;text-align:center;width:100%;}
 .deck-type-auto-grid{display:flex;flex-wrap:nowrap;gap:6px;justify-content:center;width:100%;min-width:0;}
-.deck-col-stack{display:flex;flex-direction:column;flex:1 1 0;min-width:60px;max-width:130px;}
+.deck-col-stack{display:flex;flex-direction:column;flex:1 1 0;min-width:60px;max-width:var(--deck-card-size,130px);}
+/* Card-size slider in the deck editor toolbar */
+.deck-size-slider{display:inline-flex;align-items:center;gap:8px;color:rgba(232,212,122,0.75);font-family:'Syne',sans-serif;font-size:12px;letter-spacing:0.04em;padding:4px 10px;border:1px solid var(--border);border-radius:18px;background:var(--surface2);}
+.deck-size-slider .dss-icon{font-size:13px;line-height:1;color:var(--text-muted);}
+.deck-size-slider input[type=range]{width:130px;accent-color:#e8d47a;cursor:pointer;}
+.deck-size-slider .dss-val{font-size:11px;color:var(--text-muted);min-width:42px;text-align:right;}
 .deck-col-stack .deck-card-item{margin-bottom:-124px;}
 .deck-col-stack .deck-card-item:last-child{margin-bottom:0;}
 .deck-col-stack .deck-card-item:hover{z-index:20;position:relative;}
@@ -598,7 +603,7 @@ select option{background:#1e1e2a;}
 #cards-visual-view .deck-type-block{gap:12px;}
 #cards-visual-view .deck-type-lbl{font-size:13px;margin-bottom:6px;letter-spacing:0.1em;}
 #cards-visual-view .deck-type-auto-grid{gap:14px;}
-#cards-visual-view .deck-col-stack{max-width:155px;min-width:70px;gap:6px;}
+#cards-visual-view .deck-col-stack{max-width:var(--deck-card-size,155px);min-width:70px;gap:6px;}
 #cards-visual-view .deck-col-stack .deck-card-item{margin-bottom:-128px;}
 #cards-visual-view .deck-col-stack .deck-card-item:last-child{margin-bottom:0;}
 #cards-visual-view .rune-h-card{width:120px;margin-left:-72px;}
