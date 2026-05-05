@@ -2019,9 +2019,9 @@ function renderEditPreview(targetEl){
     h+=bannedBanner(c.n);
     h+=`<div class="deck-card-actions">`;
     if(c.t!=='Legend') h+=`<div class="dca-btn dca-danger" onclick="editDeckCard('${si}','${sn}','${st}',-1)"><span>✕</span> Remove</div>`;
-    if(c.t!=='Legend') h+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="editDeckCard('${si}','${sn}','${st}',1)"><span>＋</span> Add 1 copy</div>`;
-    if(c.t!=='Legend') h+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${st}')"><span>→</span> Add to sideboard</div>`;
-    if(c.t!=='Legend') h+=`<div class="dca-btn" onclick="deckToMaybeboard(${d.id},'${si}','${sn}','${st}')"><span>?</span> Add to maybeboard</div>`;
+    if(c.t!=='Legend') h+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="editDeckCard('${si}','${sn}','${st}',1)"><span>＋</span> 1 copy</div>`;
+    if(c.t!=='Legend') h+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${st}')"><span>→</span> Sideboard</div>`;
+    if(c.t!=='Legend') h+=`<div class="dca-btn" onclick="deckToMaybeboard(${d.id},'${si}','${sn}','${st}')"><span>?</span> Maybe Board</div>`;
     h+=`</div>`;
     if(c.cnt>1) h+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
     h+='</div>';
@@ -2155,9 +2155,9 @@ function renderEditPreview(targetEl){
         h+=bannedBanner(c.n);
         h+=`<div class="deck-card-actions">`;
         h+=`<div class="dca-btn dca-danger" onclick="editDeckCard('${si}','${sn}','${st}',-1)"><span>✕</span> Remove</div>`;
-        h+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="editDeckCard('${si}','${sn}','${st}',1)"><span>＋</span> Add 1 copy</div>`;
-        h+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${st}')"><span>→</span> Add to sideboard</div>`;
-        h+=`<div class="dca-btn" onclick="deckToMaybeboard(${d.id},'${si}','${sn}','${st}')"><span>?</span> Add to maybeboard</div>`;
+        h+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="editDeckCard('${si}','${sn}','${st}',1)"><span>＋</span> 1 copy</div>`;
+        h+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${st}')"><span>→</span> Sideboard</div>`;
+        h+=`<div class="dca-btn" onclick="deckToMaybeboard(${d.id},'${si}','${sn}','${st}')"><span>?</span> Maybe Board</div>`;
         h+='</div>';
         if(i===0) h+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
         h+='</div>';
@@ -2237,7 +2237,7 @@ function renderEditPreview(targetEl){
           html+=bannedBanner(r.n);
           if(i===0) html+=`<div class="deck-card-cnt-badge">×${r.cnt}</div>`;
           html+=`<div class="deck-card-actions">`;
-          html+=`<div class="dca-btn" onclick="addRune('${rsi}','${rsn}')"><span>＋</span> Add 1 copy</div>`;
+          html+=`<div class="dca-btn" onclick="addRune('${rsi}','${rsn}')"><span>＋</span> 1 copy</div>`;
           html+=`<div class="dca-btn dca-danger" onclick="removeRune('${rsi}')"><span>✕</span> Remove 1</div>`;
           html+=`</div></div>`;
         }
@@ -2254,7 +2254,7 @@ function renderEditPreview(targetEl){
   const sbTotal=sb.reduce((a,c)=>a+c.cnt,0);
   html+=`<div class="deck-section deck-sb-section drop-zone"${isEdit?' ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,\'sideboard\')"':''}><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">Sideboard <span class="ds-count">(${sbTotal}/8)</span></div>`;
   if(!sb.length){
-    html+=`<div style="font-size:12px;color:var(--text-muted);">${isEdit?'None — drag a deck card here, or hover a card and use "Add to sideboard"':'Add cards in the Edit tab'}</div>`;
+    html+=`<div style="font-size:12px;color:var(--text-muted);">${isEdit?'None — drag a deck card here, or hover a card and use "Sideboard"':'Add cards in the Edit tab'}</div>`;
   } else {
     const sbSorted=sb.slice().sort((a,b)=>a.n.localeCompare(b.n));
     html+='<div class="deck-type-auto-grid">';
@@ -2271,7 +2271,7 @@ function renderEditPreview(targetEl){
         else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
         html+=bannedBanner(c.n);
         html+=`<div class="deck-card-actions">`;
-        html+=`<div class="dca-btn" onclick="adjustSB(${d.id},'${si}',1)"><span>＋</span> Add 1 copy</div>`;
+        html+=`<div class="dca-btn" onclick="adjustSB(${d.id},'${si}',1)"><span>＋</span> 1 copy</div>`;
         html+=`<div class="dca-btn" onclick="moveSBToDeck('${si}','${sn}','${st}')"><span>↑</span> Move to deck</div>`;
         html+=`<div class="dca-btn dca-danger" onclick="adjustSB(${d.id},'${si}',-1)"><span>✕</span> Remove</div>`;
         html+=`</div>`;
@@ -2306,9 +2306,9 @@ function renderEditPreview(targetEl){
         else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
         html+=bannedBanner(c.n);
         html+=`<div class="deck-card-actions">`;
-        html+=`<div class="dca-btn" onclick="adjustMB(${d.id},'${si}',1)"><span>＋</span> Add 1 copy</div>`;
+        html+=`<div class="dca-btn" onclick="adjustMB(${d.id},'${si}',1)"><span>＋</span> 1 copy</div>`;
         html+=`<div class="dca-btn" onclick="maybeboardToDeck(${d.id},'${si}','${sn}','${st}')"><span>↑</span> Add to deck</div>`;
-        html+=`<div class="dca-btn" onclick="maybeboardToSideboard(${d.id},'${si}','${sn}','${st}')"><span>→</span> Add to sideboard</div>`;
+        html+=`<div class="dca-btn" onclick="maybeboardToSideboard(${d.id},'${si}','${sn}','${st}')"><span>→</span> Sideboard</div>`;
         html+=`<div class="dca-btn dca-danger" onclick="adjustMB(${d.id},'${si}',-1)"><span>✕</span> Remove</div>`;
         html+=`</div>`;
         if(c.cnt>1&&i===0) html+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
@@ -2371,9 +2371,9 @@ function showDeckCardMenu(e,cardId,cardName,cardType){
     (img?`<div class="dcm-preview"><img src="${img}" alt=""></div>`:'')
     +`<div class="dcm-item" onclick="dcmZoom()"><span class="dcm-icon">🔍</span>Zoom</div>`
     +`<div class="dcm-item dcm-danger" onclick="dcmRemove()"><span class="dcm-icon">✕</span>Remove</div>`
-    +`<div class="dcm-item${cnt>=3?' dcm-disabled':''}" onclick="dcmAdd()"><span class="dcm-icon">＋</span>Add 1 copy</div>`
-    +`<div class="dcm-item" onclick="dcmSideboard()"><span class="dcm-icon">→</span>Add to sideboard</div>`
-    +`<div class="dcm-item" onclick="dcmMaybeboard()"><span class="dcm-icon">?</span>Add to maybeboard</div>`;
+    +`<div class="dcm-item${cnt>=3?' dcm-disabled':''}" onclick="dcmAdd()"><span class="dcm-icon">＋</span>1 copy</div>`
+    +`<div class="dcm-item" onclick="dcmSideboard()"><span class="dcm-icon">→</span>Sideboard</div>`
+    +`<div class="dcm-item" onclick="dcmMaybeboard()"><span class="dcm-icon">?</span>Maybe Board</div>`;
   document.body.appendChild(menu);
 
   const mw=190,mh=img?290:170;
