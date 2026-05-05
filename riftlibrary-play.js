@@ -393,9 +393,10 @@ function renderFullBoard() {
   renderTrashTop();
   renderMyHand();
   renderOppHand();
-  // BASE zones (visible wide rectangles): my units below, opp units above
-  renderZone('play-base-cards', GS.me.battle);
-  renderZone('opp-play-base-cards', GS.opp.battle);
+  // BASE zones (visible wide rectangles): my units below, opp units above.
+  // BASE uses freeform positioning so cards stay where the user dropped them.
+  _renderFreeformZone('play-base-cards', GS.me.battle);
+  _renderFreeformZone('opp-play-base-cards', GS.opp.battle);
   // Legacy render targets (kept for backward-compat with hidden control bar)
   renderZone('battle-cards', GS.me.battle);
   renderZone('opp-base-cards', GS.opp.battle);
@@ -416,48 +417,27 @@ function renderFullBoard() {
   _initResizableZones();
 }
 
-// Resizable zones: each gets a corner grip that drags to change width/height.
-// Battlefields additionally get a "move" grip so they can be repositioned via
-// transform:translate after resizing. Sizes/offsets are persisted in
-// localStorage per zone id so they survive a refresh.
-const _RESIZABLE_ZONE_IDS = ['bf-left', 'bf-right', 'runes-zone'];
-const _MOVABLE_ZONE_IDS = ['bf-left', 'bf-right'];
-
+// Battlefield + runes zones are locked at the default layout — no resize or
+// move grips. Any previously-saved inline size/offset from earlier sessions is
+// cleared so the zones snap back to the default flex sizing.
 function _initResizableZones() {
-  _RESIZABLE_ZONE_IDS.forEach(id => {
+  ['bf-left', 'bf-right', 'runes-zone'].forEach(id => {
     const el = document.getElementById(id);
-    if (!el || el._zoneResizeInit) return;
-    el._zoneResizeInit = true;
-    // Restore saved size before adding the grip so layout is stable
+    if (!el) return;
+    // Clear any leftover inline sizes / transforms from a previous build that
+    // had the resize/move grips, so the zone falls back to the locked flex
+    // layout in CSS.
+    el.style.flex = '';
+    el.style.width = '';
+    el.style.height = '';
+    el.style.transform = '';
     try {
-      const saved = JSON.parse(localStorage.getItem('rl_zone_size_' + id) || 'null');
-      if (saved) {
-        if (saved.width)  { el.style.flex = '0 0 ' + saved.width + 'px'; el.style.width = saved.width + 'px'; }
-        if (saved.height) el.style.height = saved.height + 'px';
-      }
+      localStorage.removeItem('rl_zone_size_' + id);
+      localStorage.removeItem('rl_zone_offset_' + id);
+      localStorage.removeItem('rl_bf_size_' + id);
     } catch (e) {}
-    const grip = document.createElement('div');
-    grip.className = 'bf-resize-grip';
-    grip.title = 'Drag to resize';
-    grip.addEventListener('mousedown', e => _zoneResizeStart(e, el, id));
-    el.appendChild(grip);
-  });
-  _MOVABLE_ZONE_IDS.forEach(id => {
-    const el = document.getElementById(id);
-    if (!el || el._zoneMoveInit) return;
-    el._zoneMoveInit = true;
-    // Restore saved offset
-    try {
-      const saved = JSON.parse(localStorage.getItem('rl_zone_offset_' + id) || 'null');
-      if (saved && (saved.x || saved.y)) {
-        el.style.transform = `translate(${saved.x||0}px, ${saved.y||0}px)`;
-      }
-    } catch (e) {}
-    const move = document.createElement('div');
-    move.className = 'bf-move-grip';
-    move.title = 'Drag to reposition';
-    move.addEventListener('mousedown', e => _zoneMoveStart(e, el, id));
-    el.appendChild(move);
+    // Drop any grip elements that earlier code might have appended to the zone
+    el.querySelectorAll(':scope > .bf-resize-grip, :scope > .bf-move-grip').forEach(g => g.remove());
   });
 }
 
@@ -615,6 +595,24 @@ function renderZone(rowId, cards) {
   el.innerHTML = cards.map(c => boardCardHTML(c, rowId)).join('');
 }
 
+// Render cards into a freeform-positioned zone (BASE). Each card is placed
+// absolutely at its saved (_x, _y); cards without saved coordinates fall back
+// to a sensible grid layout so manually-moved cards (via the right-click menu)
+// don't all stack on top of each other at (0, 0).
+function _renderFreeformZone(rowId, cards) {
+  const el = document.getElementById(rowId);
+  if (!el) return;
+  el.innerHTML = cards.map((c, i) => {
+    const x = (typeof c._x === 'number') ? c._x : ((i % 10) * 92 + 8);
+    const y = (typeof c._y === 'number') ? c._y : (Math.floor(i / 10) * 130 + 8);
+    const html = boardCardHTML(c, rowId);
+    return html.replace(
+      'class="board-card',
+      `style="position:absolute;left:${x}px;top:${y}px;" class="board-card`
+    );
+  }).join('');
+}
+
 function boardCardHTML(card, zone) {
   const img = card.image || card.img || '';
   const exhausted = card._exhausted ? ' exhausted' : '';
@@ -767,6 +765,19 @@ function dropToZone(e, toZone) {
 
   switch (toZone) {
     case 'battle':
+      // Freeform positioning: capture the drop coordinates relative to the
+      // BASE zone so the card lands wherever the cursor was. Subtract half a
+      // card width/height to center the card under the cursor and clamp into
+      // bounds so cards never disappear off-edge.
+      try {
+        const baseEl = document.getElementById('play-base-zone') || e.currentTarget;
+        const rect = baseEl.getBoundingClientRect();
+        const cardW = 88, cardH = 122;
+        const maxX = Math.max(0, rect.width - cardW - 8);
+        const maxY = Math.max(0, rect.height - cardH - 8);
+        card._x = Math.max(8, Math.min(maxX, e.clientX - rect.left - cardW/2));
+        card._y = Math.max(8, Math.min(maxY, e.clientY - rect.top - cardH/2));
+      } catch (err) {}
       GS.me.battle.push(card);
       _send({type:'play_card',zone:'battle',card});
       break;

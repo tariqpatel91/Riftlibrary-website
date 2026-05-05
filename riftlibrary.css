@@ -1099,11 +1099,15 @@ body.on-play-tab #play-board{height:100vh;}
 /* BASE zone — wide horizontal rectangle below the battlefields, extends nearly to the runes row */
 #play-base-zone{grid-column:2;grid-row:1;height:40%;align-self:end;margin-bottom:0;background:linear-gradient(160deg,rgba(60,90,180,0.12),rgba(20,30,80,0.12));border:1px solid rgba(180,140,50,0.35);border-radius:10px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
 #opp-play-base-zone{grid-column:2;grid-row:1;height:40%;align-self:start;margin-top:0;background:linear-gradient(160deg,rgba(60,90,180,0.12),rgba(20,30,80,0.12));border:1px solid rgba(180,140,50,0.35);border-radius:10px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
-#opp-play-base-zone .bz-cards{position:absolute;inset:8px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;padding:0;}
+/* opp BASE uses the same freeform positioning; flex layout removed */
 #opp-play-base-zone.drag-over{border-color:#e8d47a;box-shadow:0 0 18px rgba(232,212,122,0.4);background:linear-gradient(160deg,rgba(200,154,58,0.18),rgba(60,90,180,0.18));}
 /* Resize grips disabled — Base / Runes / Legend / Champion zones are locked */
 .zone-resize-grip{display:none;}
-#play-base-zone .bz-cards{position:absolute;inset:8px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;padding:0;}
+/* BASE zone uses freeform positioning — cards are absolutely positioned at
+   the coordinates _renderFreeformZone() bakes onto each .board-card via
+   inline style. The container is just a positioned canvas; no flex layout. */
+#play-base-zone .bz-cards{position:absolute;inset:8px;padding:0;}
+#opp-play-base-zone .bz-cards{position:absolute;inset:8px;padding:0;}
 /* BASE-zone cards rendered ~40% larger than the default board card */
 #play-base-zone .board-card{width:88px;height:122px;}
 #opp-play-base-zone .board-card{width:88px;height:122px;}
