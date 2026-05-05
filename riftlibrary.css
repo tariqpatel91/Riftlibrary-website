@@ -1199,10 +1199,10 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
    regardless of runes-zone size. */
 #bottom-row{display:flex;flex-direction:row;gap:4px;height:120px;flex-shrink:0;align-items:stretch;position:relative;padding-right:160px;}
 #rune-deck-zone{flex:0 0 90px;}
-/* Runes-zone extends to the right edge of where the hand fan begins. The
-   calc keeps it scaling with the viewport: rune-deck (90px) + this width
-   ends roughly at 50% + 30px, the same anchor used by .hand-fan-overlay. */
-#runes-zone{flex:0 1 calc(50vw - 100px);min-width:240px;max-width:calc(50vw - 100px);position:relative;}
+/* Runes-zone right edge meets the hand-fan dashed border. Math:
+   rune-deck (90px) + gap (4px) + width = 50% + 30px (hand fan left).
+   So width = 50vw - 64px. */
+#runes-zone{flex:0 1 calc(50vw - 64px);min-width:240px;max-width:calc(50vw - 64px);position:relative;}
 #my-deck-zone{position:absolute;top:0;bottom:0;right:82px;width:78px;}
 #trash-zone{position:absolute;top:0;bottom:0;right:0;width:78px;}
 .bz-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:4px 4px 12px;}

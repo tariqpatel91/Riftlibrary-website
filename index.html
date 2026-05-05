@@ -373,13 +373,6 @@
         <div id="hero-column">
           <div class="hero-half hero-opp">
             <div class="bz piece-bz" id="opp-champion-zone">
-              <div class="pinfo-overlay">
-                <div class="pinfo-life">
-                  <button class="life-btn" onclick="adjustLife('opp',-1)">−</button>
-                  <span id="opp-life">20</span>
-                  <button class="life-btn" onclick="adjustLife('opp',1)">+</button>
-                </div>
-              </div>
               <div class="bz-icon">♛</div>
               <div id="opp-champion-cards" class="bz-cards"></div>
               <span class="bz-lbl">CHAMPION</span>
@@ -397,13 +390,6 @@
               <span class="bz-lbl">LEGEND</span>
             </div>
             <div class="bz piece-bz" id="my-champion-zone" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'champion')">
-              <div class="pinfo-overlay pinfo-mine">
-                <div class="pinfo-life">
-                  <button class="life-btn" onclick="adjustLife('me',-1)">−</button>
-                  <span id="my-life">20</span>
-                  <button class="life-btn" onclick="adjustLife('me',1)">+</button>
-                </div>
-              </div>
               <div class="bz-icon">♛</div>
               <div id="my-champion-cards" class="bz-cards"></div>
               <span class="bz-lbl">CHAMPION</span>
