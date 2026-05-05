@@ -757,6 +757,9 @@ function dropToZone(e, toZone) {
 
   switch (toZone) {
     case 'battle':
+      // Riftbound rule: a unit entering the BASE zone lands tapped (i.e.
+      // exhausted). Override the default _exhausted=false reset above.
+      card._exhausted = true;
       // Freeform positioning: capture the drop coordinates relative to the
       // BASE zone so the card lands wherever the cursor was. Subtract half a
       // card width/height to center the card under the cursor and clamp into
@@ -764,7 +767,7 @@ function dropToZone(e, toZone) {
       try {
         const baseEl = document.getElementById('play-base-zone') || e.currentTarget;
         const rect = baseEl.getBoundingClientRect();
-        const cardW = 88, cardH = 122;
+        const cardW = 97, cardH = 134;
         const maxX = Math.max(0, rect.width - cardW - 8);
         const maxY = Math.max(0, rect.height - cardH - 8);
         card._x = Math.max(8, Math.min(maxX, e.clientX - rect.left - cardW/2));
@@ -899,7 +902,8 @@ function _moveToHand(uid, zone) {
 function _moveToZone(uid, fromZone, toZone) {
   const card = _pluckMyCard(uid, fromZone);
   if (!card) return;
-  card._exhausted = false;
+  // Cards entering BASE land tapped (Riftbound rule); other moves untap.
+  card._exhausted = (toZone === 'battle');
   if (toZone === 'battle')  GS.me.battle.push(card);
   if (toZone === 'support') GS.me.support.push(card);
   _send({type:'move_card', uid, from:fromZone, to:toZone});

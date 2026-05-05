@@ -1127,8 +1127,8 @@ body.on-play-tab #play-board{height:100vh;}
 #play-base-zone .bz-cards{position:absolute;inset:8px;padding:0;}
 #opp-play-base-zone .bz-cards{position:absolute;inset:8px;padding:0;}
 /* BASE-zone cards rendered ~40% larger than the default board card */
-#play-base-zone .board-card{width:88px;height:122px;}
-#opp-play-base-zone .board-card{width:88px;height:122px;}
+#play-base-zone .board-card{width:97px;height:134px;}
+#opp-play-base-zone .board-card{width:97px;height:134px;}
 #play-base-zone.drag-over{border-color:#e8d47a;box-shadow:0 0 18px rgba(232,212,122,0.4);background:linear-gradient(160deg,rgba(200,154,58,0.18),rgba(60,90,180,0.18));}
 /* Score track (the right-side life/score column) — z-index keeps it on top of
    any battlefield zone that's been dragged via the move grip, and explicit
