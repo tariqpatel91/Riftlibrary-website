@@ -17,6 +17,16 @@ const GS = {
 let _dragUid = null;
 let _dragZone = null;
 let _bcMenuClose = null;
+// Marquee selection — set of card uids the user has highlighted by drawing
+// a click-and-drag box over BASE / runes. Persists across re-renders so
+// renderFullBoard re-applies the visual .selected class.
+const _selectedUids = new Set();
+let _marqueeEl = null;
+let _marqueeStart = null;
+let _marqueeContainer = null;
+// Snapshot of selected-card positions captured at dragstart so dropToZone
+// can move every selected card by the same delta when one is dropped.
+let _selectedDragSnapshot = null;
 
 /* ── DECK SELECTORS ── */
 function populateDeckSelectors() {
@@ -415,6 +425,8 @@ function renderFullBoard() {
   if (GS.me.champion) renderZone('my-champion-cards', [GS.me.champion]);
   _updateCounts();
   _initResizableZones();
+  _initMarqueeZones();
+  _applySelectedClasses();
 }
 
 // Battlefield zones were removed from the layout entirely. Runes is locked at
@@ -738,6 +750,18 @@ function boardDragOver(e) {
 function boardDragStart(e, uid, zone) {
   _dragUid = uid;
   _dragZone = zone;
+  // If this card is part of a multi-select, snapshot every selected card's
+  // current (_x,_y) so dropToZone can move them all by the same delta when
+  // the dragged card lands.
+  _selectedDragSnapshot = null;
+  if (_selectedUids.has(uid) && _selectedUids.size > 1) {
+    _selectedDragSnapshot = {};
+    (GS.me.battle || []).forEach(c => {
+      if (_selectedUids.has(c._uid)) {
+        _selectedDragSnapshot[c._uid] = { x: c._x || 0, y: c._y || 0 };
+      }
+    });
+  }
   if (e.dataTransfer) {
     e.dataTransfer.effectAllowed = 'move';
     try { e.dataTransfer.setData('text/plain', uid); } catch (_) {}
@@ -787,6 +811,24 @@ function dropToZone(e, toZone) {
         card._y = Math.max(8, Math.min(maxY, e.clientY - rect.top - cardH/2));
       } catch (err) {}
       GS.me.battle.push(card);
+      // Group drag: shift every other selected card by the same delta the
+      // dragged card moved. Only meaningful when this is a re-position
+      // within BASE (we already have positions for them all).
+      if (_selectedDragSnapshot && _selectedDragSnapshot[card._uid] && fromBase) {
+        const orig = _selectedDragSnapshot[card._uid];
+        const dx = (card._x || 0) - orig.x;
+        const dy = (card._y || 0) - orig.y;
+        if (dx || dy) {
+          GS.me.battle.forEach(c => {
+            if (c._uid === card._uid) return;
+            const o = _selectedDragSnapshot[c._uid];
+            if (!o) return;
+            c._x = o.x + dx;
+            c._y = o.y + dy;
+          });
+        }
+      }
+      _selectedDragSnapshot = null;
       _send({type:'play_card',zone:'battle',card});
       break;
     case 'support':
@@ -888,7 +930,24 @@ function _toggleExhaust(uid, zone) {
 
 // Toggle exhaust for any of my cards regardless of which zone it lives in.
 // Used by the click-to-tap handler so any board card rotates 90° on click.
+// If the clicked card is part of a multi-select, batch-tap every selected
+// card to the SAME state (based on what the clicked card's new state will
+// be), so a group of selected runes/units can be tapped together.
 function _toggleExhaustAny(uid) {
+  // Batch-tap path: clicked card is in a multi-select
+  if (_selectedUids.size > 1 && _selectedUids.has(uid)) {
+    const all = [GS.me.hand, GS.me.battle, GS.me.support, GS.me.bfArea]
+      .filter(Boolean).flat();
+    if (GS.me.legend) all.push(GS.me.legend);
+    if (GS.me.champion) all.push(GS.me.champion);
+    const clicked = all.find(c => c && c._uid === uid);
+    if (clicked) {
+      const newState = !clicked._exhausted;
+      all.forEach(c => { if (c && _selectedUids.has(c._uid)) c._exhausted = newState; });
+      renderFullBoard();
+      return;
+    }
+  }
   const arrays = [
     GS.me.hand, GS.me.battle, GS.me.support, GS.me.bfArea
   ];
@@ -1644,4 +1703,103 @@ function _zoneStartResize(e, el, id) {
   }
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
+}
+
+/* ── Marquee (click-and-drag) selection in BASE / runes ─────────────────
+   Click empty space inside the zone, drag to draw a box, release to mark
+   every card whose bounding rect intersects the box as `_selectedUids`.
+   Selected cards get a yellow outline (.selected) that persists across
+   renders. Click a selected card to batch-tap, or drag any selected card
+   to move every selected card by the same delta (BASE freeform only).
+   Click an empty area without dragging to clear the selection. */
+function _startMarquee(e, container) {
+  if (e.button !== 0) return;
+  // Don't start on cards / interactive widgets — let their own handlers run.
+  if (e.target.closest('.board-card, button, input, .bf-resize-grip, .bf-move-grip, .rune-deck-btn, .bz-deck-stack, .trash-top')) return;
+  // Always clear previous selection on a fresh marquee start
+  _clearSelection();
+  _marqueeContainer = container;
+  _marqueeStart = { x: e.clientX, y: e.clientY };
+  _marqueeEl = document.createElement('div');
+  _marqueeEl.className = 'marquee-overlay';
+  document.body.appendChild(_marqueeEl);
+  document.addEventListener('mousemove', _updateMarquee);
+  document.addEventListener('mouseup', _endMarquee, { once: true });
+  e.preventDefault();
+}
+function _updateMarquee(e) {
+  if (!_marqueeEl) return;
+  const x1 = Math.min(_marqueeStart.x, e.clientX);
+  const y1 = Math.min(_marqueeStart.y, e.clientY);
+  const x2 = Math.max(_marqueeStart.x, e.clientX);
+  const y2 = Math.max(_marqueeStart.y, e.clientY);
+  _marqueeEl.style.left   = x1 + 'px';
+  _marqueeEl.style.top    = y1 + 'px';
+  _marqueeEl.style.width  = (x2 - x1) + 'px';
+  _marqueeEl.style.height = (y2 - y1) + 'px';
+}
+function _endMarquee() {
+  document.removeEventListener('mousemove', _updateMarquee);
+  if (!_marqueeEl) return;
+  const mr = _marqueeEl.getBoundingClientRect();
+  // Only run intersection tests if the user actually dragged (>3px) — a bare
+  // click on empty space just clears the selection.
+  const dragged = mr.width > 3 || mr.height > 3;
+  if (dragged && _marqueeContainer) {
+    _marqueeContainer.querySelectorAll('.board-card').forEach(el => {
+      const r = el.getBoundingClientRect();
+      const intersects = !(r.right < mr.left || r.left > mr.right || r.bottom < mr.top || r.top > mr.bottom);
+      if (intersects) {
+        const uid = el.getAttribute('data-uid');
+        if (uid) {
+          _selectedUids.add(uid);
+          el.classList.add('selected');
+        }
+      }
+    });
+  }
+  _marqueeEl.remove();
+  _marqueeEl = null;
+  _marqueeStart = null;
+  _marqueeContainer = null;
+}
+function _clearSelection() {
+  if (_selectedUids.size === 0) return;
+  _selectedUids.clear();
+  document.querySelectorAll('.board-card.selected').forEach(c => c.classList.remove('selected'));
+}
+function _applySelectedClasses() {
+  // Re-apply the .selected class after every renderFullBoard so the visual
+  // highlight survives card shuffles / state updates.
+  document.querySelectorAll('.board-card[data-uid]').forEach(el => {
+    el.classList.toggle('selected', _selectedUids.has(el.getAttribute('data-uid')));
+  });
+}
+function _initMarqueeZones() {
+  ['play-base-zone', 'runes-zone'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || el._marqueeInit) return;
+    el._marqueeInit = true;
+    el.addEventListener('mousedown', e => _startMarquee(e, el));
+  });
+}
+
+/* ── Shuffle handlers ─────────────────────────────────────────────────── */
+function _shuffleArr(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+function shuffleDeck() {
+  if (!GS.me.deck || GS.me.deck.length < 2) { if (typeof showToast === 'function') showToast('Nothing to shuffle'); return; }
+  _shuffleArr(GS.me.deck);
+  if (typeof showToast === 'function') showToast('Deck shuffled (' + GS.me.deck.length + ' cards)');
+  renderFullBoard();
+}
+function shuffleRuneDeck() {
+  if (!GS.me.runes || GS.me.runes.length < 2) { if (typeof showToast === 'function') showToast('Nothing to shuffle'); return; }
+  _shuffleArr(GS.me.runes);
+  if (typeof showToast === 'function') showToast('Rune deck shuffled (' + GS.me.runes.length + ' cards)');
+  renderFullBoard();
 }

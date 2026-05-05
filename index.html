@@ -455,7 +455,7 @@
 
       <!-- ── BOTTOM ROW: rune deck | runes | main deck | trash ── -->
       <div id="bottom-row">
-        <div class="bz bz-deck" id="rune-deck-zone" onclick="playRune()" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'rune-deck')" title="Click to play 1 rune — drop a rune here to put on top">
+        <div class="bz bz-deck" id="rune-deck-zone" onclick="playRune()" oncontextmenu="event.preventDefault();shuffleRuneDeck();return false;" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'rune-deck')" title="Left-click: play 1 rune · Right-click: shuffle">
           <div class="bz-deck-stack">
             <div class="bz-card-back lol-back rune-back"></div>
           </div>
@@ -466,7 +466,7 @@
           <div id="support-cards" class="bz-cards"></div>
           <span class="bz-lbl">RUNES</span>
         </div>
-        <div class="bz bz-deck bz-mini" id="my-deck-zone" onclick="drawCard()" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'deck')" title="Click to draw — drop a card here to put it on top">
+        <div class="bz bz-deck bz-mini" id="my-deck-zone" onclick="drawCard()" oncontextmenu="event.preventDefault();shuffleDeck();return false;" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'deck')" title="Left-click: draw · Right-click: shuffle · drop a card here to put it on top">
           <div class="bz-deck-stack mini-stack">
             <div class="bz-card-back lol-back"></div>
           </div>

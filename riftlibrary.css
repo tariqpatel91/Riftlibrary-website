@@ -1376,6 +1376,10 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 .board-card:hover{transform:translateY(-5px) scale(1.06);box-shadow:0 8px 20px rgba(0,0,0,0.8),0 0 8px rgba(180,140,50,0.3);}
 .board-card img{width:100%;height:100%;object-fit:cover;display:block;}
 .board-card.exhausted{transform:rotate(90deg);opacity:0.85;}
+/* Marquee selection: yellow outline on selected cards + dashed selection box */
+.board-card.selected{outline:2px solid #e8d47a;outline-offset:2px;box-shadow:0 0 14px rgba(232,212,122,0.65);z-index:3;}
+.board-card.selected.exhausted{outline-color:#fff8c4;}
+.marquee-overlay{position:fixed;border:1.5px dashed #e8d47a;background:rgba(232,212,122,0.10);pointer-events:none;z-index:9999;border-radius:4px;}
 /* Runes specifically tap to a 45° angle — softer visual than the 90° flop used
    for board units, matching the standard Riftbound rune presentation. */
 #runes-zone .board-card.exhausted,#opp-runes-zone .board-card.exhausted{transform:rotate(45deg);}
