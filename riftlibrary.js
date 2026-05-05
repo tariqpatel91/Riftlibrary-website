@@ -65,20 +65,6 @@ let activeDDTab='cards';
 let currentUser=null;
 let cardsTabView='visual';
 let deckSortMode='alpha'; // 'alpha' or 'energy'
-let deckCardSize=parseInt(localStorage.getItem('rl_deck_card_size')||'130',10); // px max-width for deck/sideboard cards
-function setDeckCardSize(v){
-  deckCardSize=Math.max(60,Math.min(220,parseInt(v,10)||130));
-  try{localStorage.setItem('rl_deck_card_size',deckCardSize);}catch(e){}
-  document.documentElement.style.setProperty('--deck-card-size',deckCardSize+'px');
-  const lbl=document.getElementById('deck-card-size-val');
-  if(lbl) lbl.textContent=deckCardSize+'px';
-}
-// Apply on first load so a refresh keeps the user's chosen size
-if(typeof document!=='undefined'){
-  document.addEventListener('DOMContentLoaded',()=>{
-    document.documentElement.style.setProperty('--deck-card-size',deckCardSize+'px');
-  });
-}
 let authToken=null;
 const AF={doms:new Set()};
 const CF={type:'',set:'',rar:'',legend:'',subtype:'',variant:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,12],showAllVersions:false,classMode:false};
@@ -893,6 +879,10 @@ function renderDeckDetail(){
         <div id="deck-curves-panel">${buildDeckCurves(d)}</div>
         <div class="deck-header-count">
           <span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">${totalCards} / 40 cards</span>
+        </div>
+        <div class="deck-header-sort">
+          <span class="dhs-label">Sort by:</span>
+          <button class="cvt-btn sort-tog-btn${deckSortMode==='energy'?' on':''}" onclick="toggleDeckSort()" title="Toggle sort order">${deckSortMode==='energy'?'⚡ Energy':'🔤 Alphabetical'}</button>
         </div>
       </div>
     </div>
@@ -1759,6 +1749,27 @@ function addToMaybeboard(deckId,cardId,cardName,cardType){
   else d.maybeboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
   persist();renderEditPreview();
 }
+// Move a card from the main deck into the maybeboard (mirrors addToSB).
+// Used by the per-card "Add to maybeboard" action button on deck cards.
+function deckToMaybeboard(deckId,cardId,cardName,cardType){
+  if(cardType==='Battlefield'){toast('Battlefield cards go in battlefield zones');return;}
+  if(cardType==='Legend'){toast('Legends cannot go to the maybeboard');return;}
+  const d=myDecks.find(x=>x.id===deckId);if(!d)return;
+  if(!d.maybeboard) d.maybeboard=[];
+  const mbTotal=d.maybeboard.reduce((a,c)=>a+c.cnt,0);
+  if(mbTotal>=MAYBE_MAX){toast('Maybe board is full ('+MAYBE_MAX+' cards max)');return;}
+  const deckIdx=(d.cards||[]).findIndex(c=>c.id===cardId);
+  if(deckIdx<0){toast('Card not found in main deck');return;}
+  d.cards[deckIdx].cnt--;
+  if(d.cards[deckIdx].cnt<=0) d.cards.splice(deckIdx,1);
+  const existing=d.maybeboard.find(c=>c.id===cardId);
+  if(existing) existing.cnt++;
+  else d.maybeboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
+  persist();
+  renderEditSearch();
+  renderEditPreview();
+  toast(cardName+' moved to maybe board');
+}
 function _moveDeckToMaybeboard(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d||!_DRAG)return;
   if(!d.maybeboard) d.maybeboard=[];
@@ -1957,6 +1968,7 @@ function renderEditPreview(targetEl){
     if(c.t!=='Legend') h+=`<div class="dca-btn dca-danger" onclick="editDeckCard('${si}','${sn}','${st}',-1)"><span>✕</span> Remove</div>`;
     if(c.t!=='Legend') h+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="editDeckCard('${si}','${sn}','${st}',1)"><span>＋</span> Add 1 copy</div>`;
     if(c.t!=='Legend') h+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${st}')"><span>→</span> Add to sideboard</div>`;
+    if(c.t!=='Legend') h+=`<div class="dca-btn" onclick="deckToMaybeboard(${d.id},'${si}','${sn}','${st}')"><span>?</span> Add to maybeboard</div>`;
     h+=`</div>`;
     if(c.cnt>1) h+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
     h+='</div>';
@@ -2046,16 +2058,8 @@ function renderEditPreview(targetEl){
     const av=ai<0?99:ai;const bv=bi<0?99:bi;
     return av!==bv?av-bv:a.localeCompare(b);
   }
-  // Sort toggle + card-size slider for the edit tab
-  html+=`<div style="display:flex;justify-content:flex-end;align-items:center;gap:14px;margin-bottom:8px;flex-wrap:wrap;">
-    <div class="deck-size-slider" title="Card size">
-      <span class="dss-icon">▭</span>
-      <input type="range" min="60" max="220" value="${deckCardSize}" oninput="setDeckCardSize(this.value)">
-      <span id="deck-card-size-val" class="dss-val">${deckCardSize}px</span>
-    </div>
-    <span style="font-size:12px;color:var(--text-muted);font-family:'Syne',sans-serif;letter-spacing:0.04em;">Sort by:</span>
-    <button class="cvt-btn sort-tog-btn${deckSortMode==='energy'?' on':''}" onclick="toggleDeckSort()" title="Toggle sort order" style="font-size:12px;padding:6px 14px;">${deckSortMode==='energy'?'⚡ Energy':'🔤 Alphabetical'}</button>
-  </div>`;
+  // Sort-by toggle is rendered up in the deck-header-right alongside the deck
+  // count badge (see line ~895). Nothing is rendered here anymore.
   function energySort(a,b){
     const ca=CARDS.find(x=>x.id===a.id);const cb=CARDS.find(x=>x.id===b.id);
     const ea=ca&&ca.cost!=null?ca.cost:999;const eb=cb&&cb.cost!=null?cb.cost:999;
@@ -2094,6 +2098,7 @@ function renderEditPreview(targetEl){
             html+=`<div class="dca-btn dca-danger" onclick="editDeckCard('${si}','${sn}','${st}',-1)"><span>✕</span> Remove</div>`;
             html+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="editDeckCard('${si}','${sn}','${st}',1)"><span>＋</span> Add 1 copy</div>`;
             html+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${st}')"><span>→</span> Add to sideboard</div>`;
+            html+=`<div class="dca-btn" onclick="deckToMaybeboard(${d.id},'${si}','${sn}','${st}')"><span>?</span> Add to maybeboard</div>`;
             html+='</div>';
             if(i===0) html+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
             html+='</div>';
@@ -2281,7 +2286,8 @@ function showDeckCardMenu(e,cardId,cardName,cardType){
     +`<div class="dcm-item" onclick="dcmZoom()"><span class="dcm-icon">🔍</span>Zoom</div>`
     +`<div class="dcm-item dcm-danger" onclick="dcmRemove()"><span class="dcm-icon">✕</span>Remove</div>`
     +`<div class="dcm-item${cnt>=3?' dcm-disabled':''}" onclick="dcmAdd()"><span class="dcm-icon">＋</span>Add 1 copy</div>`
-    +`<div class="dcm-item" onclick="dcmSideboard()"><span class="dcm-icon">→</span>Add to sideboard</div>`;
+    +`<div class="dcm-item" onclick="dcmSideboard()"><span class="dcm-icon">→</span>Add to sideboard</div>`
+    +`<div class="dcm-item" onclick="dcmMaybeboard()"><span class="dcm-icon">?</span>Add to maybeboard</div>`;
   document.body.appendChild(menu);
 
   const mw=190,mh=img?290:170;
@@ -2319,6 +2325,25 @@ function dcmSideboard(){
   const panel=document.getElementById('ddp-sideboard');
   if(panel) panel.innerHTML=buildSideboardPanel(d);
   toast(_DCM.n+' moved to sideboard');
+  closeDeckCardMenu();
+}
+function dcmMaybeboard(){
+  if(!_DCM) return;
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  if(!d.maybeboard) d.maybeboard=[];
+  const mbTotal=d.maybeboard.reduce((a,c)=>a+c.cnt,0);
+  if(mbTotal>=MAYBE_MAX){toast('Maybe board is full ('+MAYBE_MAX+' cards max)');closeDeckCardMenu();return;}
+  const deckIdx=(d.cards||[]).findIndex(c=>c.id===_DCM.id);
+  if(deckIdx<0){closeDeckCardMenu();return;}
+  d.cards[deckIdx].cnt--;
+  if(d.cards[deckIdx].cnt<=0) d.cards.splice(deckIdx,1);
+  const mbEntry=d.maybeboard.find(c=>c.id===_DCM.id);
+  if(mbEntry) mbEntry.cnt++;
+  else d.maybeboard.push({id:_DCM.id,n:_DCM.n,t:_DCM.t,cnt:1});
+  persist();
+  renderEditSearch();
+  renderEditPreview();
+  toast(_DCM.n+' moved to maybe board');
   closeDeckCardMenu();
 }
 
