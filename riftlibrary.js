@@ -2074,44 +2074,68 @@ function renderEditPreview(targetEl){
     const byType={};
     const typeOrder=[];
     sorted.forEach(c=>{if(!byType[c.t]){byType[c.t]=[];typeOrder.push(c.t);}byType[c.t].push(c);});
+    // Helper: split a flat list into balanced rows, each row capped at maxPerRow.
+    // For 9 cards we want 5+4 (not 8+1), for 10 → 5+5, for 17 → 6+6+5, etc.
+    function _splitIntoRows(arr,maxPerRow){
+      const N=arr.length; if(N<=maxPerRow) return [arr];
+      const rowCount=Math.ceil(N/maxPerRow);
+      const base=Math.floor(N/rowCount), extra=N%rowCount;
+      const rows=[]; let idx=0;
+      for(let r=0;r<rowCount;r++){
+        const sz=base+(r<extra?1:0);
+        rows.push(arr.slice(idx,idx+sz)); idx+=sz;
+      }
+      return rows;
+    }
+    function _renderGearItem(c){
+      const full=CARDS.find(x=>x.id===c.id);
+      const img=full?full.imageUrl:'';
+      const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const st=c.t.replace(/'/g,"\\'");
+      const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const canAdd=c.cnt<3;
+      let h='<div class="gear-h-stack">';
+      for(let i=0;i<c.cnt;i++){
+        h+=`<div class="deck-card-item deck-card-main gear-h-card${i===0?' gear-h-first':''}" title="${c.n}" draggable="true" ondragstart="editDeckDragStart('${si}','${sn}','${st}')" style="z-index:${c.cnt-i};" data-hover-img="${img||''}">`;
+        if(img) h+=`<img src="${img}" alt="" loading="lazy">`;
+        else h+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
+        h+=bannedBanner(c.n);
+        h+=`<div class="deck-card-actions">`;
+        h+=`<div class="dca-btn dca-danger" onclick="editDeckCard('${si}','${sn}','${st}',-1)"><span>✕</span> Remove</div>`;
+        h+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="editDeckCard('${si}','${sn}','${st}',1)"><span>＋</span> Add 1 copy</div>`;
+        h+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${st}')"><span>→</span> Add to sideboard</div>`;
+        h+=`<div class="dca-btn" onclick="deckToMaybeboard(${d.id},'${si}','${sn}','${st}')"><span>?</span> Add to maybeboard</div>`;
+        h+='</div>';
+        if(i===0) h+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
+        h+='</div>';
+      }
+      h+='</div>';
+      return h;
+    }
     html+='<div class="deck-all-types drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,\'deck\')">';
     typeOrder.forEach(type=>{
       const uniqueCards=byType[type];
       const typeTotal=uniqueCards.reduce((a,c)=>a+c.cnt,0);
+      // Section title sits on the LEFT, card rows on the right
       html+=`<div class="deck-type-block${type==='Gear'?' gear-type-block':''}"><div class="deck-type-lbl">${type} (${typeTotal})</div>`;
-      html+='<div class="deck-type-auto-grid">';
-      uniqueCards.forEach(c=>{
-        if(type==='Gear'){
-          const full=CARDS.find(x=>x.id===c.id);
-          const img=full?full.imageUrl:'';
-          const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-          const st=c.t.replace(/'/g,"\\'");
-          const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-          const canAdd=c.cnt<3;
-          html+='<div class="gear-h-stack">';
-          for(let i=0;i<c.cnt;i++){
-            html+=`<div class="deck-card-item deck-card-main gear-h-card${i===0?' gear-h-first':''}" title="${c.n}" draggable="true" ondragstart="editDeckDragStart('${si}','${sn}','${st}')" style="z-index:${c.cnt-i};" data-hover-img="${img||''}">`;
-            if(img) html+=`<img src="${img}" alt="" loading="lazy">`;
-            else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
-            html+=bannedBanner(c.n);
-            html+=`<div class="deck-card-actions">`;
-            html+=`<div class="dca-btn dca-danger" onclick="editDeckCard('${si}','${sn}','${st}',-1)"><span>✕</span> Remove</div>`;
-            html+=`<div class="dca-btn${canAdd?'':' dca-disabled'}" onclick="editDeckCard('${si}','${sn}','${st}',1)"><span>＋</span> Add 1 copy</div>`;
-            html+=`<div class="dca-btn" onclick="addToSB(${d.id},'${si}','${sn}','${st}')"><span>→</span> Add to sideboard</div>`;
-            html+=`<div class="dca-btn" onclick="deckToMaybeboard(${d.id},'${si}','${sn}','${st}')"><span>?</span> Add to maybeboard</div>`;
-            html+='</div>';
-            if(i===0) html+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;
+      html+='<div class="deck-type-rows">';
+      // Wrap into balanced rows of up to 8 columns each. 9 → 5+4, 10 → 5+5, etc.
+      const rowGroups=_splitIntoRows(uniqueCards,8);
+      rowGroups.forEach(rowCards=>{
+        html+='<div class="deck-type-auto-grid">';
+        rowCards.forEach(c=>{
+          if(type==='Gear'){
+            html+=_renderGearItem(c);
+          } else {
+            html+='<div class="deck-col-stack">';
+            for(let i=0;i<c.cnt;i++) html+=cardItem(c,'deck-card-main');
             html+='</div>';
           }
-          html+='</div>';
-        } else {
-          html+='<div class="deck-col-stack">';
-          for(let i=0;i<c.cnt;i++) html+=cardItem(c,'deck-card-main');
-          html+='</div>';
-        }
+        });
+        html+='</div>';
       });
-      html+='</div>';
-      html+='</div>';
+      html+='</div>'; // /.deck-type-rows
+      html+='</div>'; // /.deck-type-block
     });
     html+='</div>';
   }
