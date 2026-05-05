@@ -2166,28 +2166,35 @@ function renderEditPreview(targetEl){
       return h;
     }
     html+='<div class="deck-all-types drop-zone" ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,\'deck\')">';
+    function _renderTypeRow(rowCards,type){
+      let h='<div class="deck-type-auto-grid">';
+      rowCards.forEach(c=>{
+        if(type==='Gear'){
+          h+=_renderGearItem(c);
+        } else {
+          h+='<div class="deck-col-stack">';
+          for(let i=0;i<c.cnt;i++) h+=cardItem(c,'deck-card-main');
+          h+='</div>';
+        }
+      });
+      h+='</div>';
+      return h;
+    }
     typeOrder.forEach(type=>{
       const uniqueCards=byType[type];
       const typeTotal=uniqueCards.reduce((a,c)=>a+c.cnt,0);
-      // Section title sits on the LEFT, card rows on the right
       html+=`<div class="deck-type-block${type==='Gear'?' gear-type-block':''}"><div class="deck-type-lbl">${type} (${typeTotal})</div>`;
-      html+='<div class="deck-type-rows">';
-      // Wrap into balanced rows of up to 8 columns each. 9 → 5+4, 10 → 5+5, etc.
-      const rowGroups=_splitIntoRows(uniqueCards,8);
-      rowGroups.forEach(rowCards=>{
-        html+='<div class="deck-type-auto-grid">';
-        rowCards.forEach(c=>{
-          if(type==='Gear'){
-            html+=_renderGearItem(c);
-          } else {
-            html+='<div class="deck-col-stack">';
-            for(let i=0;i<c.cnt;i++) html+=cardItem(c,'deck-card-main');
-            html+='</div>';
-          }
+      if(isEdit){
+        // Editor: title on the LEFT, balanced row splits when 9+ cards.
+        html+='<div class="deck-type-rows">';
+        _splitIntoRows(uniqueCards,8).forEach(rowCards=>{
+          html+=_renderTypeRow(rowCards,type);
         });
-        html+='</div>';
-      });
-      html+='</div>'; // /.deck-type-rows
+        html+='</div>'; // /.deck-type-rows
+      } else {
+        // Decklist viewer: original single-row layout, title above the cards.
+        html+=_renderTypeRow(uniqueCards,type);
+      }
       html+='</div>'; // /.deck-type-block
     });
     html+='</div>';
