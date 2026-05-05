@@ -393,10 +393,10 @@ function renderFullBoard() {
   renderTrashTop();
   renderMyHand();
   renderOppHand();
-  // BASE zones (visible wide rectangles): my units below, opp units above.
-  // BASE uses freeform positioning so cards stay where the user dropped them.
-  _renderFreeformZone('play-base-cards', GS.me.battle);
-  _renderFreeformZone('opp-play-base-cards', GS.opp.battle);
+  // ONE merged BASE zone — both players' battle cards render into the same
+  // freeform-positioned canvas. Each card keeps its own (_x, _y) so cards
+  // stay where they were dropped, regardless of owner.
+  _renderFreeformZone('play-base-cards', [...(GS.me.battle||[]), ...(GS.opp.battle||[])]);
   // Legacy render targets (kept for backward-compat with hidden control bar)
   renderZone('battle-cards', GS.me.battle);
   renderZone('opp-base-cards', GS.opp.battle);
