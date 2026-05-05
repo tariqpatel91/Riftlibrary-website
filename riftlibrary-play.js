@@ -749,17 +749,30 @@ function dropToZone(e, toZone) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
   if (!_dragUid) return;
+  // Snapshot drag context BEFORE plucking (which mutates state) so we know
+  // whether this is a re-position within the same zone or a true cross-zone
+  // move. The BASE zone renders into row ids 'play-base-cards' (visible
+  // freeform) and 'battle-cards' (legacy hidden) — both count as "in base".
+  const fromBase = _dragZone === 'play-base-cards' || _dragZone === 'battle-cards' || _dragZone === 'battle';
   const card = _pluckMyCard(_dragUid, _dragZone);
   if (!card) return;
+  // Card type check: only true Units (incl. Champions, which are type:'Unit'
+  // with supertype:'Champion') auto-tap on entry to BASE. Spells / gear /
+  // battlefields / runes don't.
+  const isUnit = String(card.type || '').toLowerCase() === 'unit';
+  // Preserve current exhaust before the generic reset so we can restore it
+  // for in-base re-positioning.
+  const wasExhausted = !!card._exhausted;
 
   // Reset transient flags when moving
   card._exhausted = false;
 
   switch (toZone) {
     case 'battle':
-      // Riftbound rule: a unit entering the BASE zone lands tapped (i.e.
-      // exhausted). Override the default _exhausted=false reset above.
-      card._exhausted = true;
+      // Re-positioning within BASE preserves the card's tap state. Only Units
+      // entering BASE from another zone land tapped per Riftbound rules.
+      if (fromBase) card._exhausted = wasExhausted;
+      else if (isUnit) card._exhausted = true;
       // Freeform positioning: capture the drop coordinates relative to the
       // BASE zone so the card lands wherever the cursor was. Subtract half a
       // card width/height to center the card under the cursor and clamp into
@@ -900,11 +913,18 @@ function _moveToHand(uid, zone) {
 }
 
 function _moveToZone(uid, fromZone, toZone) {
+  const fromBase = fromZone === 'play-base-cards' || fromZone === 'battle-cards' || fromZone === 'battle';
   const card = _pluckMyCard(uid, fromZone);
   if (!card) return;
-  // Cards entering BASE land tapped (Riftbound rule); other moves untap.
-  card._exhausted = (toZone === 'battle');
-  if (toZone === 'battle')  GS.me.battle.push(card);
+  const isUnit = String(card.type || '').toLowerCase() === 'unit';
+  const wasExhausted = !!card._exhausted;
+  // Default: untap on move. Then override for the BASE → BASE / non-BASE → BASE cases.
+  card._exhausted = false;
+  if (toZone === 'battle') {
+    if (fromBase) card._exhausted = wasExhausted;        // re-position keeps state
+    else if (isUnit) card._exhausted = true;             // unit entering BASE auto-taps
+    GS.me.battle.push(card);
+  }
   if (toZone === 'support') GS.me.support.push(card);
   _send({type:'move_card', uid, from:fromZone, to:toZone});
   renderFullBoard();
