@@ -403,8 +403,8 @@ function renderFullBoard() {
   // Other zones
   renderZone('support-cards', GS.me.support);
   renderZone('opp-support-cards', GS.opp.support || []);
-  renderZone('bf-left-cards',  GS.me.bfLeft  || []);
-  renderZone('bf-right-cards', GS.me.bfRight || []);
+  // Battlefield zones removed — only the legacy hidden bfArea is kept for
+  // backward compatibility with serialized game state.
   renderZone('my-battlefield-cards', GS.me.bfArea || []);
   _renderScoreTrack();
   // Hide base hint once units are placed
@@ -417,26 +417,23 @@ function renderFullBoard() {
   _initResizableZones();
 }
 
-// Battlefield + runes zones are locked at the default layout — no resize or
-// move grips. Any previously-saved inline size/offset from earlier sessions is
-// cleared so the zones snap back to the default flex sizing.
+// Battlefield zones were removed from the layout entirely. Runes is locked at
+// the default flex sizing in CSS. This helper just clears any leftover inline
+// styles / localStorage from earlier builds that used resize/move grips, so
+// returning users don't see ghost sizes from the previous version.
 function _initResizableZones() {
   ['bf-left', 'bf-right', 'runes-zone'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    // Clear any leftover inline sizes / transforms from a previous build that
-    // had the resize/move grips, so the zone falls back to the locked flex
-    // layout in CSS.
-    el.style.flex = '';
-    el.style.width = '';
-    el.style.height = '';
-    el.style.transform = '';
     try {
       localStorage.removeItem('rl_zone_size_' + id);
       localStorage.removeItem('rl_zone_offset_' + id);
       localStorage.removeItem('rl_bf_size_' + id);
     } catch (e) {}
-    // Drop any grip elements that earlier code might have appended to the zone
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.flex = '';
+    el.style.width = '';
+    el.style.height = '';
+    el.style.transform = '';
     el.querySelectorAll(':scope > .bf-resize-grip, :scope > .bf-move-grip').forEach(g => g.remove());
   });
 }
@@ -715,17 +712,12 @@ if (typeof window !== 'undefined' && !window._handFanResizeBound) {
 }
 
 function _isMyCard(card) {
-  // Includes battlefield arrays so cards rendered into bf-left / bf-right /
-  // bfArea also get the draggable="true" + ondragstart attributes from
-  // boardCardHTML, allowing them to be dragged back out to any other zone.
-  const bfL = GS.me.bfLeft || [];
-  const bfR = GS.me.bfRight || [];
+  // bfArea is the legacy hidden battlefield-area zone — kept for backward
+  // compatibility. The bf-left / bf-right zones have been removed.
   const bfA = GS.me.bfArea || [];
   return GS.me.hand.some(c=>c._uid===card._uid) ||
          GS.me.battle.some(c=>c._uid===card._uid) ||
          GS.me.support.some(c=>c._uid===card._uid) ||
-         bfL.some(c=>c._uid===card._uid) ||
-         bfR.some(c=>c._uid===card._uid) ||
          bfA.some(c=>c._uid===card._uid) ||
          (GS.me.legend && GS.me.legend._uid===card._uid) ||
          (GS.me.champion && GS.me.champion._uid===card._uid);
@@ -789,14 +781,8 @@ function dropToZone(e, toZone) {
       GS.me.bfArea = GS.me.bfArea || [];
       GS.me.bfArea.push(card);
       break;
-    case 'battlefield-left':
-      GS.me.bfLeft = GS.me.bfLeft || [];
-      GS.me.bfLeft.push(card);
-      break;
-    case 'battlefield-right':
-      GS.me.bfRight = GS.me.bfRight || [];
-      GS.me.bfRight.push(card);
-      break;
+    // 'battlefield-left' / 'battlefield-right' destinations removed along
+    // with the bf-stage zones.
     case 'hand':
       GS.me.hand.push(card);
       break;
@@ -888,8 +874,7 @@ function _toggleExhaust(uid, zone) {
 // Used by the click-to-tap handler so any board card rotates 90° on click.
 function _toggleExhaustAny(uid) {
   const arrays = [
-    GS.me.hand, GS.me.battle, GS.me.support,
-    GS.me.bfLeft, GS.me.bfRight, GS.me.bfArea
+    GS.me.hand, GS.me.battle, GS.me.support, GS.me.bfArea
   ];
   for (const arr of arrays) {
     if (!arr) continue;
@@ -961,17 +946,11 @@ function _pluckMyCard(uid, zone) {
     const c = GS.me.champion; GS.me.champion = null; return c;
   }
   GS.me.bfArea = GS.me.bfArea || [];
-  GS.me.bfLeft = GS.me.bfLeft || [];
-  GS.me.bfRight = GS.me.bfRight || [];
   const zones = {
     hand:GS.me.hand, battle:GS.me.battle, support:GS.me.support,
     discard:GS.me.discard, trash:GS.me.discard,
     'battlefield-area':GS.me.bfArea, 'my-battlefield-cards':GS.me.bfArea,
     'battle-cards':GS.me.battle, 'support-cards':GS.me.support,
-    // Battlefield zones — let cards be dragged BACK out of bf-left / bf-right
-    // (the rowId zones used at render time) into hand / battle / support / trash / etc.
-    'bf-left-cards':GS.me.bfLeft, 'bf-right-cards':GS.me.bfRight,
-    bfLeft:GS.me.bfLeft, bfRight:GS.me.bfRight,
   };
   const arr = zones[zone];
   if (!arr) {
