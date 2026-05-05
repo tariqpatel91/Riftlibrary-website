@@ -339,25 +339,18 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 let _bannerTimer=null;
 function showAddBanner(msg){const b=document.getElementById('add-banner');if(!b)return;b.textContent=msg;b.style.opacity='1';b.style.transform='translateY(0)';clearTimeout(_bannerTimer);_bannerTimer=setTimeout(()=>{b.style.opacity='0';b.style.transform='translateY(-100%)';},1000);}
 
-/* ── RIFTCODEX FETCH ────────────────────────────── */
+/* ── CARD DATA LOAD ──────────────────────────────────────────────
+   Cards are pre-merged at build time from Riftcodex (metadata, artist,
+   power, variant flags) and DotGG (price, foilPrice, banned, market ids).
+   See scripts/build-cards.js — re-run that script and commit the resulting
+   cards.json whenever new cards drop or you want fresh prices. */
 async function fetchAllCards(){
-  document.getElementById('cg').innerHTML=`<div class="spinner" style="grid-column:1/-1;"><div class="spin"></div>Loading cards from Riftcodex API…</div>`;
+  document.getElementById('cg').innerHTML=`<div class="spinner" style="grid-column:1/-1;"><div class="spin"></div>Loading card data…</div>`;
   try{
-    const r1=await fetch('https://api.riftcodex.com/cards?size=100&page=1&sort=collector_number');
-    if(!r1.ok)throw new Error('HTTP '+r1.status);
-    const d1=await r1.json();
-    let items=[...(d1.items||[])];
-    const total=d1.total||items.length;
-    const pages=Math.ceil(total/100);
-    if(pages>1){
-      const more=await Promise.all(
-        Array.from({length:pages-1},(_,i)=>
-          fetch(`https://api.riftcodex.com/cards?size=100&page=${i+2}&sort=collector_number`).then(r=>r.json())
-        )
-      );
-      more.forEach(d=>{if(d.items)items.push(...d.items);});
-    }
-    CARDS=items.map(mapCard).filter(Boolean);
+    const r=await fetch('./cards.json',{cache:'no-cache'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    CARDS=Array.isArray(data)?data:[];
     cardsLoaded=true;
     populateLegendDropdowns();
     renderCards();
@@ -369,8 +362,9 @@ async function fetchAllCards(){
   }catch(e){
     document.getElementById('cg').innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);">
       <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
-      <div style="font-size:15px;color:var(--text-soft);margin-bottom:8px;">Could not reach Riftcodex API</div>
+      <div style="font-size:15px;color:var(--text-soft);margin-bottom:8px;">Could not load cards.json</div>
       <div style="font-size:13px;">${e.message}</div>
+      <div style="font-size:12px;margin-top:6px;">Run <code>node scripts/build-cards.js</code> to regenerate it.</div>
       <button class="btn btn-sm btn-g" style="margin-top:12px;" onclick="fetchAllCards()">Retry</button>
     </div>`;
   }
