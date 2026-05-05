@@ -1725,12 +1725,15 @@ function editSideboardDragStart(id,name,type){_DRAG={src:'sideboard',id,n:name,t
 function editMaybeboardDragStart(id,name,type){_DRAG={src:'maybeboard',id,n:name,t:type};}
 
 const MAYBE_MAX=50;
+const MAYBE_PER_CARD_MAX=3;
 function adjustMB(deckId,cardId,delta){
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   if(!d.maybeboard) d.maybeboard=[];
   const entry=d.maybeboard.find(c=>c.id===cardId);
   if(entry){
     if(delta>0){
+      // Cap per-card at 3 copies in the maybeboard
+      if(entry.cnt>=MAYBE_PER_CARD_MAX){toast('Max '+MAYBE_PER_CARD_MAX+' copies of any one card in the maybe board');return;}
       const total=d.maybeboard.reduce((a,c)=>a+c.cnt,0);
       if(total>=MAYBE_MAX){toast('Maybe board is full ('+MAYBE_MAX+' cards max)');return;}
     }
@@ -1745,8 +1748,10 @@ function addToMaybeboard(deckId,cardId,cardName,cardType){
   const total=d.maybeboard.reduce((a,c)=>a+c.cnt,0);
   if(total>=MAYBE_MAX){toast('Maybe board is full ('+MAYBE_MAX+' cards max)');return;}
   const existing=d.maybeboard.find(c=>c.id===cardId);
-  if(existing) existing.cnt++;
-  else d.maybeboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
+  if(existing){
+    if(existing.cnt>=MAYBE_PER_CARD_MAX){toast('Max '+MAYBE_PER_CARD_MAX+' copies of any one card in the maybe board');return;}
+    existing.cnt++;
+  } else d.maybeboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
   persist();renderEditPreview();
 }
 // Move a card from the main deck into the maybeboard (mirrors addToSB).
@@ -1758,17 +1763,65 @@ function deckToMaybeboard(deckId,cardId,cardName,cardType){
   if(!d.maybeboard) d.maybeboard=[];
   const mbTotal=d.maybeboard.reduce((a,c)=>a+c.cnt,0);
   if(mbTotal>=MAYBE_MAX){toast('Maybe board is full ('+MAYBE_MAX+' cards max)');return;}
+  const existing=d.maybeboard.find(c=>c.id===cardId);
+  if(existing&&existing.cnt>=MAYBE_PER_CARD_MAX){toast('Max '+MAYBE_PER_CARD_MAX+' copies of any one card in the maybe board');return;}
   const deckIdx=(d.cards||[]).findIndex(c=>c.id===cardId);
   if(deckIdx<0){toast('Card not found in main deck');return;}
   d.cards[deckIdx].cnt--;
   if(d.cards[deckIdx].cnt<=0) d.cards.splice(deckIdx,1);
-  const existing=d.maybeboard.find(c=>c.id===cardId);
   if(existing) existing.cnt++;
   else d.maybeboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
   persist();
   renderEditSearch();
   renderEditPreview();
   toast(cardName+' moved to maybe board');
+}
+// Move a card from the maybeboard back into the main deck.
+function maybeboardToDeck(deckId,cardId,cardName,cardType){
+  const d=myDecks.find(x=>x.id===deckId);if(!d||!d.maybeboard)return;
+  const deckTotal=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
+  if(deckTotal>=40){toast('Deck is full (40 cards max)');return;}
+  const bn=baseName(cardName);
+  const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
+  const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
+  const zoneCnt=(d.champion&&baseName(d.champion.n)===bn)?1:0;
+  if(deckCntBN+sbCntBN+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
+  const mIdx=d.maybeboard.findIndex(c=>c.id===cardId);
+  if(mIdx<0)return;
+  d.maybeboard[mIdx].cnt--;
+  if(d.maybeboard[mIdx].cnt<=0) d.maybeboard.splice(mIdx,1);
+  d.cards=d.cards||[];
+  const dEntry=d.cards.find(c=>c.id===cardId);
+  if(dEntry) dEntry.cnt++;
+  else d.cards.push({id:cardId,n:cardName,t:cardType,cnt:1});
+  persist();
+  renderEditSearch();
+  renderEditPreview();
+  toast(cardName+' moved to deck');
+}
+// Move a card from the maybeboard into the sideboard.
+function maybeboardToSideboard(deckId,cardId,cardName,cardType){
+  if(cardType==='Legend'||cardType==='Battlefield'||cardType==='Rune'){toast('That card type cannot go in the sideboard');return;}
+  const d=myDecks.find(x=>x.id===deckId);if(!d||!d.maybeboard)return;
+  if(!d.sideboard) d.sideboard=[];
+  const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
+  if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}
+  const bn=baseName(cardName);
+  const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
+  const sbCntBN=d.sideboard.filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
+  const zoneCnt=(d.champion&&baseName(d.champion.n)===bn)?1:0;
+  if(deckCntBN+sbCntBN+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
+  const mIdx=d.maybeboard.findIndex(c=>c.id===cardId);
+  if(mIdx<0)return;
+  d.maybeboard[mIdx].cnt--;
+  if(d.maybeboard[mIdx].cnt<=0) d.maybeboard.splice(mIdx,1);
+  const sbEntry=d.sideboard.find(c=>c.id===cardId);
+  if(sbEntry) sbEntry.cnt++;
+  else d.sideboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
+  persist();
+  renderEditSearch();
+  renderEditPreview();
+  toast(cardName+' moved to sideboard');
 }
 function _moveDeckToMaybeboard(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d||!_DRAG)return;
@@ -2247,6 +2300,8 @@ function renderEditPreview(targetEl){
         html+=bannedBanner(c.n);
         html+=`<div class="deck-card-actions">`;
         html+=`<div class="dca-btn" onclick="adjustMB(${d.id},'${si}',1)"><span>＋</span> Add 1 copy</div>`;
+        html+=`<div class="dca-btn" onclick="maybeboardToDeck(${d.id},'${si}','${sn}','${st}')"><span>↑</span> Add to deck</div>`;
+        html+=`<div class="dca-btn" onclick="maybeboardToSideboard(${d.id},'${si}','${sn}','${st}')"><span>→</span> Add to sideboard</div>`;
         html+=`<div class="dca-btn dca-danger" onclick="adjustMB(${d.id},'${si}',-1)"><span>✕</span> Remove</div>`;
         html+=`</div>`;
         if(c.cnt>1&&i===0) html+=`<div class="deck-card-cnt-badge">×${c.cnt}</div>`;

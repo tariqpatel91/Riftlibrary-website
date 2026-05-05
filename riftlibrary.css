@@ -586,7 +586,10 @@ select option{background:#1e1e2a;}
 /* Section title is now on the LEFT, with the card rows on the right.
    Multiple rows live in .deck-type-rows so they stack vertically. */
 .deck-type-block{display:flex;flex-direction:row;align-items:flex-start;gap:14px;}
-.deck-type-lbl{flex:0 0 80px;font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;font-weight:700;text-align:right;padding-top:14px;line-height:1.2;}
+/* Section title rotated 90° counter-clockwise — vertical-rl + rotate(180)
+   stacks the letters vertically with their tops pointing LEFT (reads
+   bottom-to-top), the canonical 90° CCW orientation. */
+.deck-type-lbl{flex:0 0 28px;font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.16em;font-weight:700;line-height:1;padding:8px 0;writing-mode:vertical-rl;transform:rotate(180deg);text-align:start;align-self:stretch;display:flex;align-items:center;justify-content:center;}
 .deck-type-rows{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:8px;}
 .deck-type-auto-grid{display:flex;flex-wrap:nowrap;gap:6px;justify-content:center;width:100%;min-width:0;}
 .deck-col-stack{display:flex;flex-direction:column;flex:1 1 0;min-width:60px;max-width:130px;}
