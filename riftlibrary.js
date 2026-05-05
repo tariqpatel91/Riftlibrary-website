@@ -76,7 +76,14 @@ let authToken=null;
 const AF={doms:new Set()};
 const CF={type:'',set:'',rar:'',legend:'',subtype:'',variant:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,12],showAllVersions:false,classMode:false};
 const EF={type:'',dom:'',set:'',subtype:'',variant:'',rar:'',energy:[0,12],power:[0,4],might:[0,12],page:1,showAllVersions:false};
-function getEditPer(){return 18;}
+function getEditPer(){
+  // Runes are a small fixed pool (~36 entries even with every art variation
+  // and set printing). Show them all on one page so users can browse every
+  // domain × variant without paging. Other types stay paginated at 18 to
+  // keep the layout tidy.
+  if (typeof EF !== 'undefined' && EF.type === 'Rune') return 60;
+  return 18;
+}
 const EDIT_PER=24;
 
 /* ── ARTICLES ───────────────────────────────────── */
