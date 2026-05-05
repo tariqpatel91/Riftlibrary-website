@@ -81,8 +81,8 @@ if(typeof document!=='undefined'){
 }
 let authToken=null;
 const AF={doms:new Set()};
-const CF={type:'',set:'',rar:'',legend:'',subtype:'',variant:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,10],showAllVersions:false,classMode:false};
-const EF={type:'',dom:'',set:'',subtype:'',variant:'',rar:'',energy:[0,12],power:[0,4],might:[0,10],page:1,showAllVersions:false};
+const CF={type:'',set:'',rar:'',legend:'',subtype:'',variant:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,12],showAllVersions:false,classMode:false};
+const EF={type:'',dom:'',set:'',subtype:'',variant:'',rar:'',energy:[0,12],power:[0,4],might:[0,12],page:1,showAllVersions:false};
 function getEditPer(){return 18;}
 const EDIT_PER=24;
 
@@ -1095,7 +1095,7 @@ function buildCardsListView(d){
 }
 
 function switchDDTab(tab){
-  if(tab!=='edit'){EF.type='';EF.dom='';EF.set='';EF.subtype='';EF.variant='';EF.rar='';EF.energy=[0,12];EF.power=[0,4];EF.might=[0,10];EF.page=1;EF.showAllVersions=false;const hzb=document.getElementById('hero-zone-bar');if(hzb)hzb.innerHTML='';}
+  if(tab!=='edit'){EF.type='';EF.dom='';EF.set='';EF.subtype='';EF.variant='';EF.rar='';EF.energy=[0,12];EF.power=[0,4];EF.might=[0,12];EF.page=1;EF.showAllVersions=false;const hzb=document.getElementById('hero-zone-bar');if(hzb)hzb.innerHTML='';}
   activeDDTab=tab;
   renderDeckDetail();
   if(tab==='edit'){setTimeout(()=>{renderEditSearch();renderEditPreview();},10);}
@@ -1617,7 +1617,7 @@ function renderEditSearch(){
   html+='<div class="edit-ranges">'
     +efSlider('energy',0,12,12,[0,2,4,6,8,10,12])
     +efSlider('power',0,4,4,[0,1,2,3,4])
-    +efSlider('might',0,10,10,[0,2,4,6,8,10])
+    +efSlider('might',0,12,12,[0,2,4,6,8,10,12])
     +'</div>';
 
   html+='<div class="edit-card-grid">';
@@ -2877,7 +2877,7 @@ function resetAll(){
   if(VIEW==='cards')resetFilters();else resetArtistFilters();
 }
 function resetFilters(){
-  CF.type='';CF.set='';CF.rar='';CF.legend='';CF.subtype='';CF.variant='';CF.doms.clear();CF.energy=[0,12];CF.power=[0,4];CF.might=[0,10];CF.classMode=false;
+  CF.type='';CF.set='';CF.rar='';CF.legend='';CF.subtype='';CF.variant='';CF.doms.clear();CF.energy=[0,12];CF.power=[0,4];CF.might=[0,12];CF.classMode=false;
   document.getElementById('cs').value='';
   const cm=document.getElementById('cs-class-mode');if(cm){cm.checked=false;}
   const wrap=document.getElementById('class-search-toggle');if(wrap)wrap.classList.remove('on');
