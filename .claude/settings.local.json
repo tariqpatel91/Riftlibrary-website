@@ -28,7 +28,11 @@
       "Bash(git show *)",
       "WebFetch(domain:riftatlas.com)",
       "mcp__Claude_in_Chrome__tabs_create_mcp",
-      "Bash(git revert *)"
+      "Bash(git revert *)",
+      "Bash(git -C \"/c/Users/14074/Desktop/RiftLibrary/.claude/worktrees/vibrant-elion-103391\" add -A)",
+      "Bash(git -C /c/Users/14074/Desktop/RiftLibrary/.claude/worktrees/vibrant-elion-103391 commit -m ' *)",
+      "Bash(git -C \"/c/Users/14074/Desktop/RiftLibrary\" merge claude/vibrant-elion-103391 --no-edit)",
+      "Bash(git -C \"/c/Users/14074/Desktop/RiftLibrary\" push origin main)"
     ]
   }
 }

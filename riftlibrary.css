@@ -121,6 +121,9 @@ select option{background:#1e1e2a;}
 .cm-meta{font-size:13px;color:var(--text-muted);margin-top:4px;}
 /* Small price badge on each card thumbnail in the main cards grid */
 .ct-price-badge{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.78);border:1px solid rgba(232,184,85,0.55);color:#e8d47a;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px;letter-spacing:0.02em;backdrop-filter:blur(4px);pointer-events:none;}
+/* Foil-only variant — gold gradient badge to make it visually distinct from
+   regular-print prices, since the value is meaningfully different. */
+.ct-price-badge.ct-price-foil{background:linear-gradient(135deg,rgba(232,184,85,0.95),rgba(180,140,50,0.95));color:#0a1428;border-color:rgba(255,240,180,0.85);}
 .ct-img-wrap{position:relative;}
 .cm-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:var(--surface2);border-radius:10px;}
 .cm-stat{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:50px;}

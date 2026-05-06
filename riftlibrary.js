@@ -3101,8 +3101,16 @@ function renderCards(){
     const domPills=c.doms.map(d=>`<span class="pill ${d}">${d[0].toUpperCase()+d.slice(1)}</span>`).join('');
     const safeId=c.id.replace(/'/g,"\\'");
     const isBF=c.type==='Battlefield';
-    // Small "$X.XX" badge on the image when DotGG has a price for this card
-    const priceTag=(typeof c.price==='number'&&c.price>0)?`<div class="ct-price-badge" title="TCGPlayer market price">$${c.price.toFixed(2)}</div>`:'';
+    // "$X.XX" badge on the thumbnail. Many champions / legends only have a
+    // foil listing on TCGPlayer (price = 0, foilPrice > 0); fall back to the
+    // foil price with a ✦ marker so foil-only cards still display.
+    const _reg=(typeof c.price==='number'&&c.price>0)?c.price:null;
+    const _foil=(typeof c.foilPrice==='number'&&c.foilPrice>0)?c.foilPrice:null;
+    const priceTag=_reg
+      ?`<div class="ct-price-badge" title="TCGPlayer market price">$${_reg.toFixed(2)}</div>`
+      :_foil
+        ?`<div class="ct-price-badge ct-price-foil" title="Foil-only TCGPlayer price">✦ $${_foil.toFixed(2)}</div>`
+        :'';
     return`<div class="ct ct-img${isBF?' ct-bf':''}" onclick="openCardModal('${safeId}')">
       ${c.imageUrl
         ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')">${priceTag}</div>`
