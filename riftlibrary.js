@@ -766,11 +766,12 @@ function renderDecks(){
     const dcAvatar=dcImg
       ?`<div class="dc-avatar"><img src="${dcImg}" alt="${d.legend}"></div>`
       :`<div class="dc-avatar dc-avatar-empty"></div>`;
-    // Legality check: a constructed deck must have exactly 40 main-deck cards
-    // (Legend + Champion + non-rune entries), exactly 12 runes, and a sideboard
-    // of either 0 or 8 cards. Anything else gets a hollow ⚠ overlay so the
-    // user can see at a glance which decks aren't tournament-legal.
-    const _mainCount=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
+    // Legality check: a constructed deck must total exactly 40 main-deck
+    // cards (Legend (kept inside d.cards with t:'Legend') + Champion (in
+    // d.champion) + 38 other entries), exactly 12 runes, and a sideboard
+    // of either 0 or 8 cards. Maybeboard intentionally NOT counted —
+    // it's just a scratch area for cards under consideration.
+    const _mainCount=(d.cards||[]).reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
     const _runeCount=(d.runes||[]).reduce((a,c)=>a+c.cnt,0);
     const _sbCount=(d.sideboard||[]).reduce((a,c)=>a+c.cnt,0);
     const _illegal=(_mainCount!==40)||(_runeCount!==12)||(_sbCount!==0&&_sbCount!==8);
@@ -881,7 +882,9 @@ function buildDeckCurves(d,large){
 function renderDeckDetail(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const w=wr(d);
-  const totalCards=(d.cards||[]).reduce((a,c)=>a+c.cnt,0);
+  // Total = d.cards (which includes the Legend with t:'Legend') + Champion
+  // (separately stored). Matches the legality check in renderDecks.
+  const totalCards=(d.cards||[]).reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
   const bfOpts=(d.battlefields||[]).filter(Boolean).map(b=>{const f=CARDS.find(x=>x.id===b.id);return`<option value="${b.id}">${f?f.name:b.n}</option>`;}).join('');
   const legendEntry=(d.cards||[]).find(c=>c.t==='Legend');
   const legendFull=legendEntry?CARDS.find(x=>x.id===legendEntry.id):null;
@@ -1498,10 +1501,9 @@ function addDirectToSB(deckId,cardId,cardName,cardType){
 // "Maybe Board" hover button on library cards — adds a copy directly to the
 // maybeboard without removing the card from anywhere (different from
 // deckToMaybeboard which moves out of the deck). Respects the maybeboard
-// caps: 50 total, 3 per unique card.
+// caps: 50 total, 3 per unique card. Battlefields and runes ARE allowed in
+// the maybe board (it's a scratch list). Only Legends are blocked.
 function addDirectToMB(deckId,cardId,cardName,cardType){
-  if(cardType==='Battlefield'){toast('Battlefield cards go in battlefield zones');return;}
-  if(cardType==='Rune'){toast('Rune cards go in rune slots');return;}
   if(cardType==='Legend'){toast('Legends cannot go to the maybe board');return;}
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   if(!d.maybeboard) d.maybeboard=[];
@@ -1535,11 +1537,26 @@ function renderEditSearch(){
   // them as deckable cards (decks list non-foil cards) unless the user is
   // explicitly filtering by Foil variant. Tokens are also excluded — they're
   // generated in-game, never deckable, and just clutter the library grid.
+  // Signature cards are scoped to the deck's chosen legend: a Diana deck
+  // can never include Ezreal's Arcane Shift, etc. Each signature card
+  // mentions its champion in the name / text / tags, so we match the deck's
+  // base legend name (e.g. "Diana, Scorn of the Moon" → "diana") against
+  // those fields. Same logic the Subtype:Signature Card filter used to do
+  // explicitly, but applied unconditionally now.
+  const _deckLegBase=(d.legend||'').split(/\s*[-–]\s*/)[0].toLowerCase().trim();
+  function _signatureMatchesLegend(c){
+    if(c.supertype!=='Signature') return true; // non-signatures unaffected
+    if(!_deckLegBase) return true;             // no legend chosen yet — show all
+    return c.name.toLowerCase().includes(_deckLegBase) ||
+           c.txt.toLowerCase().includes(_deckLegBase) ||
+           (c.tags||[]).some(t=>String(t).toLowerCase().includes(_deckLegBase));
+  }
   let source=CARDS.filter(c=>
     c.type!=='Legend'&&
     c.type!=='Token'&&
     c.supertype!=='Token'&&
-    !(c.isFoil&&EF.variant!=='Foil')
+    !(c.isFoil&&EF.variant!=='Foil')&&
+    _signatureMatchesLegend(c)
   );
   const deckDoms=d.domains||[];
   if(deckDoms.length){source=source.filter(c=>c.type==='Rune'||c.type==='Battlefield'||c.doms.length===0||c.doms.every(dom=>deckDoms.includes(dom)));}
@@ -1555,21 +1572,11 @@ function renderEditSearch(){
     if(EF.subtype==='Action') source=source.filter(c=>c.txt.toLowerCase().includes('[action]'));
     else if(EF.subtype==='Reaction') source=source.filter(c=>c.txt.toLowerCase().includes('[reaction]'));
     else if(EF.subtype==='Champion') source=source.filter(c=>c.supertype==='Champion');
-    else if(EF.subtype==='Signature Card'){
-      source=source.filter(c=>c.supertype==='Signature');
-      // Only show signature cards belonging to the deck's chosen legend.
-      // Each signature card references its champion in the name, text, or tags
-      // (e.g. Diana's "Moonfall" mentions "Diana, Scorn of the Moon"), so we
-      // match the lowercased base legend name against any of those fields.
-      const _legBase=(d.legend||'').split(/\s*[-–]\s*/)[0].toLowerCase().trim();
-      if(_legBase){
-        source=source.filter(c=>
-          c.name.toLowerCase().includes(_legBase) ||
-          c.txt.toLowerCase().includes(_legBase) ||
-          (c.tags||[]).some(t=>String(t).toLowerCase().includes(_legBase))
-        );
-      }
-    }
+    else if(EF.subtype==='Signature Card') source=source.filter(c=>c.supertype==='Signature');
+    // Note: legend-scoping for signature cards is handled by
+    // _signatureMatchesLegend in the base source filter above, so it
+    // applies whether the user explicitly picks the Signature Card subtype
+    // or not.
     else if(EF.subtype==='Token') source=source.filter(c=>c.type==='Token'||c.supertype==='Token');
   }
   if(EF.variant){
@@ -1702,7 +1709,7 @@ function renderEditSearch(){
       html+=`<div class="dca-btn" onclick="event.stopPropagation();openCardModal('${si}')"><span>🔍</span> Zoom</div>`;
       if(!isBanned) html+=`<div class="lib-add-deck-hint">＋ ${isBF?'Add to BF':isRune?'Add to Runes':'Add to deck'}</div>`;
       if(!isBanned) html+=`<div class="dca-btn lib-sb-btn" onclick="event.stopPropagation();addDirectToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Sideboard</div>`;
-      if(!isBanned&&c.type!=='Battlefield'&&c.type!=='Rune'&&c.type!=='Legend') html+=`<div class="dca-btn lib-mb-btn" onclick="event.stopPropagation();addDirectToMB(${d.id},'${si}','${sn}','${at}')"><span>?</span> Maybe Board</div>`;
+      if(!isBanned&&c.type!=='Legend') html+=`<div class="dca-btn lib-mb-btn" onclick="event.stopPropagation();addDirectToMB(${d.id},'${si}','${sn}','${at}')"><span>?</span> Maybe Board</div>`;
       html+=`</div>`;
       html+='</div>';
     });
@@ -1816,8 +1823,9 @@ function addToMaybeboard(deckId,cardId,cardName,cardType){
 }
 // Move a card from the main deck into the maybeboard (mirrors addToSB).
 // Used by the per-card "Add to maybeboard" action button on deck cards.
+// Battlefields are allowed in the maybe board (it's a scratch list, not a
+// real deck zone), only Legends are blocked.
 function deckToMaybeboard(deckId,cardId,cardName,cardType){
-  if(cardType==='Battlefield'){toast('Battlefield cards go in battlefield zones');return;}
   if(cardType==='Legend'){toast('Legends cannot go to the maybeboard');return;}
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   if(!d.maybeboard) d.maybeboard=[];
@@ -2098,7 +2106,9 @@ function renderEditPreview(targetEl){
 
   const badge=document.getElementById('deck-count-badge');
   if(badge){
-    const _deckN=total+(d.champion?1:0);
+    // Total = every entry in d.cards (which includes the Legend) + the
+    // separately-tracked Champion. Matches the legality check on My Decks.
+    const _deckN=(d.cards||[]).reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
     badge.textContent=`${_deckN} / 40 cards`;
     // Red when over the legal 40-card limit so users see at a glance.
     badge.classList.toggle('dt-count-over',_deckN>40);
