@@ -1158,7 +1158,13 @@ function buildCardsGalleryView(d){
   }
   const legend=d2.cards?d2.cards.filter(c=>c.t==='Legend'):[];
   const champion=d2.champion?[{...d2.champion,cnt:1}]:[];
-  const mainDeck=d2.cards?d2.cards.filter(c=>c.t!=='Legend'):[];
+  // Respect the global Sort by: Alphabetical / Energy toggle on the
+  // main deck and sideboard. Same comparators buildCardsListView uses.
+  const TYPE_ORDER=['Unit','Spell','Gear'];
+  function _galleryTSort(a,b){const ai=TYPE_ORDER.indexOf(a.t),bi=TYPE_ORDER.indexOf(b.t);return(ai<0?99:ai)-(bi<0?99:bi)||(a.n||'').localeCompare(b.n||'');}
+  function _galleryESort(a,b){const ca=CARDS.find(x=>x.id===a.id);const cb=CARDS.find(x=>x.id===b.id);const ea=ca&&ca.cost!=null?ca.cost:999;const eb=cb&&cb.cost!=null?cb.cost:999;return ea!==eb?ea-eb:(a.n||'').localeCompare(b.n||'');}
+  const _mainCmp=deckSortMode==='energy'?_galleryESort:_galleryTSort;
+  const mainDeck=d2.cards?d2.cards.filter(c=>c.t!=='Legend').slice().sort(_mainCmp):[];
   const runes=d2.runes||[];
   // Group runes by id so 8 Calm + 4 Mind renders as two stacks with
   // ×N badges instead of 12 individual tiles.
@@ -1166,7 +1172,7 @@ function buildCardsGalleryView(d){
   runes.forEach(r=>{if(!runeGrouped[r.id])runeGrouped[r.id]={id:r.id,n:r.n,cnt:0};runeGrouped[r.id].cnt++;});
   const runesCompact=Object.values(runeGrouped);
   const bfs=d2.battlefields?d2.battlefields.filter(Boolean):[];
-  const sb=d2.sideboard||[];
+  const sb=(d2.sideboard||[]).slice().sort(_mainCmp);
   // Counts shown next to each section header. Runes are stored as flat
   // {id,n} entries (one per rune in the deck), so the count is just the
   // array length — NOT a sum of c.cnt (which is undefined and yields NaN).
@@ -1195,12 +1201,14 @@ function toggleDeckSort(){
     b.textContent=deckSortMode==='energy'?'⚡ Energy':'🔤 Alpha';
     b.classList.toggle('on',deckSortMode==='energy');
   });
-  // Re-render both views
+  // Re-render every view that depends on the sort mode
   const tv=document.getElementById('cards-text-view');
   if(tv&&tv.style.display!=='none'){const d2=myDecks.find(x=>x.id===activeDeckId);if(d2)tv.innerHTML=buildCardsListView(d2);}
   renderEditPreview();
   const vv=document.getElementById('cards-visual-view');
   if(vv&&vv.style.display!=='none') renderEditPreview(vv);
+  const gv=document.getElementById('cards-gallery-view');
+  if(gv&&gv.style.display!=='none'){const d2=myDecks.find(x=>x.id===activeDeckId);if(d2)gv.innerHTML=buildCardsGalleryView(d2);}
 }
 function setCardsView(mode){
   cardsTabView=mode;
