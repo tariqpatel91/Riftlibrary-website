@@ -4740,9 +4740,9 @@ window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=se
     return !!(hit&&hit.type==='Battlefield');
   }
   function pos(e,bf){
-    // Battlefield preview is landscape (480×340). Other cards use the
-    // 380px-wide portrait preview.
-    const pw=bf?480:380, ph=bf?340:380;
+    // Battlefield preview is landscape (~540×388). Other cards use the
+    // default 280×392 portrait preview from the CSS rule.
+    const pw=bf?540:280, ph=bf?388:392;
     let x=e.clientX+18,y=e.clientY-Math.floor(ph/2);
     if(x+pw>window.innerWidth-12) x=e.clientX-pw-18;
     y=Math.max(10,Math.min(y,window.innerHeight-ph-10));
@@ -4757,28 +4757,27 @@ window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=se
     _hoverTimeout=setTimeout(()=>{
       const bf=isBattlefield(card);
       if(bf){
-        // Battlefield card images come stored portrait (~744×1039) with the
-        // landscape art + text rotated 90° within the portrait frame. Match
-        // the visual tab's treatment: lay the image inside a flex-centered
-        // box at its natural portrait dimensions and rotate −90° CCW so the
-        // card reads landscape with title / flavor text right-side up.
-        preview.style.width='480px';
-        preview.style.height='340px';
-        preview.style.aspectRatio='auto';
+        // Battlefield card images come stored portrait (~744×1039). Lay the
+        // image inside a flex-centered landscape box at its natural portrait
+        // dimensions and rotate +90° CW so the card reads landscape with the
+        // title/flavor text right-side up.
+        preview.style.width='540px';
+        preview.style.height='388px';
         preview.style.display='flex';
         preview.style.alignItems='center';
         preview.style.justifyContent='center';
         preview.style.overflow='hidden';
-        preview.innerHTML=`<img src="${card.dataset.hoverImg}" alt="" style="width:340px;height:480px;object-fit:contain;transform:rotate(-90deg);display:block;">`;
+        preview.innerHTML=`<img src="${card.dataset.hoverImg}" alt="" style="width:388px;height:540px;object-fit:contain;transform:rotate(90deg);display:block;">`;
       } else {
-        preview.style.width='380px';
+        // Clear any inline overrides from a prior battlefield hover so the
+        // CSS-defined 280×392 portrait box takes back over (no dead space).
+        preview.style.width='';
         preview.style.height='';
-        preview.style.aspectRatio='2.5/3.5';
-        preview.style.display='block';
         preview.style.alignItems='';
         preview.style.justifyContent='';
         preview.style.overflow='';
-        preview.innerHTML=`<img src="${card.dataset.hoverImg}" alt="" style="width:100%;height:100%;object-fit:contain;display:block;">`;
+        preview.style.display='block';
+        preview.innerHTML=`<img src="${card.dataset.hoverImg}" alt="">`;
       }
       pos(e,bf);
     },120);
