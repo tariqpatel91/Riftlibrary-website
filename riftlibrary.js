@@ -1164,13 +1164,15 @@ function buildCardsGalleryView(d){
   const runesCompact=Object.values(runeGrouped);
   const bfs=d2.battlefields?d2.battlefields.filter(Boolean):[];
   const sb=d2.sideboard||[];
-  // Counts shown next to each section header
+  // Counts shown next to each section header. Runes are stored as flat
+  // {id,n} entries (one per rune in the deck), so the count is just the
+  // array length — NOT a sum of c.cnt (which is undefined and yields NaN).
   const legendCnt=legend.reduce((a,c)=>a+(c.cnt||1),0);
   const champCnt=champion.length;
-  const mainCnt=mainDeck.reduce((a,c)=>a+c.cnt,0);
-  const runeCnt=runes.reduce((a,c)=>a+c.cnt,0);
+  const mainCnt=mainDeck.reduce((a,c)=>a+(c.cnt||1),0);
+  const runeCnt=runes.length;
   const bfCnt=bfs.length;
-  const sbCnt=sb.reduce((a,c)=>a+c.cnt,0);
+  const sbCnt=sb.reduce((a,c)=>a+(c.cnt||1),0);
   // Top row: Legend / Champion / Battlefields / Runes packed inline so the
   // hero zones share a single horizontal strip instead of stacking.
   let topRow='';

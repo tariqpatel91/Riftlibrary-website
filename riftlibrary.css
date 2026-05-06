@@ -478,13 +478,16 @@ select option{background:#1e1e2a;}
 .gallery-section-hdr{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--accent);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;}
 /* "X/Y" count chip next to each section header */
 .gallery-section-tally{font-family:'Syne',sans-serif;font-size:11px;font-weight:600;color:var(--text-muted);background:var(--surface3);border:1px solid var(--border);border-radius:14px;padding:2px 10px;letter-spacing:0.04em;}
-/* Top row stacks Legend / Champion / Battlefield / Runes inline */
-.gallery-top-row{display:grid;grid-template-columns:auto auto 1fr auto;gap:14px;align-items:flex-start;}
-.gallery-section-compact{min-width:0;}
+/* Top row stacks Legend / Champion / Battlefield / Runes inline. Flex
+   layout so the Battlefield column gets a guaranteed min-width and
+   sections wrap cleanly on narrower viewports without anyone vanishing. */
+.gallery-top-row{display:flex;flex-direction:row;gap:14px;align-items:flex-start;flex-wrap:wrap;}
+.gallery-top-row > .gallery-section-compact{flex:1 1 200px;min-width:180px;}
+/* Battlefield column wants more room than the other three because its
+   cards are landscape (140px each) — give it 2× the flex weight. */
+.gallery-top-row > .gallery-section-compact:nth-child(3){flex:2 1 320px;min-width:280px;}
 .gallery-section-compact .cards-gallery-view{grid-template-columns:repeat(auto-fill,minmax(85px,1fr));}
-.gallery-section-compact .cards-gallery-view-bf{justify-content:flex-start;}
-@media (max-width:1100px){.gallery-top-row{grid-template-columns:repeat(2,1fr);}}
-@media (max-width:680px){.gallery-top-row{grid-template-columns:1fr;}}
+.gallery-section-compact .cards-gallery-view-bf{justify-content:flex-start;min-height:100px;}
 .cards-gallery-view{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;padding:4px 0;}
 .cards-gallery-view-bf{display:flex;flex-direction:row;flex-wrap:wrap;gap:10px;padding:4px 0;}
 .cards-gallery-view-bf .gallery-card-bf{width:140px;}
