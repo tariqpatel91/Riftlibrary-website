@@ -4728,11 +4728,24 @@ window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=se
 (function(){
   const preview=document.getElementById('card-hover-preview');
   let _hoverTimeout=null,_activeCard=null;
-  function pos(e){
-    const pw=380;
-    let x=e.clientX+18,y=e.clientY-160;
+  // Battlefield detection works without every render path tagging
+  // data-hover-bf — fall back to looking the image URL up in CARDS so
+  // hover rotation is consistent everywhere battlefields appear.
+  function isBattlefield(card){
+    if(!card) return false;
+    if(card.dataset.hoverBf==='1') return true;
+    const img=card.dataset.hoverImg;
+    if(!img||!Array.isArray(CARDS)||!CARDS.length) return false;
+    const hit=CARDS.find(c=>c&&(c.imageUrl===img||c.imageUrlAlt===img));
+    return !!(hit&&hit.type==='Battlefield');
+  }
+  function pos(e,bf){
+    // Battlefield preview is landscape (480×340). Other cards use the
+    // 380px-wide portrait preview.
+    const pw=bf?480:380, ph=bf?340:380;
+    let x=e.clientX+18,y=e.clientY-Math.floor(ph/2);
     if(x+pw>window.innerWidth-12) x=e.clientX-pw-18;
-    y=Math.max(10,Math.min(y,window.innerHeight-380));
+    y=Math.max(10,Math.min(y,window.innerHeight-ph-10));
     preview.style.left=x+'px';preview.style.top=y+'px';
   }
   function inTopThird(e,card){
@@ -4742,11 +4755,32 @@ window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=se
   function triggerPreview(card,e){
     clearTimeout(_hoverTimeout);
     _hoverTimeout=setTimeout(()=>{
-      const bf=card.dataset.hoverBf==='1';
-      preview.innerHTML=`<img src="${card.dataset.hoverImg}" alt="" style="width:100%;height:100%;object-fit:${bf?'cover':'contain'};display:block;">`;
-      preview.style.display='block';
-      preview.style.aspectRatio=bf?'3.5/2.5':'2.5/3.5';
-      pos(e);
+      const bf=isBattlefield(card);
+      if(bf){
+        // Battlefield card images come stored portrait (~744×1039) with the
+        // landscape art + text rotated 90° within the portrait frame. Match
+        // the visual tab's treatment: lay the image inside a flex-centered
+        // box at its natural portrait dimensions and rotate −90° CCW so the
+        // card reads landscape with title / flavor text right-side up.
+        preview.style.width='480px';
+        preview.style.height='340px';
+        preview.style.aspectRatio='auto';
+        preview.style.display='flex';
+        preview.style.alignItems='center';
+        preview.style.justifyContent='center';
+        preview.style.overflow='hidden';
+        preview.innerHTML=`<img src="${card.dataset.hoverImg}" alt="" style="width:340px;height:480px;object-fit:contain;transform:rotate(-90deg);display:block;">`;
+      } else {
+        preview.style.width='380px';
+        preview.style.height='';
+        preview.style.aspectRatio='2.5/3.5';
+        preview.style.display='block';
+        preview.style.alignItems='';
+        preview.style.justifyContent='';
+        preview.style.overflow='';
+        preview.innerHTML=`<img src="${card.dataset.hoverImg}" alt="" style="width:100%;height:100%;object-fit:contain;display:block;">`;
+      }
+      pos(e,bf);
     },120);
   }
   document.addEventListener('mouseover',function(e){
@@ -4756,10 +4790,11 @@ window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=se
     if(inTopThird(e,card)) triggerPreview(card,e);
   });
   document.addEventListener('mousemove',function(e){
-    if(!_activeCard){if(preview.style.display!=='none') pos(e);return;}
+    if(!_activeCard){if(preview.style.display!=='none') pos(e,false);return;}
+    const bf=isBattlefield(_activeCard);
     if(inTopThird(e,_activeCard)){
       if(preview.style.display==='none') triggerPreview(_activeCard,e);
-      else pos(e);
+      else pos(e,bf);
     } else {
       clearTimeout(_hoverTimeout);
       preview.style.display='none';
