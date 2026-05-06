@@ -660,10 +660,10 @@ select option{background:#1e1e2a;}
 #cards-visual-view .deck-type-lbl{font-size:13px;margin-bottom:6px;letter-spacing:0.1em;}
 #cards-visual-view .deck-type-auto-grid{gap:14px;}
 #cards-visual-view .deck-col-stack{max-width:155px;min-width:70px;gap:6px;}
-/* Visual tab card stack — only ~10% overlap so most of each stacked
-   card is visible (down from the previous ~60% overlap). 155px wide
-   card has aspect 2.5/3.5 → ~217px tall; 22px = ~10% of that. */
-#cards-visual-view .deck-col-stack .deck-card-item{margin-bottom:-22px;}
+/* Visual tab card stack — heavy overlap (~80%) so a 3-copy stack
+   reads as a tight fan with only the top sliver of each upper card
+   visible above the fully-shown bottom card. */
+#cards-visual-view .deck-col-stack .deck-card-item{margin-bottom:-180px;}
 #cards-visual-view .deck-col-stack .deck-card-item:last-child{margin-bottom:0;}
 #cards-visual-view .rune-h-card{width:120px;margin-left:-72px;}
 #cards-visual-view .rune-domain-block{gap:10px;padding:12px 16px;}
