@@ -1140,9 +1140,10 @@ function buildCardsGalleryView(d){
       return tiles.join('');
     }).join('');
   }
-  function section(label,html,rawWrap){
+  function section(label,tally,html,rawWrap,extraClass){
     const inner=rawWrap?html:`<div class="cards-gallery-view">${html}</div>`;
-    return`<div class="gallery-section"><div class="gallery-section-hdr">${label}</div>${inner}</div>`;
+    const tallyHtml=tally!=null?`<span class="gallery-section-tally">${tally}</span>`:'';
+    return`<div class="gallery-section${extraClass?' '+extraClass:''}"><div class="gallery-section-hdr">${label}${tallyHtml}</div>${inner}</div>`;
   }
   const legend=d2.cards?d2.cards.filter(c=>c.t==='Legend'):[];
   const champion=d2.champion?[{...d2.champion,cnt:1}]:[];
@@ -1150,14 +1151,23 @@ function buildCardsGalleryView(d){
   const runes=d2.runes||[];
   const bfs=d2.battlefields?d2.battlefields.filter(Boolean):[];
   const sb=d2.sideboard||[];
-  let html='';
-  if(legend.length) html+=section('Legend',gcards(legend,false));
-  if(champion.length) html+=section('Champion',gcards(champion,false));
-  if(bfs.length) html+=section('Battlefield',`<div class="cards-gallery-view-bf">${gcards(bfs,true)}</div>`,true);
-  if(mainDeck.length) html+=section('Main Deck',gcards(mainDeck,false));
-  if(runes.length) html+=section('Runes',gcards(runes,false));
-  if(sb.length) html+=section('Sideboard',gcards(sb,false));
-  if(!html) return'<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">No cards in deck yet.</div>';
+  // Counts shown next to each section header
+  const legendCnt=legend.reduce((a,c)=>a+(c.cnt||1),0);
+  const champCnt=champion.length;
+  const mainCnt=mainDeck.reduce((a,c)=>a+c.cnt,0);
+  const runeCnt=runes.reduce((a,c)=>a+c.cnt,0);
+  const bfCnt=bfs.length;
+  const sbCnt=sb.reduce((a,c)=>a+c.cnt,0);
+  // Top row: Legend / Champion / Battlefields / Runes packed inline so the
+  // hero zones share a single horizontal strip instead of stacking.
+  let topRow='';
+  topRow+=section('Legend',`${legendCnt}/1`,gcards(legend,false),false,'gallery-section-compact');
+  topRow+=section('Champion',`${champCnt}/1`,gcards(champion,false),false,'gallery-section-compact');
+  topRow+=section('Battlefield',`${bfCnt}/3`,`<div class="cards-gallery-view-bf">${gcards(bfs,true)}</div>`,true,'gallery-section-compact');
+  topRow+=section('Runes',`${runeCnt}/12`,gcards(runes,false),false,'gallery-section-compact');
+  let html=`<div class="gallery-top-row">${topRow}</div>`;
+  if(mainDeck.length) html+=section('Main Deck',`${mainCnt}/40`,gcards(mainDeck,false));
+  if(sb.length) html+=section('Sideboard',`${sbCnt}/8`,gcards(sb,false));
   return`<div class="gallery-all-sections">${html}</div>`;
 }
 function toggleDeckSort(){

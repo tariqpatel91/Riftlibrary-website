@@ -473,18 +473,29 @@ select option{background:#1e1e2a;}
 .export-opt{display:block;width:100%;text-align:left;padding:8px 12px;border:none;background:transparent;color:var(--text);font-size:13px;cursor:pointer;border-radius:7px;transition:background 0.12s;}
 .export-opt:hover{background:var(--surface3);}
 /* Gallery view */
-.gallery-all-sections{display:flex;flex-direction:column;gap:20px;padding:8px 0;}
+.gallery-all-sections{display:flex;flex-direction:column;gap:18px;padding:8px 0;}
 .gallery-section{}
-.gallery-section-hdr{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--accent);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.gallery-section-hdr{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--accent);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;}
+/* "X/Y" count chip next to each section header */
+.gallery-section-tally{font-family:'Syne',sans-serif;font-size:11px;font-weight:600;color:var(--text-muted);background:var(--surface3);border:1px solid var(--border);border-radius:14px;padding:2px 10px;letter-spacing:0.04em;}
+/* Top row stacks Legend / Champion / Battlefield / Runes inline */
+.gallery-top-row{display:grid;grid-template-columns:auto auto 1fr auto;gap:14px;align-items:flex-start;}
+.gallery-section-compact{min-width:0;}
+.gallery-section-compact .cards-gallery-view{grid-template-columns:repeat(auto-fill,minmax(85px,1fr));}
+.gallery-section-compact .cards-gallery-view-bf{justify-content:flex-start;}
+@media (max-width:1100px){.gallery-top-row{grid-template-columns:repeat(2,1fr);}}
+@media (max-width:680px){.gallery-top-row{grid-template-columns:1fr;}}
 .cards-gallery-view{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;padding:4px 0;}
 .cards-gallery-view-bf{display:flex;flex-direction:row;flex-wrap:wrap;gap:10px;padding:4px 0;}
-.cards-gallery-view-bf .gallery-card-bf{width:160px;}
+.cards-gallery-view-bf .gallery-card-bf{width:140px;}
 .gallery-card{border-radius:8px;overflow:hidden;aspect-ratio:2.5/3.5;background:var(--surface2);cursor:pointer;position:relative;transition:transform 0.15s,box-shadow 0.15s;}
 .gallery-card:hover{transform:scale(1.04);box-shadow:0 4px 16px rgba(0,0,0,0.5);}
 .gallery-card img{width:100%;height:100%;object-fit:cover;display:block;}
 .gallery-card-cnt{position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.75);color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;}
+/* Battlefield gallery cards are landscape — image fills naturally without
+   rotation, matching the visual tab orientation. */
 .gallery-card-bf{aspect-ratio:3.5/2.5;}
-.gallery-card-bf img{transform:rotate(-90deg) scale(1.4);transform-origin:center center;}
+.gallery-card-bf img{transform:none;width:100%;height:100%;object-fit:cover;}
 /* Edit banned stamp */
 .edit-banned-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);z-index:10;border-radius:inherit;pointer-events:none;}
 .edit-banned-stamp{background:rgba(220,38,38,0.92);color:#fff;font-size:10px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;padding:5px 10px;border-radius:4px;border:2px solid rgba(255,80,80,0.7);transform:rotate(-8deg);white-space:nowrap;}
@@ -649,7 +660,10 @@ select option{background:#1e1e2a;}
 #cards-visual-view .deck-type-lbl{font-size:13px;margin-bottom:6px;letter-spacing:0.1em;}
 #cards-visual-view .deck-type-auto-grid{gap:14px;}
 #cards-visual-view .deck-col-stack{max-width:155px;min-width:70px;gap:6px;}
-#cards-visual-view .deck-col-stack .deck-card-item{margin-bottom:-128px;}
+/* Visual tab card stack — only ~10% overlap so most of each stacked
+   card is visible (down from the previous ~60% overlap). 155px wide
+   card has aspect 2.5/3.5 → ~217px tall; 22px = ~10% of that. */
+#cards-visual-view .deck-col-stack .deck-card-item{margin-bottom:-22px;}
 #cards-visual-view .deck-col-stack .deck-card-item:last-child{margin-bottom:0;}
 #cards-visual-view .rune-h-card{width:120px;margin-left:-72px;}
 #cards-visual-view .rune-domain-block{gap:10px;padding:12px 16px;}
