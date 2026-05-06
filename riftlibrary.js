@@ -3292,7 +3292,11 @@ function renderArtists(){
   const sort=document.getElementById('art-sort').value;
   const g=document.getElementById('artist-grid');
   if(!CARDS.length){g.innerHTML=`<div class="spinner"><div class="spin"></div>Loading…</div>`;document.getElementById('res-count').textContent='';return;}
-  const byA={};CARDS.forEach(c=>{const a=c.artist||'Unknown';if(!byA[a])byA[a]=[];byA[a].push(c);});
+  // Foils share the exact art as their non-foil twin, so they're excluded
+  // from the artist grid — otherwise every artist's card list would double.
+  // Alt-art / overnumbered / signature variants stay because they're
+  // genuinely different art the artist worked on.
+  const byA={};CARDS.forEach(c=>{if(c.isFoil)return;const a=c.artist||'Unknown';if(!byA[a])byA[a]=[];byA[a].push(c);});
   let artists=Object.entries(byA);
   if(q)artists=artists.filter(([n,cs])=>n.toLowerCase().includes(q)||cs.some(c=>c.name.toLowerCase().includes(q)));
   if(AF.doms.size>0)artists=artists.filter(([,cs])=>cs.some(c=>AF.doms.has(c.dom)));
@@ -3322,12 +3326,16 @@ function renderArtists(){
 
 /* ── ARTIST MODAL ────────────────────────────────── */
 function openArtistModal(artistName){
-  const cards=CARDS.filter(c=>c.artist===artistName);
+  // Drop foil entries — they reuse their non-foil twin's art, so showing both
+  // would just duplicate every card in the gallery. Alt-art / overnumbered /
+  // signature printings stay (genuinely different art).
+  const cards=CARDS.filter(c=>c.artist===artistName&&!c.isFoil);
   document.getElementById('artist-modal-name').textContent=artistName;
   document.getElementById('artist-modal-count').textContent=cards.length+' card'+(cards.length!==1?'s':'');
   document.getElementById('artist-modal-cards').innerHTML=cards.map(c=>{
     const safeId=c.id.replace(/'/g,"\\'");
-    return`<div class="ct ct-img" onclick="closeArtistModal();openCardModal('${safeId}')" style="cursor:pointer;">
+    const isBF=c.type==='Battlefield';
+    return`<div class="ct ct-img${isBF?' ct-bf':''}" onclick="closeArtistModal();openCardModal('${safeId}')" style="cursor:pointer;">
       ${c.imageUrl
         ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
         :`<div class="ct-img-wrap no-img"><div class="ct-img-placeholder" style="background:var(--surface3);display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`
