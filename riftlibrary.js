@@ -766,7 +766,22 @@ function renderDecks(){
     const dcAvatar=dcImg
       ?`<div class="dc-avatar"><img src="${dcImg}" alt="${d.legend}"></div>`
       :`<div class="dc-avatar dc-avatar-empty"></div>`;
-    return `<div class="dc" onclick="openDD('${d.id}')">
+    // Legality check: a constructed deck must have exactly 40 main-deck cards
+    // (Legend + Champion + non-rune entries), exactly 12 runes, and a sideboard
+    // of either 0 or 8 cards. Anything else gets a hollow ⚠ overlay so the
+    // user can see at a glance which decks aren't tournament-legal.
+    const _mainCount=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
+    const _runeCount=(d.runes||[]).reduce((a,c)=>a+c.cnt,0);
+    const _sbCount=(d.sideboard||[]).reduce((a,c)=>a+c.cnt,0);
+    const _illegal=(_mainCount!==40)||(_runeCount!==12)||(_sbCount!==0&&_sbCount!==8);
+    const _illegalReasons=[];
+    if(_mainCount!==40)_illegalReasons.push(`Main deck: ${_mainCount}/40`);
+    if(_runeCount!==12)_illegalReasons.push(`Runes: ${_runeCount}/12`);
+    if(_sbCount!==0&&_sbCount!==8)_illegalReasons.push(`Sideboard: ${_sbCount} (must be 0 or 8)`);
+    const illegalOverlay=_illegal
+      ?`<div class="dc-illegal" title="Not a legal decklist:\n${_illegalReasons.join('\n')}">!</div>`
+      :'';
+    return `<div class="dc${_illegal?' dc-illegal-deck':''}" onclick="openDD('${d.id}')">${illegalOverlay}
       <div class="dt">
         <div style="display:flex;align-items:center;gap:10px;">
           ${dcAvatar}
@@ -1480,6 +1495,27 @@ function addDirectToSB(deckId,cardId,cardName,cardType){
   persist();renderEditSearch();renderEditPreview();
 }
 
+// "Maybe Board" hover button on library cards — adds a copy directly to the
+// maybeboard without removing the card from anywhere (different from
+// deckToMaybeboard which moves out of the deck). Respects the maybeboard
+// caps: 50 total, 3 per unique card.
+function addDirectToMB(deckId,cardId,cardName,cardType){
+  if(cardType==='Battlefield'){toast('Battlefield cards go in battlefield zones');return;}
+  if(cardType==='Rune'){toast('Rune cards go in rune slots');return;}
+  if(cardType==='Legend'){toast('Legends cannot go to the maybe board');return;}
+  const d=myDecks.find(x=>x.id===deckId);if(!d)return;
+  if(!d.maybeboard) d.maybeboard=[];
+  const total=d.maybeboard.reduce((a,c)=>a+c.cnt,0);
+  if(total>=MAYBE_MAX){toast('Maybe board is full ('+MAYBE_MAX+' cards max)');return;}
+  const existing=d.maybeboard.find(c=>c.id===cardId);
+  if(existing){
+    if(existing.cnt>=MAYBE_PER_CARD_MAX){toast('Max '+MAYBE_PER_CARD_MAX+' copies of any one card in the maybe board');return;}
+    existing.cnt++;
+  } else d.maybeboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
+  showAddBanner('Added 1 copy to maybe board');
+  persist();renderEditSearch();renderEditPreview();
+}
+
 function renderEditSearch(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const left=document.getElementById('edit-left');if(!left)return;
@@ -1497,8 +1533,14 @@ function renderEditSearch(){
 
   // Foil entries are separate collectibles; the deck editor never includes
   // them as deckable cards (decks list non-foil cards) unless the user is
-  // explicitly filtering by Foil variant.
-  let source=CARDS.filter(c=>c.type!=='Legend'&&!(c.isFoil&&EF.variant!=='Foil'));
+  // explicitly filtering by Foil variant. Tokens are also excluded — they're
+  // generated in-game, never deckable, and just clutter the library grid.
+  let source=CARDS.filter(c=>
+    c.type!=='Legend'&&
+    c.type!=='Token'&&
+    c.supertype!=='Token'&&
+    !(c.isFoil&&EF.variant!=='Foil')
+  );
   const deckDoms=d.domains||[];
   if(deckDoms.length){source=source.filter(c=>c.type==='Rune'||c.type==='Battlefield'||c.doms.length===0||c.doms.every(dom=>deckDoms.includes(dom)));}
   // Rune tab: only show runes matching deck domains
@@ -1660,6 +1702,7 @@ function renderEditSearch(){
       html+=`<div class="dca-btn" onclick="event.stopPropagation();openCardModal('${si}')"><span>🔍</span> Zoom</div>`;
       if(!isBanned) html+=`<div class="lib-add-deck-hint">＋ ${isBF?'Add to BF':isRune?'Add to Runes':'Add to deck'}</div>`;
       if(!isBanned) html+=`<div class="dca-btn lib-sb-btn" onclick="event.stopPropagation();addDirectToSB(${d.id},'${si}','${sn}','${at}')"><span>→</span> Sideboard</div>`;
+      if(!isBanned&&c.type!=='Battlefield'&&c.type!=='Rune'&&c.type!=='Legend') html+=`<div class="dca-btn lib-mb-btn" onclick="event.stopPropagation();addDirectToMB(${d.id},'${si}','${sn}','${at}')"><span>?</span> Maybe Board</div>`;
       html+=`</div>`;
       html+='</div>';
     });
@@ -1797,7 +1840,8 @@ function deckToMaybeboard(deckId,cardId,cardName,cardType){
 function maybeboardToDeck(deckId,cardId,cardName,cardType){
   const d=myDecks.find(x=>x.id===deckId);if(!d||!d.maybeboard)return;
   const deckTotal=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
-  if(deckTotal>=40){toast('Deck is full (40 cards max)');return;}
+  // 40-card deck cap removed — going over is now allowed and the deck-count
+  // badge turns red instead. Legality (== 40) is enforced visually only.
   const bn=baseName(cardName);
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
@@ -1858,7 +1902,8 @@ function _moveMaybeboardToDeck(){
   if(!d.maybeboard) return;
   // 40-card deck cap
   const deckTotal=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
-  if(deckTotal>=40){toast('Deck is full (40 cards max)');return;}
+  // 40-card deck cap removed — going over is now allowed and the deck-count
+  // badge turns red instead. Legality (== 40) is enforced visually only.
   // 3-copy combined cap
   const _bn=baseName(_DRAG.n);
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
@@ -1908,7 +1953,8 @@ function _moveSideboardToDeck(){
   if(sbIdx<0)return;
   // 40-card deck cap
   const deckTotal=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
-  if(deckTotal>=40){toast('Deck is full (40 cards max)');return;}
+  // 40-card deck cap removed — going over is now allowed and the deck-count
+  // badge turns red instead. Legality (== 40) is enforced visually only.
   // Enforce 3-copy limit including sideboard variants
   const _bn=baseName(_DRAG.n);
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
@@ -2051,7 +2097,12 @@ function renderEditPreview(targetEl){
   }
 
   const badge=document.getElementById('deck-count-badge');
-  if(badge) badge.textContent=`${total + (d.champion ? 1 : 0)} / 40 cards`;
+  if(badge){
+    const _deckN=total+(d.champion?1:0);
+    badge.textContent=`${_deckN} / 40 cards`;
+    // Red when over the legal 40-card limit so users see at a glance.
+    badge.classList.toggle('dt-count-over',_deckN>40);
+  }
 
   // Refresh curves panel live
   const curvesPanel=document.getElementById('deck-curves-panel');
@@ -2353,7 +2404,7 @@ function editDeckCard(cardId,cardName,cardType,delta){
   if(delta>0){
     // 40-card deck cap (Legends + Champion zone + non-rune cards count toward deck size)
     const deckTotal=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
-    if(cardType!=='Legend'&&deckTotal>=40){toast('Deck is full (40 cards max)');return;}
+    // Hard cap removed; the deck-count badge turns red when over 40.
     const bn=baseName(cardName);
     const deckCnt=(d.cards||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
     const sbCnt=(d.sideboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
