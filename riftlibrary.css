@@ -645,7 +645,12 @@ select option{background:#1e1e2a;}
 #edit-right .deck-type-block{display:flex;flex-direction:row;align-items:flex-start;gap:14px;}
 #edit-right .deck-type-lbl{flex:0 0 28px;font-size:13px;letter-spacing:0.16em;line-height:1;padding:8px 0;writing-mode:vertical-rl;transform:rotate(180deg);text-align:start;align-self:stretch;display:flex;align-items:center;justify-content:center;width:auto;}
 #edit-right .deck-type-rows{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:8px;}
-.deck-type-auto-grid{display:flex;flex-wrap:nowrap;gap:6px;justify-content:center;width:100%;min-width:0;}
+/* flex-wrap:wrap so a section with 30+ unique cards (rare but possible
+   when running an oversized brewing deck) flows onto multiple rows in
+   the decklist visual view instead of compressing everyone to ~50px wide.
+   Edit-tab rows use _splitIntoRows() to pre-balance, so each individual
+   .deck-type-auto-grid in that path stays small enough to fit one row. */
+.deck-type-auto-grid{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;width:100%;min-width:0;row-gap:10px;}
 .deck-col-stack{display:flex;flex-direction:column;flex:1 1 0;min-width:60px;max-width:130px;}
 /* Sort-by button rendered in the deck-header-right next to the deck count */
 .deck-header-sort{display:inline-flex;align-items:center;gap:8px;}

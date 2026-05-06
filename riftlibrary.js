@@ -2718,8 +2718,10 @@ function renderExportCanvas(d){
   const runeMap={};(d.runes||[]).forEach(r=>{if(!runeMap[r.n])runeMap[r.n]={...r,cnt:0};runeMap[r.n].cnt++;});
   const runeList=Object.values(runeMap);
 
-  // Right panel height
-  const mainRows=Math.ceil(mainUnique.length/COLS)||1;
+  // Right panel height — main grid includes the Champion cell (rendered
+  // as the first card with a gold ribbon) so account for it here.
+  const mainCellCount=mainUnique.length+(d.champion?1:0);
+  const mainRows=Math.ceil(mainCellCount/COLS)||1;
   const runeRows=Math.ceil(runeList.length/COLS);
   const sbRows=Math.ceil(sbList.length/COLS);
   const SEC=30; // section label band height
@@ -2785,17 +2787,36 @@ function renderExportCanvas(d){
     });
   });
 
-  // Right panel — main deck, sideboard
+  // Right panel — main deck, sideboard. The Champion (d.champion) is
+  // prepended as the first cell of the main-deck grid with a gold
+  // border so it's visually called out as the deck's hero card.
   const MAIN_Y=BODY_TOP+SEC;
-  const SB_Y=MAIN_Y+mainRows*(CH+8)+18;
+  const championEntry=d.champion?{...d.champion,cnt:1,_isChampion:true}:null;
+  const mainCells=championEntry?[championEntry,...mainUnique]:mainUnique;
+  const mainRowsRender=Math.ceil(mainCells.length/COLS)||1;
+  const SB_Y=MAIN_Y+mainRowsRender*(CH+8)+18;
 
-  mainUnique.forEach((c,i)=>{
+  mainCells.forEach((c,i)=>{
     const full=CARDS.find(x=>x.id===c.id);
+    const col=i%COLS,row=Math.floor(i/COLS);
+    const x=RIGHT_X+col*(CW+8),y=MAIN_Y+row*(CH+8);
     if(full&&full.imageUrl) addJob(full.imageUrl,(img)=>{
-      const col=i%COLS,row=Math.floor(i/COLS);
-      const x=RIGHT_X+col*(CW+8),y=MAIN_Y+row*(CH+8);
       drawRoundedImage(ctx,img,x,y,CW,CH,7);
-      if(c.cnt>1) drawCntBadge(ctx,x,y,CW,c.cnt);
+      if(c._isChampion){
+        // Gold double-border + glow halo to mark the champion cell
+        ctx.save();
+        ctx.shadowColor='rgba(232,184,85,0.55)';ctx.shadowBlur=14;
+        ctx.strokeStyle='#e8d47a';ctx.lineWidth=3;
+        ctx.beginPath();ctx.roundRect(x-1,y-1,CW+2,CH+2,8);ctx.stroke();
+        ctx.restore();
+        // "CHAMPION" ribbon at the top of the card
+        ctx.fillStyle='rgba(232,184,85,0.92)';
+        ctx.beginPath();ctx.roundRect(x+4,y+4,CW-8,18,4);ctx.fill();
+        ctx.fillStyle='#0a0907';ctx.font="bold 10px 'Syne',sans-serif";ctx.textAlign='center';
+        ctx.fillText('CHAMPION',x+CW/2,y+17);
+      } else if(c.cnt>1){
+        drawCntBadge(ctx,x,y,CW,c.cnt);
+      }
     });
   });
   // Runes are now in the left panel (compact). Skip drawing on the right.
