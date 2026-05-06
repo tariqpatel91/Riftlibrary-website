@@ -74,7 +74,7 @@ let cardsTabView='visual';
 let deckSortMode='alpha'; // 'alpha' or 'energy'
 let authToken=null;
 const AF={doms:new Set()};
-const CF={type:'',set:'',rar:'',legend:'',subtype:'',variant:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,12],showAllVersions:false,classMode:false};
+const CF={type:'',set:'',rar:'',legend:'',subtype:'',variant:'',doms:new Set(),energy:[0,12],power:[0,4],might:[0,12],showAllVersions:false,showFoil:false,classMode:false};
 const EF={type:'',dom:'',set:'',subtype:'',variant:'',rar:'',energy:[0,12],power:[0,4],might:[0,12],page:1,showAllVersions:false};
 function getEditPer(){
   // Runes are a small fixed pool (~36 entries even with every art variation
@@ -1495,7 +1495,10 @@ function renderEditSearch(){
     return;
   }
 
-  let source=CARDS.filter(c=>c.type!=='Legend');
+  // Foil entries are separate collectibles; the deck editor never includes
+  // them as deckable cards (decks list non-foil cards) unless the user is
+  // explicitly filtering by Foil variant.
+  let source=CARDS.filter(c=>c.type!=='Legend'&&!(c.isFoil&&EF.variant!=='Foil'));
   const deckDoms=d.domains||[];
   if(deckDoms.length){source=source.filter(c=>c.type==='Rune'||c.type==='Battlefield'||c.doms.length===0||c.doms.every(dom=>deckDoms.includes(dom)));}
   // Rune tab: only show runes matching deck domains
@@ -1528,11 +1531,12 @@ function renderEditSearch(){
     else if(EF.subtype==='Token') source=source.filter(c=>c.type==='Token'||c.supertype==='Token');
   }
   if(EF.variant){
-    if(EF.variant==='Alt Art') source=source.filter(c=>c.isAltArt);
-    else if(EF.variant==='Overnumbered') source=source.filter(c=>c.isOvernumbered);
-    else if(EF.variant==='Promo') source=source.filter(c=>c.rarity==='Promo');
-    else if(EF.variant==='Artist Signed') source=source.filter(c=>c.isSignature);
-    else if(EF.variant==='Standard') source=source.filter(c=>!c.isAltArt&&!c.isOvernumbered&&c.rarity!=='Promo'&&!c.isSignature);
+    if(EF.variant==='Alt Art') source=source.filter(c=>c.isAltArt&&!c.isFoil);
+    else if(EF.variant==='Overnumbered') source=source.filter(c=>c.isOvernumbered&&!c.isFoil);
+    else if(EF.variant==='Promo') source=source.filter(c=>c.rarity==='Promo'&&!c.isFoil);
+    else if(EF.variant==='Artist Signed') source=source.filter(c=>c.isSignature&&!c.isFoil);
+    else if(EF.variant==='Foil') source=source.filter(c=>c.isFoil);
+    else if(EF.variant==='Standard') source=source.filter(c=>!c.isAltArt&&!c.isOvernumbered&&c.rarity!=='Promo'&&!c.isSignature&&!c.isFoil);
   }
   source=source.filter(c=>{
     if(c.cost!==null&&(c.cost<EF.energy[0]||c.cost>EF.energy[1]))return false;
@@ -1582,7 +1586,7 @@ function renderEditSearch(){
   const ESETS=['','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
   const ERARS=['','Legendary','Epic','Rare','Uncommon','Common','Promo'];
   const ESUBTYPES=['','Action','Reaction','Champion','Token','Signature Card'];
-  const EVARIANTS=['','Standard','Alt Art','Overnumbered','Promo','Artist Signed'];
+  const EVARIANTS=['','Standard','Alt Art','Overnumbered','Promo','Artist Signed','Foil'];
 
   function efDrop(field,val,label,opts,labelMap){
     let h=`<div class="ef-drop-wrap"><button class="ef-drop-btn" onclick="toggleEFDrop('efd-${field}',this)"><span class="ef-dv-lbl">${label}</span><span class="ef-dv-val">${val||'All'}</span><span class="caret">⌄</span></button><div class="ef-dropdown" id="efd-${field}">`;
@@ -3034,11 +3038,16 @@ function setCFType(t){
 }
 
 function toggleShowAllVersions(v){CF.showAllVersions=v;renderCards();}
+function toggleShowFoil(v){CF.showFoil=v;renderCards();}
 
 /* ── RENDER CARDS ────────────────────────────────── */
 function renderCards(){
   const q=document.getElementById('cs').value.toLowerCase();
   const list=CARDS.filter(c=>{
+    // Foil entries are separate collectibles. Hide them unless the user
+    // explicitly enables "Show foil", OR they explicitly filter by the
+    // Foil art variant.
+    if(c.isFoil&&!CF.showFoil&&CF.variant!=='Foil')return false;
     if(q){
       if(CF.classMode){
         // Match only against card tags (e.g. Mech, Equipment, Dog)
@@ -3065,11 +3074,12 @@ function renderCards(){
       else if(CF.subtype==='Token'){if(c.type!=='Token'&&c.supertype!=='Token')return false;}
     }
     if(CF.variant){
-      if(CF.variant==='Alt Art'){if(!c.isAltArt)return false;}
-      else if(CF.variant==='Overnumbered'){if(!c.isOvernumbered)return false;}
-      else if(CF.variant==='Promo'){if(c.rarity!=='Promo')return false;}
-      else if(CF.variant==='Artist Signed'){if(!c.isSignature)return false;}
-      else if(CF.variant==='Standard'){if(c.isAltArt||c.isOvernumbered||c.rarity==='Promo'||c.isSignature)return false;}
+      if(CF.variant==='Alt Art'){if(!c.isAltArt||c.isFoil)return false;}
+      else if(CF.variant==='Overnumbered'){if(!c.isOvernumbered||c.isFoil)return false;}
+      else if(CF.variant==='Promo'){if(c.rarity!=='Promo'||c.isFoil)return false;}
+      else if(CF.variant==='Artist Signed'){if(!c.isSignature||c.isFoil)return false;}
+      else if(CF.variant==='Foil'){if(!c.isFoil)return false;}
+      else if(CF.variant==='Standard'){if(c.isAltArt||c.isOvernumbered||c.rarity==='Promo'||c.isSignature||c.isFoil)return false;}
     }
     if(CF.doms.size>0&&!CF.doms.has(c.dom))return false;
     if(c.cost!==null&&(c.cost<CF.energy[0]||c.cost>CF.energy[1]))return false;
@@ -3084,7 +3094,11 @@ function renderCards(){
   } else {
     const seen=new Map();
     list.forEach(c=>{
-      const key=c.name.replace(/\s*\([^)]*\)\s*$/,'').toLowerCase().trim();
+      // Include the foil flag in the key so a card's regular and foil
+      // versions are deduped independently — one of each survives the
+      // collapse, not just one combined entry.
+      const baseKey=c.name.replace(/\s*\([^)]*\)\s*$/,'').toLowerCase().trim();
+      const key=baseKey+(c.isFoil?'|foil':'|reg');
       const existing=seen.get(key);
       if(!existing){seen.set(key,c);return;}
       const curRank=RARITY_RANK[c.rarity]??1;
@@ -3101,17 +3115,22 @@ function renderCards(){
     const domPills=c.doms.map(d=>`<span class="pill ${d}">${d[0].toUpperCase()+d.slice(1)}</span>`).join('');
     const safeId=c.id.replace(/'/g,"\\'");
     const isBF=c.type==='Battlefield';
-    // "$X.XX" badge on the thumbnail. Many champions / legends only have a
-    // foil listing on TCGPlayer (price = 0, foilPrice > 0); fall back to the
-    // foil price with a ✦ marker so foil-only cards still display.
+    // "$X.XX" badge on the thumbnail. Foil entries always show their own
+    // price (which IS the foil price) with a gold gradient. Non-foil entries
+    // fall back to foilPrice with a ✦ marker if regular price is 0.
     const _reg=(typeof c.price==='number'&&c.price>0)?c.price:null;
-    const _foil=(typeof c.foilPrice==='number'&&c.foilPrice>0)?c.foilPrice:null;
-    const priceTag=_reg
-      ?`<div class="ct-price-badge" title="TCGPlayer market price">$${_reg.toFixed(2)}</div>`
-      :_foil
-        ?`<div class="ct-price-badge ct-price-foil" title="Foil-only TCGPlayer price">✦ $${_foil.toFixed(2)}</div>`
-        :'';
-    return`<div class="ct ct-img${isBF?' ct-bf':''}" onclick="openCardModal('${safeId}')">
+    const _foilOnly=(typeof c.foilPrice==='number'&&c.foilPrice>0)?c.foilPrice:null;
+    const priceTag=c.isFoil&&_reg
+      ?`<div class="ct-price-badge ct-price-foil" title="Foil TCGPlayer market price">✦ $${_reg.toFixed(2)}</div>`
+      :_reg
+        ?`<div class="ct-price-badge" title="TCGPlayer market price">$${_reg.toFixed(2)}</div>`
+        :_foilOnly
+          ?`<div class="ct-price-badge ct-price-foil" title="Foil-only TCGPlayer price">✦ $${_foilOnly.toFixed(2)}</div>`
+          :'';
+    // Gold "FOIL" tag in the top-left so foil entries are visually distinct
+    const foilTag=c.isFoil?`<div class="ct-foil-badge" title="Foil printing">✦ FOIL</div>`:'';
+    return`<div class="ct ct-img${isBF?' ct-bf':''}${c.isFoil?' is-foil':''}" onclick="openCardModal('${safeId}')">
+      ${foilTag}
       ${c.imageUrl
         ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')">${priceTag}</div>`
         :`<div class="ct-img-wrap no-img"><div class="ct-img-placeholder" style="background:var(--surface3);display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div>${priceTag}</div>`
@@ -3186,15 +3205,24 @@ function openCardModal(cardId){
   const tcgUrl=c.tcgPlayerId?`https://www.tcgplayer.com/product/${c.tcgPlayerId}`:'';
   const cmUrl=c.cardmarketId?`https://www.cardmarket.com/en/Riftbound/Products/Singles/${c.cardmarketId}`:'';
   const hasAnyPrice=(typeof c.price==='number'&&c.price>0)||(typeof c.foilPrice==='number'&&c.foilPrice>0);
-  const priceBlock=hasAnyPrice?`
-    <div class="cm-prices">
+  // Foil entries render a single Foil row (their `price` IS the foil price).
+  // Non-foil entries show Regular + (optional) Foil rows side-by-side.
+  const priceBlock=hasAnyPrice?(c.isFoil
+    ? `<div class="cm-prices">
+      <div class="cm-price-row"><span class="cm-price-lbl">Foil ✦</span><span class="cm-price-val">${fmtPrice(c.price)}</span></div>
+      <div class="cm-price-links">
+        ${tcgUrl?`<a href="${tcgUrl}" target="_blank" rel="noreferrer noopener" class="cm-price-link">TCGPlayer →</a>`:''}
+        ${cmUrl?`<a href="${cmUrl}" target="_blank" rel="noreferrer noopener" class="cm-price-link">Cardmarket →</a>`:''}
+      </div>
+    </div>`
+    : `<div class="cm-prices">
       <div class="cm-price-row"><span class="cm-price-lbl">Regular</span><span class="cm-price-val">${fmtPrice(c.price)} ${fmtDelta(c.deltaPrice)}</span></div>
       ${c.hasFoil||(typeof c.foilPrice==='number'&&c.foilPrice>0)?`<div class="cm-price-row"><span class="cm-price-lbl">Foil ✦</span><span class="cm-price-val">${fmtPrice(c.foilPrice)}</span></div>`:''}
       <div class="cm-price-links">
         ${tcgUrl?`<a href="${tcgUrl}" target="_blank" rel="noreferrer noopener" class="cm-price-link">TCGPlayer →</a>`:''}
         ${cmUrl?`<a href="${cmUrl}" target="_blank" rel="noreferrer noopener" class="cm-price-link">Cardmarket →</a>`:''}
       </div>
-    </div>`:'';
+    </div>`):'';
   const deckDeck=myDecks.find(d=>d.id===activeDeckId);
   const inDeck=deckDeck?(deckDeck.cards||[]).find(x=>x.id===c.id):null;
   const owned=collOwned[c.id]||0;
@@ -3214,8 +3242,8 @@ function openCardModal(cardId){
       <div class="cm-info-col">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;">
           <div>
-            <div class="cm-name">${c.name}</div>
-            <div class="cm-meta">${c.supertype||c.type}${c.rarity?' · '+c.rarity:''}${c.setLabel?' · '+c.setLabel:''}</div>
+            <div class="cm-name">${c.name}${c.isFoil?' <span class="cm-foil-tag">✦ FOIL</span>':''}</div>
+            <div class="cm-meta">${c.supertype||c.type}${c.rarity?' · '+c.rarity:''}${c.setLabel?' · '+c.setLabel:''}${c.isFoil?' · Foil':''}</div>
           </div>
           <button onclick="closeCardModal()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;flex-shrink:0;">×</button>
         </div>

@@ -124,6 +124,13 @@ select option{background:#1e1e2a;}
 /* Foil-only variant — gold gradient badge to make it visually distinct from
    regular-print prices, since the value is meaningfully different. */
 .ct-price-badge.ct-price-foil{background:linear-gradient(135deg,rgba(232,184,85,0.95),rgba(180,140,50,0.95));color:#0a1428;border-color:rgba(255,240,180,0.85);}
+/* "FOIL" tag for foil-printing cards (separate collectible entries) */
+.ct-foil-badge{position:absolute;top:8px;left:8px;background:linear-gradient(135deg,#fff8c4,#e8d47a 35%,#c89a3a 70%,#fff8c4);color:#0a1428;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;letter-spacing:0.08em;border:1px solid rgba(255,255,255,0.7);box-shadow:0 2px 8px rgba(0,0,0,0.5);z-index:3;pointer-events:none;}
+/* Foil cards get a subtle gold border + glow so they stand out in the grid. */
+.ct.is-foil{border-color:rgba(232,184,85,0.6);box-shadow:0 0 18px rgba(232,184,85,0.18);}
+.ct.is-foil:hover{border-color:rgba(232,184,85,0.9);box-shadow:0 8px 28px rgba(0,0,0,0.5),0 0 24px rgba(232,184,85,0.4);}
+/* "✦ FOIL" inline tag in the card-modal title */
+.cm-foil-tag{display:inline-block;background:linear-gradient(135deg,#fff8c4,#e8d47a 35%,#c89a3a 70%,#fff8c4);color:#0a1428;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;letter-spacing:0.08em;margin-left:8px;vertical-align:middle;border:1px solid rgba(255,255,255,0.6);}
 .ct-img-wrap{position:relative;}
 .cm-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:var(--surface2);border-radius:10px;}
 .cm-stat{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:50px;}

@@ -245,10 +245,41 @@ function bool01(s) {
     dotggOnly++;
   }
 
+  // Generate a separate foil entry for every card that has a foil printing,
+  // so foils show up as their own collectible / tradable entity in the UI.
+  // Foil entries:
+  //   - share name / image / text / stats with the regular printing
+  //   - get id `<original>-foil` so the collection map tracks them separately
+  //   - carry isFoil:true and variant:'Foil' for filter / rendering hooks
+  //   - use foilPrice as `price` (so badges + sort treat it as the entry's price)
+  //   - drop their own foilPrice (a foil card doesn't have a "foil of foil")
+  //   - back-reference the source via _foilOf so the UI can link them
+  let foilCount = 0;
+  const foils = [];
+  for (const c of merged) {
+    const hasFoilPrinting = c.hasFoil === true || (typeof c.foilPrice === 'number' && c.foilPrice > 0);
+    if (!hasFoilPrinting) continue;
+    foils.push({
+      ...c,
+      id: c.id + '-foil',
+      isFoil: true,
+      variant: 'Foil',
+      price: typeof c.foilPrice === 'number' && c.foilPrice > 0 ? c.foilPrice : null,
+      foilPrice: null,
+      hasFoil: false,
+      _foilOf: c.id,
+    });
+    foilCount++;
+  }
+  merged.push(...foils);
+
   // Stable sort: by set then collector number when known, else by name
   merged.sort((a, b) => {
     if (a.set !== b.set) return (a.set || '').localeCompare(b.set || '');
-    return (a.name || '').localeCompare(b.name || '');
+    const nc = (a.name || '').localeCompare(b.name || '');
+    if (nc !== 0) return nc;
+    // Regular printings sort before their foil twin
+    return (a.isFoil ? 1 : 0) - (b.isFoil ? 1 : 0);
   });
 
   const outPath = path.join(__dirname, '..', 'cards.json');
@@ -258,6 +289,7 @@ function bool01(s) {
   console.log(`\nMerged ${merged.length} cards`);
   console.log(`  Riftcodex: ${rcItems.length} cards (${hits} matched DotGG, ${misses} no DotGG match)`);
   console.log(`  DotGG-only additions: ${dotggOnly}`);
+  console.log(`  Foil entries generated: ${foilCount}`);
   console.log(`Wrote ${outPath} (${sizeKb} KB) in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 })().catch(err => {
   console.error(err);
