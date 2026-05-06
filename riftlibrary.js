@@ -766,12 +766,11 @@ function renderDecks(){
     const dcAvatar=dcImg
       ?`<div class="dc-avatar"><img src="${dcImg}" alt="${d.legend}"></div>`
       :`<div class="dc-avatar dc-avatar-empty"></div>`;
-    // Legality check: a constructed deck must total exactly 40 main-deck
-    // cards (Legend (kept inside d.cards with t:'Legend') + Champion (in
-    // d.champion) + 38 other entries), exactly 12 runes, and a sideboard
-    // of either 0 or 8 cards. Maybeboard intentionally NOT counted —
-    // it's just a scratch area for cards under consideration.
-    const _mainCount=(d.cards||[]).reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
+    // Legality check: Riftbound legal deck = 40 main-deck cards (the
+    // Champion in d.champion + 39 non-legend entries in d.cards), 12 runes,
+    // and sideboard of either 0 or 8. The Legend lives in its own slot and
+    // does NOT count toward the 40. Maybeboard is also not counted.
+    const _mainCount=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
     const _runeCount=(d.runes||[]).reduce((a,c)=>a+c.cnt,0);
     const _sbCount=(d.sideboard||[]).reduce((a,c)=>a+c.cnt,0);
     const _illegal=(_mainCount!==40)||(_runeCount!==12)||(_sbCount!==0&&_sbCount!==8);
@@ -882,9 +881,10 @@ function buildDeckCurves(d,large){
 function renderDeckDetail(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const w=wr(d);
-  // Total = d.cards (which includes the Legend with t:'Legend') + Champion
-  // (separately stored). Matches the legality check in renderDecks.
-  const totalCards=(d.cards||[]).reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
+  // Total = main deck (d.cards excluding Legend) + Champion. The Legend
+  // sits in its own slot and is NOT part of the 40-card deck per Riftbound
+  // rules. Matches the legality check in renderDecks.
+  const totalCards=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
   const bfOpts=(d.battlefields||[]).filter(Boolean).map(b=>{const f=CARDS.find(x=>x.id===b.id);return`<option value="${b.id}">${f?f.name:b.n}</option>`;}).join('');
   const legendEntry=(d.cards||[]).find(c=>c.t==='Legend');
   const legendFull=legendEntry?CARDS.find(x=>x.id===legendEntry.id):null;
@@ -2131,9 +2131,9 @@ function renderEditPreview(targetEl){
 
   const badge=document.getElementById('deck-count-badge');
   if(badge){
-    // Total = every entry in d.cards (which includes the Legend) + the
-    // separately-tracked Champion. Matches the legality check on My Decks.
-    const _deckN=(d.cards||[]).reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
+    // Total = main deck (excluding Legend) + Champion. Legend slot is
+    // separate and doesn't count toward the 40-card legal cap.
+    const _deckN=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
     badge.textContent=`${_deckN} / 40 cards`;
     // Red when over the legal 40-card limit so users see at a glance.
     badge.classList.toggle('dt-count-over',_deckN>40);
