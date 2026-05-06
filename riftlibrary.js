@@ -2882,14 +2882,33 @@ function renderExportCanvas(d){
     ctx.fillText('riftlibrary.gg',TOTAL_W-PAD,TOTAL_H-26);
   }
 
-  // Load all images
+  // Load all images through a CORS-friendly image proxy. Riftcodex's CDN
+  // (cmsassets.rgpub.io) doesn't return Access-Control-Allow-Origin headers
+  // when requested with crossOrigin='anonymous', so the raw URLs fail to
+  // load onto the canvas — that's why the export was blank. weserv.nl is
+  // a free image proxy that re-serves with proper CORS, which both lets
+  // the image draw AND keeps the canvas un-tainted for toDataURL/toBlob.
+  function _imgProxy(url){
+    if(!url) return url;
+    if(/^https:\/\/images\.weserv\.nl\//.test(url)) return url; // already wrapped
+    return 'https://images.weserv.nl/?url='+encodeURIComponent(url.replace(/^https?:\/\//,''));
+  }
   let loaded=0;
   if(!jobs.length){drawLabels();return;}
   jobs.forEach(job=>{
+    const proxied=_imgProxy(job.url);
     const img=new Image();img.crossOrigin='anonymous';
     img.onload=()=>{job.draw(img);if(++loaded===jobs.length)drawLabels();};
-    img.onerror=()=>{if(++loaded===jobs.length)drawLabels();};
-    img.src=job.url;
+    img.onerror=()=>{
+      // Proxy failed — try the raw URL without crossOrigin as a fallback so
+      // SOMETHING shows up. Will taint the canvas (download might fail) but
+      // beats a blank export.
+      const raw=new Image();
+      raw.onload=()=>{job.draw(raw);if(++loaded===jobs.length)drawLabels();};
+      raw.onerror=()=>{if(++loaded===jobs.length)drawLabels();};
+      raw.src=job.url;
+    };
+    img.src=proxied;
   });
 }
 function drawRoundedImage(ctx,img,x,y,w,h,r){
