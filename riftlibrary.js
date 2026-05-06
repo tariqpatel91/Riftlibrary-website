@@ -4757,17 +4757,15 @@ window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=se
     _hoverTimeout=setTimeout(()=>{
       const bf=isBattlefield(card);
       if(bf){
-        // Battlefield card images come stored portrait (~744×1039). Lay the
-        // image inside a flex-centered landscape box at its natural portrait
-        // dimensions and rotate +90° CW so the card reads landscape with the
-        // title/flavor text right-side up.
+        // Battlefield card images are already stored landscape (3.5:2.5).
+        // Just give them a landscape preview box; no rotation needed.
         preview.style.width='540px';
         preview.style.height='388px';
-        preview.style.display='flex';
-        preview.style.alignItems='center';
-        preview.style.justifyContent='center';
+        preview.style.display='block';
+        preview.style.alignItems='';
+        preview.style.justifyContent='';
         preview.style.overflow='hidden';
-        preview.innerHTML=`<img src="${card.dataset.hoverImg}" alt="" style="width:388px;height:540px;object-fit:contain;transform:rotate(90deg);display:block;">`;
+        preview.innerHTML=`<img src="${card.dataset.hoverImg}" alt="" style="width:100%;height:100%;object-fit:contain;display:block;">`;
       } else {
         // Clear any inline overrides from a prior battlefield hover so the
         // CSS-defined 280×392 portrait box takes back over (no dead space).
