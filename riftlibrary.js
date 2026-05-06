@@ -3965,7 +3965,24 @@ function deleteBinder(id){
   persistBinders();renderCollection();
 }
 
-function setActiveBinder(id){CF2.binder=id;CF2.show='all';CF2.q='';CF2.binderMode='view';renderCollection();window.scrollTo({top:0,behavior:'smooth'});}
+function setActiveBinder(id){
+  // Special case: the sidebar "Wishlist" entry should route to the main
+  // collection view with the Wishlist filter pill applied — same UI as
+  // clicking the "♥ Wishlist" pill at the top of the cards grid. This
+  // keeps the user inside the regular collection workflow (search, set
+  // filters, set progress cards visible) instead of dropping them into
+  // the alternate binder editor.
+  if(id==='wishlist'){
+    CF2.binder='';
+    CF2.show='wanted';
+    CF2.q='';
+    CF2.binderMode='view';
+  } else {
+    CF2.binder=id;CF2.show='all';CF2.q='';CF2.binderMode='view';
+  }
+  renderCollection();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 
 function addCardToBinder(cardId,binderId){
   if(!binderId){
@@ -4205,11 +4222,11 @@ function renderCollection(){
       <span>Binders</span>
       <button class="cbs-new-btn" onclick="createBinder()" title="New binder">+</button>
     </div>
-    <button class="cbs-item${!CF2.binder?' active':''}" onclick="setActiveBinder('')">
+    <button class="cbs-item${(!CF2.binder&&CF2.show!=='wanted')?' active':''}" onclick="setActiveBinder('')">
       <span class="cbs-label">All Cards</span>
       <span class="cbs-count">${allUnique.length}</span>
     </button>
-    <button class="cbs-item cbs-item-static${CF2.binder==='wishlist'?' active':''}" onclick="setActiveBinder('wishlist')">
+    <button class="cbs-item cbs-item-static${(!CF2.binder&&CF2.show==='wanted')?' active':''}" onclick="setActiveBinder('wishlist')">
       <span class="cbs-label">♥ Wishlist</span>
       <span class="cbs-count">${wishlistCount}</span>
     </button>
