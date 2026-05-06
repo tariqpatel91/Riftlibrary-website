@@ -770,9 +770,12 @@ function renderDecks(){
     // Champion in d.champion + 39 non-legend entries in d.cards), 12 runes,
     // and sideboard of either 0 or 8. The Legend lives in its own slot and
     // does NOT count toward the 40. Maybeboard is also not counted.
-    const _mainCount=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
-    const _runeCount=(d.runes||[]).reduce((a,c)=>a+c.cnt,0);
-    const _sbCount=(d.sideboard||[]).reduce((a,c)=>a+c.cnt,0);
+    const _mainCount=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+(c.cnt||1),0)+(d.champion?1:0);
+    // d.runes is a flat array — each entry is a single rune (no `cnt` field),
+    // so the count is just the array length. Old code did reduce(c.cnt) which
+    // produced NaN and made every legal deck flag as illegal.
+    const _runeCount=(d.runes||[]).length;
+    const _sbCount=(d.sideboard||[]).reduce((a,c)=>a+(c.cnt||1),0);
     const _illegal=(_mainCount!==40)||(_runeCount!==12)||(_sbCount!==0&&_sbCount!==8);
     const _illegalReasons=[];
     if(_mainCount!==40)_illegalReasons.push(`Main deck: ${_mainCount}/40`);
