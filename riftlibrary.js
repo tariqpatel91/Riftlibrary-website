@@ -2693,14 +2693,18 @@ function renderExportCanvas(d){
   _exportCanvas=canvas;
   const ctx=canvas.getContext('2d');
 
-  // Layout constants
-  const PAD=18,LEFT_W=206,GAP=14;
-  const CW=88,CH=Math.round(CW*1.4); // main card size
-  const BFW=156,BFH=Math.round(BFW*0.714); // battlefield landscape
-  const LCW=174,LCH=Math.round(LCW*1.4); // legend card
-  const COLS=8;
-  const RIGHT_X=LEFT_W+GAP;
-  const RIGHT_W=COLS*(CW+6)-6;
+  // Layout constants — picture-2-style: big title bar across the top,
+  // legend + domains + battlefields stacked on the left, main deck grid
+  // on the right, sideboard separated by a divider line.
+  const PAD=22, GAP=18;
+  const TITLE_H=70;       // top title bar
+  const LEFT_W=240;       // left panel width
+  const CW=98,CH=Math.round(CW*1.4);     // main card size
+  const BFW=190,BFH=Math.round(BFW*0.714); // battlefield landscape
+  const LCW=200,LCH=Math.round(LCW*1.4);   // legend portrait
+  const COLS=7;
+  const RIGHT_X=PAD+LEFT_W+GAP;
+  const RIGHT_W=COLS*(CW+8)-8;
   const TOTAL_W=RIGHT_X+RIGHT_W+PAD;
 
   // Gather unique card lists
@@ -2711,145 +2715,168 @@ function renderExportCanvas(d){
   const runeMap={};(d.runes||[]).forEach(r=>{if(!runeMap[r.n])runeMap[r.n]={...r,cnt:0};runeMap[r.n].cnt++;});
   const runeList=Object.values(runeMap);
 
-  // Calculate right panel height
+  // Right panel height
   const mainRows=Math.ceil(mainUnique.length/COLS)||1;
   const runeRows=Math.ceil(runeList.length/COLS);
   const sbRows=Math.ceil(sbList.length/COLS);
-  const SEC=28; // section label height
-  let rightH=PAD;
-  rightH+=SEC+mainRows*(CH+6)+10;
-  if(runeList.length) rightH+=SEC+runeRows*(CH+6)+10;
-  if(sbList.length) rightH+=SEC+sbRows*(CH+6)+10;
+  const SEC=30; // section label band height
+  let rightH=mainRows*(CH+8)+SEC;
+  if(runeList.length) rightH+=runeRows*(CH+8)+SEC+12;
+  if(sbList.length) rightH+=sbRows*(CH+8)+SEC+18;
   rightH+=PAD;
 
-  // Left panel height
-  let leftH=PAD+24+8+LCH+12; // name + legend card
-  leftH+=30; // domain row
-  if(bfList.length) leftH+=SEC+bfList.length*(BFH+6);
+  // Left panel height: legend + domain row + battlefields list
+  let leftH=LCH+12+44; // legend image + spacing + domain row
+  if(bfList.length) leftH+=SEC+bfList.length*(BFH+8);
   leftH+=PAD;
 
-  const TOTAL_H=Math.max(leftH,rightH);
+  const BODY_H=Math.max(leftH,rightH);
+  const TOTAL_H=TITLE_H+BODY_H+PAD;
   canvas.width=TOTAL_W;canvas.height=TOTAL_H;
 
-  // Background
-  ctx.fillStyle='#0c0b08';ctx.fillRect(0,0,TOTAL_W,TOTAL_H);
-  // Left panel bg
-  ctx.fillStyle='#13120f';ctx.beginPath();
-  ctx.roundRect(0,0,LEFT_W,TOTAL_H,0);ctx.fill();
+  // Background — vertical gradient + subtle vignette to evoke the
+  // "archive" parchment feel of the reference image.
+  const bgGrad=ctx.createLinearGradient(0,0,0,TOTAL_H);
+  bgGrad.addColorStop(0,'#0f0e0b');
+  bgGrad.addColorStop(1,'#0a0907');
+  ctx.fillStyle=bgGrad;ctx.fillRect(0,0,TOTAL_W,TOTAL_H);
+  // Title strip
+  const titleGrad=ctx.createLinearGradient(0,0,TOTAL_W,0);
+  titleGrad.addColorStop(0,'rgba(200,168,75,0.10)');
+  titleGrad.addColorStop(1,'rgba(200,168,75,0.02)');
+  ctx.fillStyle=titleGrad;ctx.fillRect(0,0,TOTAL_W,TITLE_H);
+  ctx.strokeStyle='rgba(200,168,75,0.30)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,TITLE_H);ctx.lineTo(TOTAL_W,TITLE_H);ctx.stroke();
+  // Left panel background
+  ctx.fillStyle='rgba(20,19,15,0.85)';
+  ctx.beginPath();ctx.roundRect(PAD,TITLE_H+PAD,LEFT_W,BODY_H-PAD,12);ctx.fill();
+  ctx.strokeStyle='rgba(200,168,75,0.18)';ctx.stroke();
 
   // Collect all images to load
   const jobs=[];
   function addJob(url,draw){jobs.push({url,draw});}
 
+  // Body anchors — everything below the title strip
+  const BODY_TOP=TITLE_H+PAD;
+  const LEFT_X=PAD+12;
+  const LEG_Y=BODY_TOP+8;
+  const DOM_Y=LEG_Y+LCH+12;          // domain row
+  const BF_LABEL_Y=DOM_Y+38;         // "BATTLEFIELDS"
+  const BF_Y=BF_LABEL_Y+SEC-12;      // first battlefield card
+
   const legFull=legendC.length?CARDS.find(c=>c.id===legendC[0].id):null;
   if(legFull&&legFull.imageUrl) addJob(legFull.imageUrl,(img)=>{
-    drawRoundedImage(ctx,img,PAD,PAD+32,LCW,LCH,6);
+    drawRoundedImage(ctx,img,LEFT_X,LEG_Y,LCW,LCH,8);
   });
 
-  // Domain pips
-  const domColors={fury:'#e05a2a',chaos:'#e05a9e',calm:'#3dd6a3',mind:'#5ab4f5',body:'#f5943e',order:'#c8a84b'};
+  // Domain colors
+  const domColors={fury:'#e05a2a',chaos:'#a060d0',calm:'#3dd6a3',mind:'#5ab4f5',body:'#f5943e',order:'#c8a84b'};
+  const domLabel ={fury:'Fury',chaos:'Chaos',calm:'Calm',mind:'Mind',body:'Body',order:'Order'};
 
-  // BF cards
+  // Battlefields stacked vertically below the legend
   bfList.forEach((bf,i)=>{
     const full=CARDS.find(c=>c.id===bf.id);
     if(full&&full.imageUrl) addJob(full.imageUrl,(img)=>{
-      const y=PAD+32+LCH+42+SEC+i*(BFH+6);
-      drawRoundedImage(ctx,img,PAD,y,BFW,BFH,5);
+      const y=BF_Y+i*(BFH+8);
+      drawRoundedImage(ctx,img,LEFT_X,y,BFW,BFH,6);
     });
   });
 
-  // Main deck cards
+  // Right panel — main deck, sideboard
+  const MAIN_Y=BODY_TOP+SEC;
+  const SB_Y=MAIN_Y+mainRows*(CH+8)+18;
+
   mainUnique.forEach((c,i)=>{
     const full=CARDS.find(x=>x.id===c.id);
     if(full&&full.imageUrl) addJob(full.imageUrl,(img)=>{
       const col=i%COLS,row=Math.floor(i/COLS);
-      const x=RIGHT_X+col*(CW+6),y=PAD+SEC+row*(CH+6);
-      drawRoundedImage(ctx,img,x,y,CW,CH,5);
-      if(c.cnt>1){
-        ctx.fillStyle='rgba(0,0,0,0.75)';ctx.beginPath();ctx.roundRect(x+CW-22,y+4,20,16,4);ctx.fill();
-        ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
-        ctx.fillText('×'+c.cnt,x+CW-12,y+15);
-      }
+      const x=RIGHT_X+col*(CW+8),y=MAIN_Y+row*(CH+8);
+      drawRoundedImage(ctx,img,x,y,CW,CH,7);
+      if(c.cnt>1) drawCntBadge(ctx,x,y,CW,c.cnt);
     });
   });
+  // Runes are now in the left panel (compact). Skip drawing on the right.
 
-  // Rune cards
-  const runeOffsetY=PAD+SEC+mainRows*(CH+6)+(mainUnique.length?16:0);
-  runeList.forEach((r,i)=>{
-    const full=CARDS.find(x=>x.id===r.id);
-    if(full&&full.imageUrl) addJob(full.imageUrl,(img)=>{
-      const col=i%COLS,row=Math.floor(i/COLS);
-      const x=RIGHT_X+col*(CW+6),y=runeOffsetY+SEC+row*(CH+6);
-      drawRoundedImage(ctx,img,x,y,CW,CH,5);
-      if(r.cnt>1){
-        ctx.fillStyle='rgba(0,0,0,0.75)';ctx.beginPath();ctx.roundRect(x+CW-22,y+4,20,16,4);ctx.fill();
-        ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
-        ctx.fillText('×'+r.cnt,x+CW-12,y+15);
-      }
-    });
-  });
-
-  // Sideboard cards
-  const sbBaseY=runeOffsetY+(runeList.length?SEC+runeRows*(CH+6)+16:0);
   sbList.forEach((c,i)=>{
     const full=CARDS.find(x=>x.id===c.id);
     if(full&&full.imageUrl) addJob(full.imageUrl,(img)=>{
       const col=i%COLS,row=Math.floor(i/COLS);
-      const x=RIGHT_X+col*(CW+6),y=sbBaseY+SEC+row*(CH+6);
-      drawRoundedImage(ctx,img,x,y,CW,CH,5);
-      if(c.cnt>1){
-        ctx.fillStyle='rgba(0,0,0,0.75)';ctx.beginPath();ctx.roundRect(x+CW-22,y+4,20,16,4);ctx.fill();
-        ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
-        ctx.fillText('×'+c.cnt,x+CW-12,y+15);
-      }
+      const x=RIGHT_X+col*(CW+8),y=SB_Y+row*(CH+8);
+      drawRoundedImage(ctx,img,x,y,CW,CH,7);
+      if(c.cnt>1) drawCntBadge(ctx,x,y,CW,c.cnt);
     });
   });
 
   // Load all images then draw text labels on top
   function drawLabels(){
-    // Deck name
-    ctx.fillStyle='#ffffff';ctx.font="bold 15px 'Syne',sans-serif";ctx.textAlign='left';
-    wrapText(ctx,d.name||'My Deck',PAD,PAD+14,LCW,18);
+    // Title bar — deck name on left, author on right (subtle)
+    const author=(typeof currentUser!=='undefined'&&currentUser&&(currentUser.username||currentUser.email))||'';
+    ctx.fillStyle='#fff8d8';ctx.font="bold 32px 'Syne',sans-serif";ctx.textAlign='left';
+    ctx.fillText(d.name||'My Deck',PAD,Math.round(TITLE_H*0.62));
+    if(author){
+      const nameW=ctx.measureText(d.name||'My Deck').width;
+      ctx.fillStyle='rgba(200,168,75,0.65)';ctx.font="500 16px 'Syne',sans-serif";
+      ctx.fillText(' · '+author,PAD+nameW,Math.round(TITLE_H*0.62));
+    }
+    // Legend name + format below the title (small accent line)
+    const legendName=legendC.length?legendC[0].n:(d.legend||'');
+    ctx.fillStyle='rgba(255,255,255,0.55)';ctx.font="500 12px 'DM Sans',sans-serif";
+    ctx.fillText([legendName,d.format||'Constructed'].filter(Boolean).join('  ·  '),PAD,Math.round(TITLE_H*0.62)+18);
 
-    // Domains
+    // Domain pills with × counts (e.g. CHAOS ×6  MIND ×6)
     const doms=d.domains||[];
-    doms.forEach((dom,i)=>{
+    const runeTotalsByDom={};
+    runeList.forEach(r=>{const c=CARDS.find(x=>x.id===r.id);if(c){const dm=c.dom||'order';runeTotalsByDom[dm]=(runeTotalsByDom[dm]||0)+r.cnt;}});
+    let domX=LEFT_X;
+    doms.forEach(dom=>{
       const col=domColors[dom]||'#888';
-      ctx.fillStyle=col;ctx.beginPath();ctx.arc(PAD+10+i*26,PAD+32+LCH+20,9,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='#fff';ctx.font='bold 7px sans-serif';ctx.textAlign='center';
-      ctx.fillText(dom.slice(0,2).toUpperCase(),PAD+10+i*26,PAD+32+LCH+23);
+      const lbl=(domLabel[dom]||dom).toUpperCase();
+      const cntFromRunes=runeTotalsByDom[dom]||0;
+      const text=cntFromRunes>0?`${lbl}  ×${cntFromRunes}`:lbl;
+      ctx.font="bold 11px 'Syne',sans-serif";const tw=ctx.measureText(text).width;
+      const pillW=tw+22;
+      // Pill bg
+      ctx.fillStyle=col+'33';
+      ctx.beginPath();ctx.roundRect(domX,DOM_Y,pillW,22,11);ctx.fill();
+      ctx.strokeStyle=col;ctx.lineWidth=1;ctx.stroke();
+      // Pill dot
+      ctx.fillStyle=col;ctx.beginPath();ctx.arc(domX+10,DOM_Y+11,4,0,Math.PI*2);ctx.fill();
+      // Pill label
+      ctx.fillStyle='#fff';ctx.textAlign='left';
+      ctx.fillText(text,domX+18,DOM_Y+15);
+      domX+=pillW+8;
     });
 
     // BF label
     if(bfList.length){
       ctx.fillStyle='#c8a84b';ctx.font="bold 11px 'Syne',sans-serif";ctx.textAlign='left';
-      ctx.fillText('BATTLEFIELDS',PAD,PAD+32+LCH+44);
+      ctx.fillText(`BATTLEFIELDS  ${bfList.length}/3`,LEFT_X,BF_LABEL_Y);
     }
 
     // Main deck label
-    const mainTotal=mainUnique.reduce((a,c)=>a+c.cnt,0);
-    ctx.fillStyle='#c8a84b';ctx.font="bold 12px 'Syne',sans-serif";ctx.textAlign='left';
-    ctx.fillText(`MAIN DECK (${mainTotal} cards)`,RIGHT_X,PAD+18);
+    const mainTotal=mainUnique.reduce((a,c)=>a+c.cnt,0)+(d.champion?1:0);
+    ctx.fillStyle='#c8a84b';ctx.font="bold 13px 'Syne',sans-serif";ctx.textAlign='left';
+    ctx.fillText(`MAIN DECK  ·  ${mainTotal}/40`,RIGHT_X,BODY_TOP+18);
 
-    // Rune label
-    if(runeList.length){
-      const runeTotal=runeList.reduce((a,r)=>a+r.cnt,0);
-      ctx.fillStyle='#c8a84b';ctx.font="bold 12px 'Syne',sans-serif";ctx.textAlign='left';
-      ctx.fillText(`RUNES (${runeTotal})`,RIGHT_X,runeOffsetY+18);
-      ctx.strokeStyle='#333';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(RIGHT_X,runeOffsetY-4);ctx.lineTo(RIGHT_X+RIGHT_W,runeOffsetY-4);ctx.stroke();
-    }
-
-    // Sideboard label
+    // SIDEBOARD divider line + label
     if(sbList.length){
       const sbTotal=sbList.reduce((a,c)=>a+c.cnt,0);
-      ctx.fillStyle='#c8a84b';ctx.font="bold 12px 'Syne',sans-serif";ctx.textAlign='left';
-      ctx.fillText(`SIDEBOARD (${sbTotal} cards)`,RIGHT_X,sbBaseY+18);
-      ctx.strokeStyle='#444';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(RIGHT_X,sbBaseY-4);ctx.lineTo(RIGHT_X+RIGHT_W,sbBaseY-4);ctx.stroke();
+      const dy=SB_Y-12;
+      ctx.strokeStyle='rgba(200,168,75,0.45)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(RIGHT_X,dy);ctx.lineTo(RIGHT_X+RIGHT_W,dy);ctx.stroke();
+      // SIDEBOARD chip overlaying the divider
+      ctx.font="bold 10px 'Syne',sans-serif";
+      const t=`SIDEBOARD  ·  ${sbTotal}/8`;const tw=ctx.measureText(t).width;
+      const cx=RIGHT_X+(RIGHT_W-tw)/2-10;
+      ctx.fillStyle='#0c0b08';ctx.fillRect(cx-4,dy-7,tw+18,14);
+      ctx.fillStyle='#c8a84b';ctx.fillText(t,cx+5,dy+4);
     }
 
-    // RiftLibrary watermark
-    ctx.fillStyle='rgba(200,168,75,0.35)';ctx.font="11px 'Syne',sans-serif";ctx.textAlign='right';
-    ctx.fillText('RiftLibrary',TOTAL_W-PAD,TOTAL_H-8);
+    // ARCHIVE branding bottom-right (ARCHIVE-style mark like the reference)
+    ctx.fillStyle='rgba(200,168,75,0.55)';ctx.font="bold 14px 'Syne',sans-serif";ctx.textAlign='right';
+    ctx.fillText('Rift LIBRARY',TOTAL_W-PAD,TOTAL_H-12);
+    ctx.font="500 9px 'DM Sans',sans-serif";ctx.fillStyle='rgba(255,255,255,0.25)';
+    ctx.fillText('riftlibrary.gg',TOTAL_W-PAD,TOTAL_H-26);
   }
 
   // Load all images
@@ -2865,6 +2892,20 @@ function renderExportCanvas(d){
 function drawRoundedImage(ctx,img,x,y,w,h,r){
   ctx.save();ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.clip();
   ctx.drawImage(img,x,y,w,h);ctx.restore();
+}
+// Big bottom-right ×N count badge for the export image — bigger and
+// more prominent than the previous corner pip so it reads at a glance.
+function drawCntBadge(ctx,x,y,w,cnt){
+  const text='×'+cnt;
+  ctx.font="bold 12px 'Syne',sans-serif";
+  const tw=ctx.measureText(text).width;
+  const bw=tw+10,bh=18;
+  const bx=x+w-bw-4,by=y+4;
+  ctx.fillStyle='rgba(0,0,0,0.82)';
+  ctx.beginPath();ctx.roundRect(bx,by,bw,bh,5);ctx.fill();
+  ctx.strokeStyle='rgba(200,168,75,0.55)';ctx.lineWidth=1;ctx.stroke();
+  ctx.fillStyle='#e8d47a';ctx.textAlign='center';
+  ctx.fillText(text,bx+bw/2,by+13);
 }
 function wrapText(ctx,text,x,y,maxW,lineH){
   const words=text.split(' ');let line='';
