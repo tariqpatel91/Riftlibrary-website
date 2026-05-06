@@ -1126,16 +1126,24 @@ function switchDDTab(tab){
 }
 function buildCardsGalleryView(d){
   const d2=myDecks.find(x=>x.id===activeDeckId);if(!d2)return'';
-  function gcards(entries,isBF){
+  // compact=true: render ONE tile per unique entry with an "×N" badge
+  // (used for runes so 8 Calm + 4 Mind shows as two stacks, not 12 tiles).
+  // compact=false (default): render entry.cnt tiles in a row.
+  function gcards(entries,isBF,compact){
     return entries.map(entry=>{
       const full=CARDS.find(c=>c.id===entry.id);
       const img=full?full.imageUrl:'';
       const si=(entry.id||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const imgInner=img
+        ?`<img src="${img}" alt="${entry.n}" loading="lazy">`
+        :`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${entry.n}</div>`;
+      if(compact){
+        const cntBadge=(entry.cnt||1)>1?`<div class="gallery-card-cnt">×${entry.cnt}</div>`:'';
+        return `<div class="gallery-card${isBF?' gallery-card-bf':''}" onclick="openCardModal('${si}')" title="${entry.n}">${imgInner}${cntBadge}</div>`;
+      }
       const tiles=[];
       for(let i=0;i<(entry.cnt||1);i++){
-        tiles.push(`<div class="gallery-card${isBF?' gallery-card-bf':''}" onclick="openCardModal('${si}')" title="${entry.n}">
-          ${img?`<img src="${img}" alt="${entry.n}" loading="lazy">`:`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${entry.n}</div>`}
-        </div>`);
+        tiles.push(`<div class="gallery-card${isBF?' gallery-card-bf':''}" onclick="openCardModal('${si}')" title="${entry.n}">${imgInner}</div>`);
       }
       return tiles.join('');
     }).join('');
@@ -1149,6 +1157,11 @@ function buildCardsGalleryView(d){
   const champion=d2.champion?[{...d2.champion,cnt:1}]:[];
   const mainDeck=d2.cards?d2.cards.filter(c=>c.t!=='Legend'):[];
   const runes=d2.runes||[];
+  // Group runes by id so 8 Calm + 4 Mind renders as two stacks with
+  // ×N badges instead of 12 individual tiles.
+  const runeGrouped={};
+  runes.forEach(r=>{if(!runeGrouped[r.id])runeGrouped[r.id]={id:r.id,n:r.n,cnt:0};runeGrouped[r.id].cnt++;});
+  const runesCompact=Object.values(runeGrouped);
   const bfs=d2.battlefields?d2.battlefields.filter(Boolean):[];
   const sb=d2.sideboard||[];
   // Counts shown next to each section header
@@ -1164,7 +1177,7 @@ function buildCardsGalleryView(d){
   topRow+=section('Legend',`${legendCnt}/1`,gcards(legend,false),false,'gallery-section-compact');
   topRow+=section('Champion',`${champCnt}/1`,gcards(champion,false),false,'gallery-section-compact');
   topRow+=section('Battlefield',`${bfCnt}/3`,`<div class="cards-gallery-view-bf">${gcards(bfs,true)}</div>`,true,'gallery-section-compact');
-  topRow+=section('Runes',`${runeCnt}/12`,gcards(runes,false),false,'gallery-section-compact');
+  topRow+=section('Runes',`${runeCnt}/12`,gcards(runesCompact,false,true),false,'gallery-section-compact');
   let html=`<div class="gallery-top-row">${topRow}</div>`;
   if(mainDeck.length) html+=section('Main Deck',`${mainCnt}/40`,gcards(mainDeck,false));
   if(sb.length) html+=section('Sideboard',`${sbCnt}/8`,gcards(sb,false));
