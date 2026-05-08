@@ -3406,11 +3406,12 @@ function openCardModal(cardId){
   const owned=collOwned[c.id]||0;
   const sid=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 
+  const isBF=c.type==='Battlefield';
   document.getElementById('card-modal-body').innerHTML=`
-    <div class="cm-layout">
-      <div class="cm-img-col">
+    <div class="cm-layout${isBF?' cm-layout-bf':''}">
+      <div class="cm-img-col${isBF?' cm-img-col-bf':''}">
         ${c.imageUrl
-          ?`<img src="${c.imageUrl}" alt="${c.name}" class="cm-img">`
+          ?`<img src="${c.imageUrl}" alt="${c.name}" class="cm-img${isBF?' cm-img-bf':''}">`
           :`<div class="cm-img cm-img-empty"><span style="color:var(--text-muted);">No image</span></div>`}
         <div class="cm-coll-row">
           <button class="cm-coll-btn cm-coll-add" onclick="cmCollChange('${sid}',1)" title="Add to collection">${owned>0?`(${owned}) `:''}+ Add to Collection</button>
