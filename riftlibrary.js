@@ -4216,102 +4216,81 @@ function _addCardSilent(cardId,binderId){
   persistBinders();renderCollection();
 }
 
-// Search state for binder edit library
-const BEF={q:'',type:'',dom:''};
-function setBefField(k,v){BEF[k]=v;renderCollection();}
+/* ── Binder drag-and-drop ────────────────────────── */
+// Drag a card thumb from the bottom collection grid into the top binder slot.
+// Only owned cards are draggable (the cards-grid filters to owned in edit mode),
+// and the drop handler double-checks ownership so no funny business slips in.
+function binderCollDragStart(e,cardId){
+  _DRAG={src:'coll',id:cardId};
+  if(e&&e.dataTransfer){e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('text/plain',cardId);}
+}
+function binderSlotDragOver(e){
+  if(!_DRAG||_DRAG.src!=='coll')return;
+  e.preventDefault();
+  if(e.dataTransfer)e.dataTransfer.dropEffect='copy';
+  e.currentTarget.classList.add('drag-over');
+}
+function binderSlotDragLeave(e){
+  if(e.relatedTarget&&e.currentTarget.contains(e.relatedTarget))return;
+  e.currentTarget.classList.remove('drag-over');
+}
+function binderSlotDrop(e,binderId){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const id=(_DRAG&&_DRAG.src==='coll'&&_DRAG.id)||(e.dataTransfer&&e.dataTransfer.getData('text/plain'))||'';
+  _DRAG=null;
+  if(!id)return;
+  if(!(collOwned[id]||0)){toast('Only owned cards can go in a binder');return;}
+  _addCardSilent(id,binderId);
+}
 
-function renderBinderEditLayout(binder){
-  const RR={Legendary:5,Epic:4,Rare:3,Uncommon:2,Common:1,Showcase:0,Promo:0};
-  const seen=new Map();
-  CARDS.forEach(c=>{
-    const key=baseName(c.name).toLowerCase();
-    const ex=seen.get(key);
-    if(!ex||(RR[c.rarity]??1)>(RR[ex.rarity]??1)) seen.set(key,c);
-  });
-  let owned=[...seen.values()].filter(c=>collOwned[c.id]).sort((a,b)=>a.name.localeCompare(b.name));
-  if(BEF.q) owned=owned.filter(c=>c.name.toLowerCase().includes(BEF.q.toLowerCase())||(c.txt||'').toLowerCase().includes(BEF.q.toLowerCase()));
-  if(BEF.type) owned=owned.filter(c=>c.type===BEF.type||(BEF.type==='Champion'&&(c.supertype||'').toLowerCase().includes('champion')));
-  if(BEF.dom) owned=owned.filter(c=>(c.doms||[]).includes(BEF.dom));
-
-  // Build left library card thumbs
-  const leftCards=owned.map(c=>{
-    const entry=_binderHas(binder,c.id);
-    const inBinderCnt=entry?entry.cnt:0;
-    const ownedCnt=collOwned[c.id]||0;
-    const maxed=ownedCnt>0&&inBinderCnt>=ownedCnt;
-    return `<div class="be-thumb${inBinderCnt>0?' in-binder':''}${maxed?' maxed':''}" onclick="_addCardSilent('${c.id}',${binder.id})" title="${c.name} — click to add (${inBinderCnt}/${ownedCnt} in binder)">
-      <div class="be-thumb-img">
-        ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="edit-card-no-img"><div class="ecn-name">${c.name}</div></div>`}
-      </div>
-      <div class="be-thumb-owned">${inBinderCnt}/${ownedCnt}</div>
-      ${maxed?`<div class="be-thumb-incheck">✓</div>`:`<div class="be-thumb-add">+</div>`}
-      <div class="be-thumb-name">${c.name}</div>
-    </div>`;
-  }).join('');
-
-  // Group binder cards by type
+// Build the in-page binder slot that takes over the sets-grid area when a
+// binder is open. Shows the binder cards grouped by type; in edit mode it's
+// a drop target for cards dragged out of the bottom collection grid.
+function _renderBinderSlot(binder,isEdit){
+  const total=_binderTotal(binder);
   const groupOrder=['Champion','Unit','Spell','Gear','Battlefield','Rune','Legend'];
   const groups={};
-  binder.cards.forEach(entry=>{
+  (binder.cards||[]).forEach(entry=>{
     const c=CARDS.find(x=>x.id===entry.id);
     if(!c)return;
-    const t=c.supertype&&c.supertype.toLowerCase().includes('champion')?'Champion':(c.type||'Other');
+    const t=(c.supertype&&c.supertype.toLowerCase().includes('champion'))?'Champion':(c.type||'Other');
     if(!groups[t])groups[t]=[];
     groups[t].push({card:c,cnt:entry.cnt});
   });
-
-  let rightHtml='';
-  const totalInBinder=_binderTotal(binder);
-  if(!totalInBinder){
-    rightHtml=`<div style="padding:3rem 1rem;text-align:center;color:var(--text-muted);font-size:13px;">This binder is empty. Click any card on the left to add it.</div>`;
+  const orderedGroups=[...groupOrder.filter(t=>groups[t]),...Object.keys(groups).filter(t=>!groupOrder.includes(t))];
+  const isStatic=!!binder._static;
+  const dropAttrs=isEdit?` ondragover="binderSlotDragOver(event)" ondragleave="binderSlotDragLeave(event)" ondrop="binderSlotDrop(event,${binder.id})"`:'';
+  let inner='';
+  if(!total){
+    const hint=binder._kind==='wishlist'
+      ?'Wishlist is empty. Heart any card on the cards or collection page to add it here.'
+      :binder._kind==='extras'
+        ?'No extras yet. When you mark more than 3 copies of a card as owned, the surplus shows up here.'
+        :isEdit?'Drag owned cards from below to add them. Only cards you own can go in a binder.':'This binder is empty. Switch to Edit mode to add cards.';
+    inner=`<div class="cbs-empty">${hint}</div>`;
   } else {
-    const orderedGroups=[...groupOrder.filter(t=>groups[t]),...Object.keys(groups).filter(t=>!groupOrder.includes(t))];
-    rightHtml=orderedGroups.map(t=>{
-      const cards=groups[t].sort((a,b)=>a.card.name.localeCompare(b.card.name));
+    inner=orderedGroups.map(t=>{
+      const cards=groups[t].slice().sort((a,b)=>a.card.name.localeCompare(b.card.name));
       const groupTotal=cards.reduce((a,e)=>a+e.cnt,0);
-      return `<div class="be-group">
-        <div class="be-group-header">${t.toUpperCase()} <span style="color:var(--text-muted);font-weight:500;">(${groupTotal})</span></div>
-        <div class="be-group-grid">
-          ${cards.map(({card:c,cnt})=>{
-            return `<div class="be-binder-card" onclick="removeCardFromBinder('${c.id}',${binder.id})" title="${c.name} — click to remove one copy">
-              ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="be-binder-no-img">${c.name}</div>`}
-              <div class="be-binder-cnt">×${cnt}</div>
-              <div class="be-binder-rm">−</div>
-            </div>`;
-          }).join('')}
-        </div>
+      const clickRemoves=isStatic||isEdit;
+      const cardHtml=cards.map(({card:c,cnt})=>{
+        const si=c.id.replace(/'/g,"\\'");
+        const bf=c.type==='Battlefield';
+        const rmFn=binder._kind==='wishlist'?`toggleCollWanted('${si}')`:binder._kind==='extras'?`setCollOwned('${si}',-1)`:`removeCardFromBinder('${si}',${binder.id})`;
+        const titleSuffix=clickRemoves?' — click to remove one':'';
+        return `<div class="cbs-card${bf?' cbs-card-bf':''}" title="${c.name}${titleSuffix}" onclick="${clickRemoves?rmFn:`openCardModal('${si}')`}">
+          ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="cbs-no-img">${c.name}</div>`}
+          ${cnt>1?`<div class="cbs-cnt">×${cnt}</div>`:''}
+        </div>`;
+      }).join('');
+      return `<div class="cbs-group">
+        <div class="cbs-group-hdr">${t.toUpperCase()} <span style="color:var(--text-muted);font-weight:500;">(${groupTotal})</span></div>
+        <div class="cbs-group-grid">${cardHtml}</div>
       </div>`;
     }).join('');
   }
-
-  // Filters above the library
-  const types=['','Champion','Unit','Spell','Gear','Battlefield','Rune'];
-  const doms=['','fury','chaos','calm','mind','body','order'];
-  const filtersHtml=`
-    <div class="be-search-wrap">
-      <span class="be-search-icon">⌕</span>
-      <input class="be-search" type="text" placeholder="Search owned cards…" value="${BEF.q.replace(/"/g,'&quot;')}" oninput="setBefField('q',this.value)">
-    </div>
-    <div class="be-filter-row">
-      ${types.map(t=>`<button class="be-pill${BEF.type===t?' on':''}" onclick="setBefField('type','${t}')">${t||'All'}</button>`).join('')}
-    </div>
-    <div class="be-filter-row">
-      ${doms.map(d=>`<button class="be-dom-pill ${d}${BEF.dom===d?' on':''}" onclick="setBefField('dom','${d}')">${d?d[0].toUpperCase()+d.slice(1):'All'}</button>`).join('')}
-    </div>`;
-
-  return `<div class="binder-edit-grid">
-    <div class="be-left">
-      <div class="be-section-title">Your Collection <span style="color:var(--text-muted);font-weight:400;">(${owned.length} cards)</span></div>
-      ${filtersHtml}
-      <div class="be-library-grid">
-        ${leftCards||'<div style="padding:2rem;color:var(--text-muted);font-size:12px;text-align:center;">No owned cards match.</div>'}
-      </div>
-    </div>
-    <div class="be-right">
-      <div class="be-section-title">${binder.name} <span style="color:var(--text-muted);font-weight:400;">(${totalInBinder} cards)</span></div>
-      ${rightHtml}
-    </div>
-  </div>`;
+  return `<div class="coll-binder-slot${isEdit?' coll-binder-slot-edit':''}"${dropAttrs}>${inner}</div>`;
 }
 
 function openAddToBinderModal(cardId){
@@ -4514,11 +4493,11 @@ function renderCollection(){
       :activeBinder._kind==='extras'
         ?'Cards you own more than 3 copies of'
         :'';
-    html+=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
+    html+=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
       ${icon?`<span style="font-size:22px;">${icon}</span>`:''}
       <div style="flex:1;min-width:140px;">
         <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">${activeBinder.name}</div>
-        <div style="font-size:12px;color:var(--text-muted);">${_binderTotal(activeBinder)} card${_binderTotal(activeBinder)!==1?'s':''}${subtitle?' • '+subtitle:''}${isEdit?' • adding from collection':''}</div>
+        <div style="font-size:12px;color:var(--text-muted);">${_binderTotal(activeBinder)} card${_binderTotal(activeBinder)!==1?'s':''}${subtitle?' • '+subtitle:''}${isEdit?' • drag owned cards from below to add':''}</div>
       </div>
       ${activeBinder._static?'':`<div class="binder-mode-toggle">
         <button class="bmt ${!isEdit?'on':''}" onclick="setBinderMode('view')">👁 View</button>
@@ -4528,13 +4507,8 @@ function renderCollection(){
       <button class="btn btn-d" style="font-size:12px;" onclick="deleteBinder(${activeBinder.id})">Delete</button>`}
     </div>`;
 
-    // Binder Edit mode → deck-builder-style 2-column layout
-    if(isEdit){
-      html+=renderBinderEditLayout(activeBinder);
-      html+=`</div></div>`;
-      el.innerHTML=html;
-      return;
-    }
+    // Binder slot — replaces the sets-grid area as a drop zone in edit mode.
+    html+=_renderBinderSlot(activeBinder,isEdit);
   }
 
   // filter source — use per-set cards (not allUnique) when a set is selected so promos appear
@@ -4621,9 +4595,14 @@ function renderCollection(){
       const si=c.id.replace(/'/g,"\\'");
       const ownedLabel=owned>=15?'15+':String(owned);
       const inWishlistView=CF2.show==='wanted';
+      const bfCls=c.type==='Battlefield'?' coll-card-bf':'';
+      // Drag enabled only when an editable binder is active and this card is
+      // actually owned — those are the only cards we let drop into a binder.
+      const canDragToBinder=!!activeBinder&&!activeBinder._static&&CF2.binderMode==='edit'&&owned>0;
+      const dragAttrs=canDragToBinder?` draggable="true" ondragstart="binderCollDragStart(event,'${si}')" ondragend="_DRAG=null"`:'';
       if(inWishlistView){
         const need=Math.max(0,wantedCount-owned);
-        html+=`<div class="coll-card wanted-card ${isComplete?'complete':owned>0?'owned':''}" title="${c.name}" onclick="openCardModal('${si}')">
+        html+=`<div class="coll-card wanted-card${bfCls} ${isComplete?'complete':owned>0?'owned':''}" title="${c.name}" onclick="openCardModal('${si}')">
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
           <div class="coll-card-badge coll-badge-wanted">♥ ×${wantedCount}</div>
           <div class="coll-card-actions">
@@ -4660,7 +4639,7 @@ function renderCollection(){
         }
         const inBinderView=!!activeBinder;
         const hideOwnerControls=inBinderView||CF2.collMode==='view';
-        html+=`<div class="coll-card ${cls}${isWanted?' wishlisted':''}${hideOwnerControls?' in-binder-view':''}" title="${c.name}" onclick="openCardModal('${si}')">
+        html+=`<div class="coll-card ${cls}${bfCls}${isWanted?' wishlisted':''}${hideOwnerControls?' in-binder-view':''}${dragAttrs?' coll-card-draggable':''}" title="${c.name}" onclick="openCardModal('${si}')"${dragAttrs}>
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
           ${hideOwnerControls?'':`<button class="coll-wishlist-top-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>`}
           ${binderRemoveBtn}
