@@ -4128,6 +4128,32 @@ rlBinders.forEach(b=>{
 
 function _binderTotal(b){return (b.cards||[]).reduce((a,e)=>a+(e.cnt||0),0);}
 function _binderHas(b,id){return (b.cards||[]).find(e=>e.id===id);}
+
+// Cards the user has explicitly hidden from the auto-populated Extras binder.
+// We don't drop ownership when this happens — the cards stay in the collection,
+// they just disappear from the Extras view until the user hits "Show hidden"
+// or buys yet more copies (gaining new extras the snapshot didn't cover).
+let collExtrasHidden=JSON.parse(localStorage.getItem('rl_extras_hidden')||'{}');
+function persistExtrasHidden(){localStorage.setItem('rl_extras_hidden',JSON.stringify(collExtrasHidden));}
+// A card stays hidden only while owned <= the count snapshotted at hide time.
+// If the user later buys another copy, the new extras are presumably interesting
+// again and the card resurfaces automatically.
+function _isExtraHidden(id){
+  const at=collExtrasHidden[id];
+  return at!=null&&(collOwned[id]||0)<=at;
+}
+function hideFromExtras(cardId){
+  collExtrasHidden[cardId]=collOwned[cardId]||0;
+  persistExtrasHidden();
+  toast('Hidden from Extras');
+  renderCollection();
+}
+function showAllExtras(){
+  collExtrasHidden={};
+  persistExtrasHidden();
+  renderCollection();
+}
+
 const CF2={q:'',type:'',dom:'',rar:'',set:'',show:'all',view:'grid',binder:'',binderMode:'view',collMode:'edit',showGrey:true};
 function toggleCollGrey(){CF2.showGrey=!CF2.showGrey;renderCollection();}
 
@@ -4277,8 +4303,12 @@ function _renderBinderSlot(binder,isEdit){
       const cardHtml=cards.map(({card:c,cnt})=>{
         const si=c.id.replace(/'/g,"\\'");
         const bf=c.type==='Battlefield';
-        const rmFn=binder._kind==='wishlist'?`toggleCollWanted('${si}')`:binder._kind==='extras'?`setCollOwned('${si}',-1)`:`removeCardFromBinder('${si}',${binder.id})`;
-        const titleSuffix=clickRemoves?' — click to remove one':'';
+        // Extras is auto-derived from collOwned, so "remove" can't mean
+        // dropping ownership — that would shrink the user's collection. Hide
+        // the card from the Extras view instead and leave the count intact.
+        const rmFn=binder._kind==='wishlist'?`toggleCollWanted('${si}')`:binder._kind==='extras'?`hideFromExtras('${si}')`:`removeCardFromBinder('${si}',${binder.id})`;
+        const removeWord=binder._kind==='extras'?'hide from Extras':'remove one';
+        const titleSuffix=clickRemoves?` — click to ${removeWord}`:'';
         return `<div class="cbs-card${bf?' cbs-card-bf':''}" title="${c.name}${titleSuffix}" onclick="${clickRemoves?rmFn:`openCardModal('${si}')`}">
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="cbs-no-img">${c.name}</div>`}
           ${cnt>1?`<div class="cbs-cnt">×${cnt}</div>`:''}
@@ -4386,12 +4416,16 @@ function renderCollection(){
 
   // ── Binder sidebar ──
   const wishlistCount=Object.keys(collWanted).filter(id=>collWanted[id]).length;
-  const extrasCount=Object.values(collOwned).filter(n=>n>3).length;
+  // Extras = cards owned in quantities of 4+ (one playset is fine, anything
+  // above is "extras"). Cards the user has dismissed via hideFromExtras stay
+  // out of the count until ownership grows past the snapshotted total.
+  const extrasIds=Object.keys(collOwned).filter(id=>(collOwned[id]||0)>3&&!_isExtraHidden(id));
+  const extrasCount=extrasIds.length;
   let activeBinder=null;
   if(CF2.binder==='wishlist'){
     activeBinder={id:'wishlist',name:'♥ Wishlist',_static:true,_kind:'wishlist',cards:Object.keys(collWanted).filter(id=>collWanted[id]).map(id=>({id,cnt:collWanted[id]===true?3:(collWanted[id]||0)}))};
   } else if(CF2.binder==='extras'){
-    activeBinder={id:'extras',name:'Extra Cards',_static:true,_kind:'extras',cards:Object.keys(collOwned).filter(id=>(collOwned[id]||0)>3).map(id=>({id,cnt:(collOwned[id]||0)-3}))};
+    activeBinder={id:'extras',name:'Extra Cards',_static:true,_kind:'extras',cards:extrasIds.map(id=>({id,cnt:(collOwned[id]||0)-3}))};
   } else if(CF2.binder){
     activeBinder=rlBinders.find(x=>x.id===CF2.binder);
   }
@@ -4426,8 +4460,13 @@ function renderCollection(){
   });
   sidebarHtml+=`</div>`;
 
-  let html=`<div class="ph coll-ph-centered"><h1>My Collection</h1><p>Track your Riftbound card collection</p></div>`;
+  // When a binder is open, the binder slot takes the prime real estate at the
+  // top, so the page title slides down to sit just above the controls/search.
+  // No binder open → page title stays at the very top, above the mode toggle.
+  const titleHtml=`<div class="ph coll-ph-centered"><h1>My Collection</h1><p>Track your Riftbound card collection</p></div>`;
+  let html='';
   if(!activeBinder){
+    html+=titleHtml;
     html+=`<div class="coll-mode-toggle-wrap">
       <button class="cmt ${CF2.collMode==='view'?'on':''}" onclick="setCollMode('view')">👁 View my Collection</button>
       <button class="cmt ${CF2.collMode==='edit'?'on':''}" onclick="setCollMode('edit')">✎ Edit my Collection</button>
@@ -4488,10 +4527,11 @@ function renderCollection(){
     // Binder header
     const isEdit=CF2.binderMode==='edit'&&!activeBinder._static;
     const icon=activeBinder._kind==='wishlist'?'♥':activeBinder._kind==='extras'?'📦':'';
+    const hiddenExtrasCount=activeBinder._kind==='extras'?Object.keys(collExtrasHidden).filter(_isExtraHidden).length:0;
     const subtitle=activeBinder._kind==='wishlist'
       ?'Auto-updates from your wishlist'
       :activeBinder._kind==='extras'
-        ?'Cards you own more than 3 copies of'
+        ?'Cards you own 4+ copies of — auto-populates'
         :'';
     html+=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
       ${icon?`<span style="font-size:22px;">${icon}</span>`:''}
@@ -4499,6 +4539,7 @@ function renderCollection(){
         <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">${activeBinder.name}</div>
         <div style="font-size:12px;color:var(--text-muted);">${_binderTotal(activeBinder)} card${_binderTotal(activeBinder)!==1?'s':''}${subtitle?' • '+subtitle:''}${isEdit?' • drag owned cards from below to add':''}</div>
       </div>
+      ${hiddenExtrasCount?`<button class="btn btn-g" style="font-size:12px;" onclick="showAllExtras()" title="Restore cards you've hidden from Extras">Show ${hiddenExtrasCount} hidden</button>`:''}
       ${activeBinder._static?'':`<div class="binder-mode-toggle">
         <button class="bmt ${!isEdit?'on':''}" onclick="setBinderMode('view')">👁 View</button>
         <button class="bmt ${isEdit?'on':''}" onclick="setBinderMode('edit')">✎ Edit</button>
@@ -4518,7 +4559,7 @@ function renderCollection(){
     if(activeBinder._kind==='wishlist'){
       source=source.filter(c=>collWanted[c.id]);
     } else if(activeBinder._kind==='extras'){
-      source=source.filter(c=>(collOwned[c.id]||0)>3);
+      source=source.filter(c=>(collOwned[c.id]||0)>3&&!_isExtraHidden(c.id));
     } else if(CF2.binderMode==='edit'){
       // show only owned cards (from the user's collection) so they can pick what to add
       source=source.filter(c=>collOwned[c.id]);
@@ -4543,6 +4584,7 @@ function renderCollection(){
   });
 
   // controls
+  if(activeBinder) html+=titleHtml;
   html+=`<div class="coll-controls">
     <div class="coll-search-wrap">
       <span class="coll-search-icon">⌕</span>
@@ -4618,7 +4660,7 @@ function renderCollection(){
           if(activeBinder._kind==='wishlist'){
             binderRemoveBtn=`<button class="coll-binder-btn remove" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="Remove from wishlist">✕</button>`;
           } else if(activeBinder._kind==='extras'){
-            binderRemoveBtn=`<button class="coll-binder-btn remove" onclick="event.stopPropagation();setCollOwned('${si}',-1)" title="Remove one extra copy">✕</button>`;
+            binderRemoveBtn=`<button class="coll-binder-btn remove" onclick="event.stopPropagation();hideFromExtras('${si}')" title="Hide from Extras (keeps ownership)">✕</button>`;
           } else if(CF2.binderMode==='edit'){
             const inBinder=!!_binderHas(activeBinder,c.id);
             binderRemoveBtn=inBinder
