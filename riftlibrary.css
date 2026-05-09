@@ -646,10 +646,10 @@ select option{background:#1e1e2a;}
    redesign so the read-only Decklist tab is unaffected. */
 .deck-type-block{display:flex;flex-direction:column;gap:8px;align-items:center;}
 .deck-type-lbl{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;font-weight:700;text-align:center;width:100%;}
-/* Deck Edit tab ONLY (#edit-right): title rotated 90° CCW on the LEFT,
-   card rows stacked vertically on the right inside .deck-type-rows. */
-#edit-right .deck-type-block{display:flex;flex-direction:row;align-items:flex-start;gap:14px;}
-#edit-right .deck-type-lbl{flex:0 0 28px;font-size:13px;letter-spacing:0.16em;line-height:1;padding:8px 0;writing-mode:vertical-rl;transform:rotate(180deg);text-align:start;align-self:stretch;display:flex;align-items:center;justify-content:center;width:auto;}
+/* Deck Edit tab ONLY (#edit-right): title sits horizontally above each
+   section, card rows stacked vertically below inside .deck-type-rows. */
+#edit-right .deck-type-block{display:flex;flex-direction:column;align-items:stretch;gap:8px;}
+#edit-right .deck-type-lbl{font-size:13px;letter-spacing:0.12em;line-height:1;text-align:left;padding:0 2px;}
 #edit-right .deck-type-rows{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:8px;}
 /* flex-wrap:wrap so a section with 30+ unique cards (rare but possible
    when running an oversized brewing deck) flows onto multiple rows in

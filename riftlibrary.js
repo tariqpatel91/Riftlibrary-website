@@ -1554,35 +1554,18 @@ function addDirectToMB(deckId,cardId,cardName,cardType){
   persist();renderEditSearch();renderEditPreview();
 }
 
-function renderEditSearch(){
-  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
-  const left=document.getElementById('edit-left');if(!left)return;
-  const wasFocused=document.activeElement&&document.activeElement.id==='edit-search-inp';
+function _editFilterAndPage(d){
   const savedVal=(document.getElementById('edit-search-inp')||{}).value||'';
   const q=savedVal.toLowerCase().trim();
-
-  if(!cardsLoaded||!CARDS.length){
-    left.innerHTML='<div style="text-align:center;padding:2rem;color:var(--text-muted);">'
-      +'<div style="font-size:13px;margin-bottom:8px;">Cards still loading from Riftcodex…</div>'
-      +'<button class="btn btn-sm btn-g" onclick="fetchAllCards()">Load now</button>'
-      +'</div>';
-    return;
-  }
-
   // Foil entries are separate collectibles; the deck editor never includes
   // them as deckable cards (decks list non-foil cards) unless the user is
   // explicitly filtering by Foil variant. Tokens are also excluded — they're
   // generated in-game, never deckable, and just clutter the library grid.
-  // Signature cards are scoped to the deck's chosen legend: a Diana deck
-  // can never include Ezreal's Arcane Shift, etc. Each signature card
-  // mentions its champion in the name / text / tags, so we match the deck's
-  // base legend name (e.g. "Diana, Scorn of the Moon" → "diana") against
-  // those fields. Same logic the Subtype:Signature Card filter used to do
-  // explicitly, but applied unconditionally now.
+  // Signature cards are scoped to the deck's chosen legend.
   const _deckLegBase=(d.legend||'').split(/\s*[-–]\s*/)[0].toLowerCase().trim();
   function _signatureMatchesLegend(c){
-    if(c.supertype!=='Signature') return true; // non-signatures unaffected
-    if(!_deckLegBase) return true;             // no legend chosen yet — show all
+    if(c.supertype!=='Signature') return true;
+    if(!_deckLegBase) return true;
     return c.name.toLowerCase().includes(_deckLegBase) ||
            c.txt.toLowerCase().includes(_deckLegBase) ||
            (c.tags||[]).some(t=>String(t).toLowerCase().includes(_deckLegBase));
@@ -1596,7 +1579,6 @@ function renderEditSearch(){
   );
   const deckDoms=d.domains||[];
   if(deckDoms.length){source=source.filter(c=>c.type==='Rune'||c.type==='Battlefield'||c.doms.length===0||c.doms.every(dom=>deckDoms.includes(dom)));}
-  // Rune tab: only show runes matching deck domains
   if(EF.type==='Rune'&&deckDoms.length){source=source.filter(c=>c.type==='Rune'&&(c.doms.length===0||c.doms.every(dom=>deckDoms.includes(dom))));}
   if(q) source=source.filter(c=>c.name.toLowerCase().includes(q)||c.txt.toLowerCase().includes(q));
   if(EF.type==='Champion') source=source.filter(c=>(c.supertype||'').toLowerCase().includes('champion')&&c.type!=='Legend');
@@ -1609,10 +1591,6 @@ function renderEditSearch(){
     else if(EF.subtype==='Reaction') source=source.filter(c=>c.txt.toLowerCase().includes('[reaction]'));
     else if(EF.subtype==='Champion') source=source.filter(c=>c.supertype==='Champion');
     else if(EF.subtype==='Signature Card') source=source.filter(c=>c.supertype==='Signature');
-    // Note: legend-scoping for signature cards is handled by
-    // _signatureMatchesLegend in the base source filter above, so it
-    // applies whether the user explicitly picks the Signature Card subtype
-    // or not.
     else if(EF.subtype==='Token') source=source.filter(c=>c.type==='Token'||c.supertype==='Token');
   }
   if(EF.variant){
@@ -1640,12 +1618,30 @@ function renderEditSearch(){
     source=[...seen.values()];
   }
   source=source.slice().sort((a,b)=>a.name.localeCompare(b.name));
-
   const total=source.length;
   const perPage=getEditPer();
   const pages=Math.max(1,Math.ceil(total/perPage));
   if(EF.page>pages) EF.page=pages;
   const slice=source.slice((EF.page-1)*perPage,EF.page*perPage);
+  return {slice,total,pages};
+}
+
+function renderEditSearch(){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const left=document.getElementById('edit-left');if(!left)return;
+  const wasFocused=document.activeElement&&document.activeElement.id==='edit-search-inp';
+  const savedVal=(document.getElementById('edit-search-inp')||{}).value||'';
+
+  if(!cardsLoaded||!CARDS.length){
+    left.innerHTML='<div style="text-align:center;padding:2rem;color:var(--text-muted);">'
+      +'<div style="font-size:13px;margin-bottom:8px;">Cards still loading from Riftcodex…</div>'
+      +'<button class="btn btn-sm btn-g" onclick="fetchAllCards()">Load now</button>'
+      +'</div>';
+    return;
+  }
+
+  const {slice,total,pages}=_editFilterAndPage(d);
+  const deckDoms=d.domains||[];
 
   const TYPES=['','Champion','Unit','Spell','Gear','Rune','Battlefield'];
   const TYPE_LABELS={'':'All','Champion':'Champion','Unit':'Unit','Spell':'Spell','Gear':'Gear','Rune':'Rune','Battlefield':'Battlefield'};
@@ -1712,7 +1708,19 @@ function renderEditSearch(){
     +efSlider('might',0,12,12,[0,2,4,6,8,10,12])
     +'</div>';
 
-  html+='<div class="edit-card-grid">';
+  html+='<div id="edit-results-wrap">';
+  html+=_buildEditResultsHtml(d,slice,total,pages);
+  html+='</div>';
+
+  left.innerHTML=html;
+  left.ondragover=e=>{e.preventDefault();left.classList.add('drag-over');};
+  left.ondragleave=e=>{if(!e.relatedTarget||!left.contains(e.relatedTarget))left.classList.remove('drag-over');};
+  left.ondrop=e=>{e.preventDefault();left.classList.remove('drag-over');if(_DRAG&&_DRAG.src==='deck'){if(_DRAG.t==='Champion')removeChampionZone();else editDeckCard(_DRAG.id,_DRAG.n,_DRAG.t,-1);}_DRAG=null;};
+  if(wasFocused){const inp=document.getElementById('edit-search-inp');if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}}
+}
+
+function _buildEditResultsHtml(d,slice,total,pages){
+  let html='<div class="edit-card-grid">';
   if(!slice.length){
     html+='<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--text-muted);font-size:13px;">No cards found</div>';
   } else {
@@ -1762,12 +1770,15 @@ function renderEditSearch(){
     html+=`<button class="edit-page-btn"${EF.page===pages?' disabled':''} onclick="setEditPage(${EF.page+1})">Next</button>`;
     html+='</div>';
   }
+  return html;
+}
 
-  left.innerHTML=html;
-  left.ondragover=e=>{e.preventDefault();left.classList.add('drag-over');};
-  left.ondragleave=e=>{if(!e.relatedTarget||!left.contains(e.relatedTarget))left.classList.remove('drag-over');};
-  left.ondrop=e=>{e.preventDefault();left.classList.remove('drag-over');if(_DRAG&&_DRAG.src==='deck'){if(_DRAG.t==='Champion')removeChampionZone();else editDeckCard(_DRAG.id,_DRAG.n,_DRAG.t,-1);}_DRAG=null;};
-  if(wasFocused){const inp=document.getElementById('edit-search-inp');if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}}
+function renderEditResults(){
+  const wrap=document.getElementById('edit-results-wrap');
+  if(!wrap){renderEditSearch();return;}
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const {slice,total,pages}=_editFilterAndPage(d);
+  wrap.innerHTML=_buildEditResultsHtml(d,slice,total,pages);
 }
 
 function buildPageNums(cur,total){
@@ -1792,7 +1803,6 @@ function updateEditRange(n,which){
     if(lo>hi){loEl.value=hi;lo=hi;}
     if(hi<lo){hiEl.value=lo;hi=lo;}
   }
-  // Update z-index NOW (before re-render destroys these elements)
   const atMax=lo>=max;
   if(lo>=hi){loEl.style.zIndex=atMax?3:1;hiEl.style.zIndex=atMax?1:3;}
   else{loEl.style.zIndex=1;hiEl.style.zIndex=3;}
@@ -1803,7 +1813,9 @@ function updateEditRange(n,which){
   if(lbl)lbl.textContent=(lo===0&&hi===max)?'Any':lo===hi?String(lo):`${lo} – ${hi}`;
   const f=document.getElementById('erf-'+n);
   if(f){f.style.left=(lo/max*100)+'%';f.style.width=((hi-lo)/max*100)+'%';}
-  EF.page=1;renderEditSearch();
+  // Re-filter and update only the results — keep the slider DOM intact so the
+  // active drag isn't interrupted by an innerHTML rebuild of the parent panel.
+  EF.page=1;renderEditResults();
 }
 function setEditType(t){EF.type=t;EF.page=1;renderEditSearch();}
 function setEditDom(d){EF.dom=EF.dom===d?'':d;EF.page=1;renderEditSearch();}
@@ -2304,7 +2316,7 @@ function renderEditPreview(targetEl){
       const typeTotal=uniqueCards.reduce((a,c)=>a+c.cnt,0);
       html+=`<div class="deck-type-block${type==='Gear'?' gear-type-block':''}"><div class="deck-type-lbl">${type} (${typeTotal})</div>`;
       if(isEdit){
-        // Editor: title on the LEFT, balanced row splits when 9+ cards.
+        // Editor: title above the section, balanced row splits when 9+ cards.
         html+='<div class="deck-type-rows">';
         _splitIntoRows(uniqueCards,8).forEach(rowCards=>{
           html+=_renderTypeRow(rowCards,type);
