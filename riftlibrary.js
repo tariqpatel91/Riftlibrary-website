@@ -492,6 +492,22 @@ function setDeckTab(tab){
   if(tab==='team') renderTeamDecksTab();
 }
 
+// Supabase returns a particular error code/message when a table doesn't exist
+// yet ("Could not find the table 'public.X' in the schema cache" / PGRST205).
+// We surface a friendlier setup hint instead of dumping the raw Postgres error
+// at the user, who otherwise has no clue what to do with it.
+function _isMissingTableError(e){
+  if(!e) return false;
+  const msg=String(e.message||e||'').toLowerCase();
+  return msg.includes('schema cache')||msg.includes('does not exist')||msg.includes('public_decks')||e.code==='PGRST205'||e.code==='42P01';
+}
+function _setupHint(tableName){
+  return `<div style="max-width:560px;margin:2rem auto;padding:18px 20px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;text-align:left;">`
+    +`<div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:8px;">Supabase table <code style="background:var(--surface3);padding:1px 6px;border-radius:4px;">${tableName}</code> hasn't been created yet</div>`
+    +`<div style="font-size:13px;color:var(--text-muted);line-height:1.55;">Open <code style="background:var(--surface3);padding:1px 6px;border-radius:4px;">supabase-setup.sql</code> from the repo root, paste its contents into your Supabase project's SQL Editor (Dashboard → SQL Editor → New Query), and hit Run. That creates the table plus the row-level security rules so anyone can read public decks but only the author can edit theirs.</div>`
+    +`</div>`;
+}
+
 async function renderPublicDecks(){
   const el=document.getElementById('public-decks-content');
   if(!el) return;
@@ -500,10 +516,12 @@ async function renderPublicDecks(){
     const {data,error}=await _sb.from('public_decks').select('*').order('created_at',{ascending:false}).limit(50);
     if(error) throw error;
     if(!data||!data.length){
-      el.innerHTML=`<div style="padding:3rem;text-align:center;"><h3 style="margin-bottom:8px;">No public decks yet</h3><p style="color:var(--text-muted);font-size:13px;">Be the first to publish a deck!</p>${_buildPublishBtn()}</div>`;
+      el.innerHTML=`<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Visible to everyone — anyone can browse and import these.</div>`
+        +`<div style="padding:3rem;text-align:center;"><h3 style="margin-bottom:8px;">No public decks yet</h3><p style="color:var(--text-muted);font-size:13px;">Be the first to publish a deck!</p>${_buildPublishBtn()}</div>`;
       return;
     }
-    let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">`
+    let html=`<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Visible to everyone — anyone can browse and import these.</div>`
+      +`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">`
       +`<span style="font-size:13px;color:var(--text-muted);">${data.length} public deck${data.length!==1?'s':''}</span>`
       +_buildPublishBtn()
       +`</div>`;
@@ -539,10 +557,11 @@ async function renderPublicDecks(){
     html+=`</div>`;
     el.innerHTML=html;
   }catch(e){
-    el.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">`
-      +`<div style="margin-bottom:1rem;">Public decks aren't set up yet.</div>`
-      +_buildPublishBtn()
-      +`</div>`;
+    if(_isMissingTableError(e)){
+      el.innerHTML=`<div style="padding:2rem;text-align:center;"><h3 style="margin-bottom:6px;">Public decks aren't set up yet</h3></div>`+_setupHint('public_decks');
+    } else {
+      el.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">Could not load public decks: ${(e&&e.message)||'unknown error'}</div>`;
+    }
   }
 }
 
@@ -551,6 +570,7 @@ function _buildPublishBtn(){
 }
 
 function openPublishDeckModal(){
+  if(!currentUser){toast('Log in to publish a deck');openAuthModal('login');return;}
   if(!myDecks.length){toast('Create a deck first');return;}
   const opts=myDecks.map(d=>`<option value="${d.id}">${d.name} (${d.legend})</option>`).join('');
   const m=document.createElement('div');
@@ -572,14 +592,20 @@ function openPublishDeckModal(){
 }
 
 async function submitPublicDeck(){
+  if(!currentUser){toast('Log in to publish a deck');openAuthModal('login');return;}
   const deckId=document.getElementById('pub-deck-sel').value;
-  const author=(document.getElementById('pub-author').value||'').trim()||'Anonymous';
+  const author=(document.getElementById('pub-author').value||'').trim()
+    ||(currentUser.user_metadata&&(currentUser.user_metadata.username||currentUser.user_metadata.full_name))
+    ||(currentUser.email||'').split('@')[0]
+    ||'Anonymous';
   const description=(document.getElementById('pub-desc').value||'').trim();
   const d=myDecks.find(x=>String(x.id)===String(deckId));
   if(!d){toast('Deck not found');return;}
   const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
   const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
   const payload={
+    user_id:currentUser.id,
+    local_deck_id:String(deckId),
     name:d.name, legend:d.legend, legend_img:dcLegFull?dcLegFull.imageUrl:'',
     format:d.format||'', domains:d.domains||[], cards:d.cards||[],
     card_count:(d.cards||[]).reduce((a,c)=>a+c.cnt,0),
@@ -592,7 +618,11 @@ async function submitPublicDeck(){
     toast('Deck published!');
     setDeckTab('public');
   }catch(e){
-    toast('Could not publish: '+(e.message||'unknown error'));
+    if(_isMissingTableError(e)){
+      toast('Public decks table missing — run supabase-setup.sql in your Supabase SQL Editor');
+    } else {
+      toast('Could not publish: '+(e.message||'unknown error'));
+    }
   }
 }
 
@@ -618,7 +648,8 @@ function renderTeamDecksTab(){
   const el=document.getElementById('team-decks-content');
   if(!el) return;
   const sharedFromTeam=teamDecklists||[];
-  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">`;
+  let html=`<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Visible only to you and your team members.</div>`;
+  html+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">`;
   html+=`<span style="font-size:13px;color:var(--text-muted);">${sharedFromTeam.length} deck${sharedFromTeam.length!==1?'s':''} shared by the team</span>`;
   html+=`<button class="btn btn-g" style="font-size:12px;padding:7px 16px;" onclick="openShareToTeamModal()">+ Share a Deck</button>`;
   html+=`</div>`;
@@ -680,23 +711,27 @@ function isPublishedTeam(id){return !!teamDecklists.find(x=>String(x.deckId)===S
 function persistPublishedPublic(){localStorage.setItem('rl_published_public',JSON.stringify(publishedPublicSet));}
 
 async function publishDeckToPublic(deckId){
+  if(!currentUser){toast('Log in to publish a deck');openAuthModal('login');return;}
   const d=myDecks.find(x=>String(x.id)===String(deckId));
   if(!d){toast('Deck not found');return;}
   if(isPublishedPublic(deckId)){
     if(!confirm(`"${d.name}" is already published to Public Decks. Unpublish it?`))return;
     publishedPublicSet=publishedPublicSet.filter(x=>String(x)!==String(deckId));
     persistPublishedPublic();
-    try{ await _sb.from('public_decks').delete().eq('local_deck_id',String(deckId)); }catch(e){}
+    try{ await _sb.from('public_decks').delete().eq('local_deck_id',String(deckId)).eq('user_id',currentUser.id); }catch(e){}
     toast('Removed from Public Decks');
     renderDecks();
     return;
   }
   if(!confirm(`Publish "${d.name}" to Public Decks? Anyone will be able to view and import it.`))return;
-  const author=(prompt('Publish under what author name?','Anonymous')||'').trim()||'Anonymous';
+  const defaultAuthor=(currentUser.user_metadata&&(currentUser.user_metadata.username||currentUser.user_metadata.full_name))
+    ||(currentUser.email||'').split('@')[0]||'Anonymous';
+  const author=(prompt('Publish under what author name?',defaultAuthor)||'').trim()||defaultAuthor;
   const description=(prompt('Short description (optional):','')||'').trim();
   const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
   const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
   const payload={
+    user_id:currentUser.id,
     name:d.name, legend:d.legend, legend_img:dcLegFull?dcLegFull.imageUrl:'',
     format:d.format||'', domains:d.domains||[], cards:d.cards||[],
     card_count:(d.cards||[]).reduce((a,c)=>a+c.cnt,0),
@@ -710,7 +745,11 @@ async function publishDeckToPublic(deckId){
     toast('Deck published to Public Decks!');
     renderDecks();
   }catch(e){
-    toast('Could not publish: '+(e.message||'unknown error'));
+    if(_isMissingTableError(e)){
+      toast('Public decks table missing — run supabase-setup.sql in your Supabase SQL Editor');
+    } else {
+      toast('Could not publish: '+(e.message||'unknown error'));
+    }
   }
 }
 
@@ -959,11 +998,11 @@ function renderDeckDetail(){
           <div style="position:relative;">
             <button class="cvt-icon-btn" onclick="toggleExportMenu(this)" title="Export deck">↓ Export ▾</button>
             <div class="export-drop" id="export-drop">
-              <button class="export-opt" onclick="exportDeck('tts');closeExportMenu()">🎲 TTS Code</button>
-              <button class="export-opt" onclick="exportDeck('text');closeExportMenu()">📄 Text List</button>
-              <button class="export-opt" onclick="exportDeck('pdf');closeExportMenu()">🖨️ Proxy PDF</button>
-              <button class="export-opt" onclick="exportDeck('image');closeExportMenu()">🖼️ Deck Image</button>
-              <button class="export-opt" onclick="exportDeck('reg');closeExportMenu()">📋 Registration Sheet</button>
+              <button class="export-opt" onclick="exportDeck('tts');closeExportMenu()">TTS Code</button>
+              <button class="export-opt" onclick="exportDeck('text');closeExportMenu()">Text List</button>
+              <button class="export-opt" onclick="exportDeck('pdf');closeExportMenu()">Proxy PDF</button>
+              <button class="export-opt" onclick="exportDeck('image');closeExportMenu()">Deck Image</button>
+              <button class="export-opt" onclick="exportDeck('reg');closeExportMenu()">Registration Sheet</button>
             </div>
           </div>
         </div>
