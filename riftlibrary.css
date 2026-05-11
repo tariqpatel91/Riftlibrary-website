@@ -1147,7 +1147,7 @@ body.on-play-tab #play-board{height:100vh;}
 /* Battlefield + opp-BASE zones removed — play area is now ONE giant merged
    BASE zone that fills the full middle column. Both players' battle cards
    render into it via the freeform-positioning renderer. */
-#play-base-zone{grid-column:2;grid-row:1;align-self:stretch;background:linear-gradient(160deg,rgba(60,90,180,0.12),rgba(20,30,80,0.12));border:1px solid transparent;border-radius:10px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+#play-base-zone{grid-column:2;grid-row:1;align-self:stretch;background:linear-gradient(160deg,rgba(60,90,180,0.12),rgba(20,30,80,0.12));border:1px solid rgba(180,140,50,0.35);border-radius:10px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
 /* opp BASE uses the same freeform positioning; flex layout removed */
 #opp-play-base-zone.drag-over{border-color:#e8d47a;box-shadow:0 0 18px rgba(232,212,122,0.4);background:linear-gradient(160deg,rgba(200,154,58,0.18),rgba(60,90,180,0.18));}
 /* Resize grips disabled — Base / Runes / Legend / Champion zones are locked */
@@ -1240,20 +1240,27 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 .bf-mini .board-card{width:100%;height:100%;}
 .bf-mini .board-card img{object-fit:cover;}
 
-/* ── Top row (opponent): trash | deck | runes | rune-deck (mirror of bottom-row) ── */
-#top-row{display:grid;grid-template-columns:96px 96px 1fr 90px;gap:4px;height:130px;flex-shrink:0;}
+/* ── Top row (opponent): trash(78) | deck(78) | runes(calc 50vw-64px) | rune-deck(90)
+   — exact enantiomer of bottom-row; same column widths, reversed order ── */
+#top-row{display:grid;grid-template-columns:78px 78px calc(50vw - 64px) 90px;gap:4px;height:120px;flex-shrink:0;}
 /* ── Bottom row: rune deck | runes (~half-width) | main deck | trash ── */
-/* Runes-zone is capped at 640px wide (back to its original size). Main-deck
-   and trash stay absolutely positioned at the right edge so they don't move
-   regardless of runes-zone size. */
 #bottom-row{display:flex;flex-direction:row;gap:4px;height:120px;flex-shrink:0;align-items:stretch;position:relative;padding-right:160px;}
 #rune-deck-zone{flex:0 0 90px;}
-/* Runes-zone right edge meets the hand-fan dashed border. Math:
-   rune-deck (90px) + gap (4px) + width = 50% + 30px (hand fan left).
-   So width = 50vw - 64px. */
+/* Runes-zone right edge meets the hand-fan border. */
 #runes-zone{flex:0 1 calc(50vw - 64px);min-width:240px;max-width:calc(50vw - 64px);position:relative;}
 #my-deck-zone{position:absolute;top:0;bottom:0;right:82px;width:78px;}
 #trash-zone{position:absolute;top:0;bottom:0;right:0;width:78px;}
+/* ── Opponent rune zone — mirror of #runes-zone, cards aligned right→left ── */
+#opp-runes-zone{position:relative;}
+#opp-runes-zone .bz-cards{justify-content:flex-end;align-content:center;align-items:center;flex-wrap:nowrap;width:100%;height:100%;padding:6px 8px;gap:6px;overflow:hidden;}
+#opp-runes-zone .board-card{width:62px;height:86px;flex-shrink:0;transition:transform 0.18s;}
+#opp-runes-zone .board-card:hover{transform:translateY(6px) scale(1.06);z-index:5;}
+/* Opponent trash — mirror of #trash-zone .trash-top */
+#opp-trash-zone .trash-top{width:58px;height:82px;border-radius:5px;border:1.5px dashed rgba(180,140,50,0.4);background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(180,140,50,0.5);overflow:hidden;}
+#opp-trash-zone .trash-top.has-card{border:1.5px solid rgba(220,80,60,0.7);background:rgba(40,10,10,0.6);box-shadow:0 0 8px rgba(220,80,60,0.35);}
+#opp-trash-zone .trash-top img{width:100%;height:100%;object-fit:cover;display:block;}
+/* Opponent rune-deck count badge — mirror of #rune-deck-zone .bz-deck-count */
+#opp-rune-deck-zone .bz-deck-count{position:absolute;top:4px;right:5px;font-size:10px;font-weight:700;color:#e8d47a;background:rgba(0,0,0,0.78);padding:1px 6px;border-radius:8px;border:1px solid rgba(180,140,50,0.45);line-height:1.4;min-width:14px;text-align:center;}
 .bz-mini{display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:4px 4px 12px;}
 .bz-mini .mini-stack{width:60px;height:84px;margin-bottom:0;position:relative;}
 .bz-mini .mini-stack .bz-card-back{width:58px;height:82px;border-radius:5px;}
