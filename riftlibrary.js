@@ -40,12 +40,22 @@ function createMyEvent(){
   const time=(document.getElementById('mevt-time')||{}).value||'';
   const loc=(document.getElementById('mevt-loc')||{}).value||'';
   if(!name.trim()||!date){toast('Name and date are required.');return;}
-  myEvents.push({id:Date.now(),name:name.trim(),date,time,location:loc.trim(),paidEntry:false,hotelBooked:false,flightBooked:false});
+  myEvents.push({id:Date.now(),name:name.trim(),date,time,location:loc.trim(),paidEntry:false,hotelBooked:false,flightBooked:false,notes:''});
   persistMyEvents();renderEvents();
 }
 function toggleMyEventProp(id,prop){
   const e=myEvents.find(x=>x.id===id);if(!e)return;
   e[prop]=!e[prop];persistMyEvents();renderEvents();
+}
+// Free-text notes (deck plans, packing reminders, anything). Saved on blur so
+// we don't churn localStorage / cloud on every keystroke, and don't re-render
+// — the textarea stays focused while the user keeps typing.
+function saveMyEventNotes(id,value){
+  const e=myEvents.find(x=>x.id===id);if(!e)return;
+  if((e.notes||'')===value)return;
+  e.notes=value;
+  persistMyEvents();
+  if(typeof saveEventsToCloud==='function') saveEventsToCloud();
 }
 function deleteMyEvent(id){
   myEvents=myEvents.filter(x=>x.id!==id);persistMyEvents();renderEvents();
@@ -54,7 +64,7 @@ function addRQToMyEvents(idx){
   if(!currentUser){openAuthModal('login');toast('Please log in to save events.');return;}
   const rq=RQ_EVENTS[idx];if(!rq)return;
   if(myEvents.some(e=>e.name===rq.city+' Regional Qualifier')){toast('Already in My Events');return;}
-  myEvents.push({id:Date.now(),name:rq.city+' Regional Qualifier',date:rq.sortDate,time:'',location:rq.city+', '+rq.region,paidEntry:false,hotelBooked:false,flightBooked:false});
+  myEvents.push({id:Date.now(),name:rq.city+' Regional Qualifier',date:rq.sortDate,time:'',location:rq.city+', '+rq.region,paidEntry:false,hotelBooked:false,flightBooked:false,notes:''});
   persistMyEvents();renderEvents();toast('Added '+rq.city+' RQ to My Events');
 }
 function fillFromRQ(idx){
@@ -991,8 +1001,8 @@ function renderDeckDetail(){
       </div>
       <div class="cards-view-bar">
         <button class="cvt-btn${cardsTabView==='visual'?' on':''}" onclick="setCardsView('visual')">⊞ Visual</button>
-        <button class="cvt-btn${cardsTabView==='text'?' on':''}" onclick="setCardsView('text')">☰ List</button>
         <button class="cvt-btn${cardsTabView==='gallery'?' on':''}" onclick="setCardsView('gallery')">⊟ Gallery</button>
+        <button class="cvt-btn${cardsTabView==='text'?' on':''}" onclick="setCardsView('text')">☰ List</button>
         <div class="cvt-bar-right">
           <button class="cvt-icon-btn" onclick="copyDeckLink()" title="Copy link to deck">🔗 Copy Link</button>
           <div style="position:relative;">
@@ -1090,19 +1100,13 @@ function buildCardsListView(d){
   function thumb(url){
     return url?`<img class="dl-thumb" src="${url}" alt="" loading="lazy">`:`<div class="dl-thumb dl-no-thumb"></div>`;
   }
-  function statBubble(val,cls){
-    return val!=null?`<span class="dl-bubble ${cls}">${val}</span>`:'';
-  }
   function cardRow(id,name,cnt){
     const full=CARDS.find(x=>x.id===id);
     const img=full?full.imageUrl:'';
-    const cost=full&&full.cost!=null?statBubble(full.cost,'dl-cost-bubble'):'';
-    const power=full&&full.power!=null?statBubble(full.power,'dl-pow-bubble'):'';
     return `<div class="dl-row">`
       +`<span class="dl-cnt">×${cnt}</span>`
       +thumb(img)
       +`<span class="dl-name">${name}</span>`
-      +`<span class="dl-bubbles">${cost}${power}</span>`
       +`</div>`;
   }
   function section(title,tally,body){
@@ -1369,7 +1373,7 @@ function buildStatsPanel(d){
   html+='<div class="slbl" style="margin:1.25rem 0 10px;">Curves</div>';
   html+=buildDeckCurves(d,true);
   html+='<div class="hg-calc">';
-  html+='<div class="hg-title">⚗️ Hypergeometric Calculator</div>';
+  html+='<div class="hg-title">Hypergeometric Calculator</div>';
   html+='<div class="hg-grid">';
   html+='<div class="hg-field"><label>Deck size</label><input type="number" id="hg-n" value="'+total+'" min="1" max="200" oninput="calcHG()"></div>';
   html+='<div class="hg-field"><label>Copies in deck</label><input type="number" id="hg-k" value="3" min="0" oninput="calcHG()"></div>';
@@ -4115,6 +4119,7 @@ function renderEvents(){
     const checks=(e,prop,label)=>`<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:${e[prop]?'var(--calm)':'var(--text-muted)'};"><input type="checkbox" ${e[prop]?'checked':''} onchange="toggleMyEventProp(${e.id},'${prop}')" style="accent-color:var(--calm);"> ${label}</label>`;
     const myList=myEvents.length?myEvents.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(e=>{
       const ds=new Date(e.date).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+      const notes=(e.notes||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       return`<div class="dc" style="cursor:default;">
         <div class="dt"><div><div class="dn">${e.name}</div><div class="dl">${ds}${e.time?' · '+e.time:''}${e.location?' · '+e.location:''}</div></div>
         <button class="result-del" onclick="deleteMyEvent(${e.id})" title="Remove event" style="flex-shrink:0;">×</button></div>
@@ -4122,6 +4127,15 @@ function renderEvents(){
           ${checks(e,'paidEntry','Registered')}
           ${checks(e,'hotelBooked','Hotel booked')}
           ${checks(e,'flightBooked','Flight booked')}
+        </div>
+        <div style="margin-top:10px;">
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;letter-spacing:0.04em;">Notes</label>
+          <textarea
+            class="evt-notes"
+            placeholder="Deck plans, travel reminders, anything…"
+            rows="2"
+            onblur="saveMyEventNotes(${e.id},this.value)"
+            style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-family:inherit;resize:vertical;min-height:38px;">${notes}</textarea>
         </div>
       </div>`;
     }).join(''):`<div class="es" style="padding:2rem 0;"><p style="color:var(--text-muted);font-size:13px;">No events added yet.</p></div>`;
@@ -5284,7 +5298,7 @@ async function saveEventsToCloud() {
   if (!currentUser) return;
   try {
     for (const evt of myEvents) {
-      const row = { user_id: currentUser.id, name: evt.name, date: evt.date, time: evt.time||'', location: evt.location||'', paid_entry: evt.paidEntry||false, hotel_booked: evt.hotelBooked||false, flight_booked: evt.flightBooked||false };
+      const row = { user_id: currentUser.id, name: evt.name, date: evt.date, time: evt.time||'', location: evt.location||'', paid_entry: evt.paidEntry||false, hotel_booked: evt.hotelBooked||false, flight_booked: evt.flightBooked||false, notes: evt.notes||'' };
       if (evt.cloud_id) {
         await _sb.from('my_events').update(row).eq('id', evt.cloud_id);
       } else {
@@ -5300,7 +5314,7 @@ async function loadEventsFromCloud() {
   try {
     const { data, error } = await _sb.from('my_events').select('*').eq('user_id', currentUser.id);
     if (error || !data || !data.length) return;
-    myEvents = data.map(cd => ({ id: cd.id, cloud_id: cd.id, name: cd.name, date: cd.date, time: cd.time||'', location: cd.location||'', paidEntry: cd.paid_entry||false, hotelBooked: cd.hotel_booked||false, flightBooked: cd.flight_booked||false }));
+    myEvents = data.map(cd => ({ id: cd.id, cloud_id: cd.id, name: cd.name, date: cd.date, time: cd.time||'', location: cd.location||'', paidEntry: cd.paid_entry||false, hotelBooked: cd.hotel_booked||false, flightBooked: cd.flight_booked||false, notes: cd.notes||'' }));
     localStorage.setItem('rl_myEvents', JSON.stringify(myEvents));
     if (document.getElementById('page-events').classList.contains('active')) renderEvents();
   } catch(e) { console.warn('Events cloud load failed:', e); }

@@ -170,3 +170,10 @@ create policy "team_decks_update_own"
 drop policy if exists "team_decks_delete_own" on public.team_decks;
 create policy "team_decks_delete_own"
   on public.team_decks for delete using (auth.uid() = user_id);
+
+-- ── MY EVENTS — notes column ────────────────────────────────
+-- Adds a free-text notes field to the existing my_events table so each
+-- event in "My Events" can carry deck plans / travel reminders / etc.
+-- Safe to run even if the column already exists.
+alter table if exists public.my_events
+  add column if not exists notes text default '';
