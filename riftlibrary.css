@@ -1131,7 +1131,8 @@ select option{background:#1e1e2a;}
 body.on-play-tab #play-board{height:100vh;}
 
 /* ── Arena ── */
-#board-arena{flex:1;display:flex;flex-direction:column;overflow:visible;padding:4px 6px;gap:3px;min-height:0;position:relative;}
+/* gap:0 between all rows; top-row↔play-main spacing applied via play-main margin-top below */
+#board-arena{flex:1;display:flex;flex-direction:column;overflow:visible;padding:4px 6px;gap:0;min-height:0;position:relative;}
 
 /* ── BATTLEFIELD strip ── */
 /* ── BASE fills the whole arena above the bottom-row ── */
@@ -1142,12 +1143,15 @@ body.on-play-tab #play-board{height:100vh;}
 #my-pieces{bottom:6px;}
 .piece-bz{width:90px;height:130px;}
 /* ── Play board layout: hero column LEFT, big battlefields center, score track RIGHT ── */
-#play-main{flex:1;min-height:0;display:grid;grid-template-columns:130px minmax(0,1fr) 70px;grid-template-rows:1fr;gap:8px;padding:6px;position:relative;}
+/* margin-top:3px replaces the old board-arena gap between top-row and play-main;
+   margin-bottom:0 ensures bottom-row is flush against the base zone */
+#play-main{flex:1;min-height:0;display:grid;grid-template-columns:130px minmax(0,1fr) 70px;grid-template-rows:1fr;gap:8px;padding:6px;position:relative;margin-top:3px;margin-bottom:0;}
 #hero-column{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:8px;min-height:0;}
 /* Battlefield + opp-BASE zones removed — play area is now ONE giant merged
    BASE zone that fills the full middle column. Both players' battle cards
    render into it via the freeform-positioning renderer. */
-#play-base-zone{grid-column:2;grid-row:1;align-self:stretch;background:linear-gradient(160deg,rgba(60,90,180,0.12),rgba(20,30,80,0.12));border:1px solid rgba(180,140,50,0.35);border-radius:10px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+/* No fill — just the gold border so the base zone doesn't look like a solid box */
+#play-base-zone{grid-column:2;grid-row:1;align-self:stretch;background:transparent;border:1px solid rgba(180,140,50,0.35);border-radius:10px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
 /* opp BASE uses the same freeform positioning; flex layout removed */
 #opp-play-base-zone.drag-over{border-color:#e8d47a;box-shadow:0 0 18px rgba(232,212,122,0.4);background:linear-gradient(160deg,rgba(200,154,58,0.18),rgba(60,90,180,0.18));}
 /* Resize grips disabled — Base / Runes / Legend / Champion zones are locked */
@@ -1411,6 +1415,8 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
    clip-path is set in element-natural orientation (before scaleY), so the negative
    bottom inset becomes the visible "upward" lift after the flip. */
 .hand-fan-overlay.hand-fan-top{top:18px;bottom:auto;align-items:flex-start;transform:scaleY(-1);clip-path:inset(-40px 0 -260px 0);}
+/* Hide opponent/player hand containers when empty — prevents clip-path rendering artefacts */
+#opp-hand:empty,#my-hand:empty{display:none;}
 .hand-fan-overlay.hand-fan-top .board-card{transform-origin:top center;}
 .hand-fan-overlay.hand-fan-top .opp-card-back{width:118px;height:164px;margin:0 var(--hand-card-mx,-28px);border-radius:9px;background:linear-gradient(160deg,#102f5e 0%,#091f44 50%,#04122c 100%);border:1.5px solid rgba(200,154,58,0.55);box-shadow:0 6px 14px rgba(0,0,0,0.6);pointer-events:auto;}
 
