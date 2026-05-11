@@ -1147,7 +1147,7 @@ body.on-play-tab #play-board{height:100vh;}
 /* Battlefield + opp-BASE zones removed — play area is now ONE giant merged
    BASE zone that fills the full middle column. Both players' battle cards
    render into it via the freeform-positioning renderer. */
-#play-base-zone{grid-column:2;grid-row:1;align-self:stretch;background:linear-gradient(160deg,rgba(60,90,180,0.12),rgba(20,30,80,0.12));border:1px solid rgba(180,140,50,0.35);border-radius:10px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+#play-base-zone{grid-column:2;grid-row:1;align-self:stretch;background:linear-gradient(160deg,rgba(60,90,180,0.12),rgba(20,30,80,0.12));border:1px solid transparent;border-radius:10px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
 /* opp BASE uses the same freeform positioning; flex layout removed */
 #opp-play-base-zone.drag-over{border-color:#e8d47a;box-shadow:0 0 18px rgba(232,212,122,0.4);background:linear-gradient(160deg,rgba(200,154,58,0.18),rgba(60,90,180,0.18));}
 /* Resize grips disabled — Base / Runes / Legend / Champion zones are locked */
@@ -1380,7 +1380,7 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
    or whether the JS overlap calculation runs. The clip-path top inset is negative so hovered
    cards can still lift upward and the bottom inset is negative so the rune-back stem of the
    top fan can extend down. */
-.hand-fan-overlay{position:absolute;bottom:-60px;left:calc(50% + 30px);right:180px;transform:none;display:flex;justify-content:center;align-items:flex-end;height:200px;pointer-events:none;z-index:24;min-width:0;transition:bottom 0.2s ease;overflow:visible;clip-path:inset(-260px 0 -60px 0);background:rgba(4,10,22,0.18);border:1px dashed rgba(200,154,58,0.18);border-radius:10px;}
+.hand-fan-overlay{position:absolute;bottom:-60px;left:calc(50% + 30px);right:180px;transform:none;display:flex;justify-content:center;align-items:flex-end;height:200px;pointer-events:none;z-index:24;min-width:0;transition:bottom 0.2s ease;overflow:visible;clip-path:inset(-260px 0 -60px 0);background:rgba(4,10,22,0.18);border:1px dashed transparent;border-radius:10px;}
 /* Card overlap is set dynamically by renderMyHand() via the --hand-card-mx CSS variable so the fan always fits between the orange boundaries regardless of hand size. Cards never march past the left edge because the per-card stride is clamped to stay positive. */
 .hand-fan-overlay .board-card{pointer-events:auto;width:118px;height:164px;margin:0 var(--hand-card-mx,-28px);transform-origin:top center;transition:transform 0.22s ease,box-shadow 0.22s,margin 0.22s,top 0.22s;box-shadow:0 6px 14px rgba(0,0,0,0.6);image-rendering:-webkit-optimize-contrast;position:relative;top:0;}
 /* CSS-only fallback that progressively tightens overlap as the hand grows — guarantees containment even if the JS render path is stale-cached and the per-card inline margin/CSS variable haven't been applied. Capped at -57px so cards always march rightward. */
