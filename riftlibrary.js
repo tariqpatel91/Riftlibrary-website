@@ -958,16 +958,6 @@ function renderDeckDetail(){
           </div>
         </div>
       </div>
-      <div class="deck-header-right">
-        <div id="deck-curves-panel">${buildDeckCurves(d)}</div>
-        <div class="deck-header-count">
-          <span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">${totalCards} / 40 cards</span>
-        </div>
-        <div class="deck-header-sort">
-          <span class="dhs-label">Sort by:</span>
-          <button class="cvt-btn sort-tog-btn${deckSortMode==='energy'?' on':''}" onclick="toggleDeckSort()" title="Toggle sort order">${deckSortMode==='energy'?'⚡ Energy':'🔤 Alphabetical'}</button>
-        </div>
-      </div>
     </div>
     <div class="hero-zone-bar" id="hero-zone-bar" style="display:none;"></div>
 
@@ -993,16 +983,26 @@ function renderDeckDetail(){
 
     <!-- PANEL: CARDS -->
     <div class="dd-panel${activeDDTab==='cards'?' active':''}" id="ddp-cards">
-      <div class="sr" style="margin-bottom:1.25rem;">
+      <div class="sr" style="margin-bottom:1rem;">
         <div class="sb"><div class="sv">${totalCards||0}</div><div class="sk">Cards</div></div>
         <div class="sb"><div class="sv">${d.wins||0}</div><div class="sk">Wins</div></div>
         <div class="sb"><div class="sv">${d.losses||0}</div><div class="sk">Losses</div></div>
         <div class="sb"><div class="sv ${wrc(w)}">${w}%</div><div class="sk">Win rate</div></div>
       </div>
+      <!-- Curves + deck count moved down from header -->
+      <div class="deck-info-bar">
+        <div id="deck-curves-panel">${buildDeckCurves(d)}</div>
+        <div class="deck-header-count">
+          <span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">${totalCards} / 40 cards</span>
+        </div>
+      </div>
       <div class="cards-view-bar">
         <button class="cvt-btn${cardsTabView==='visual'?' on':''}" onclick="setCardsView('visual')">⊞ Visual</button>
         <button class="cvt-btn${cardsTabView==='gallery'?' on':''}" onclick="setCardsView('gallery')">⊟ Gallery</button>
         <button class="cvt-btn${cardsTabView==='text'?' on':''}" onclick="setCardsView('text')">☰ List</button>
+        <span class="cvt-bar-sep"></span>
+        <span class="dhs-label">Sort by:</span>
+        <button class="cvt-btn sort-tog-btn${deckSortMode==='energy'?' on':''}" onclick="toggleDeckSort()" title="Toggle sort order">${deckSortMode==='energy'?'⚡ Energy':'🔤 Alphabetical'}</button>
         <div class="cvt-bar-right">
           <button class="cvt-icon-btn" onclick="copyDeckLink()" title="Copy link to deck">🔗 Copy Link</button>
           <div style="position:relative;">
