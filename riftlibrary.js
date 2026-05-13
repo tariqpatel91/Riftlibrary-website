@@ -720,6 +720,23 @@ function isPublishedPublic(id){return publishedPublicSet.includes(String(id));}
 function isPublishedTeam(id){return !!teamDecklists.find(x=>String(x.deckId)===String(id));}
 function persistPublishedPublic(){localStorage.setItem('rl_published_public',JSON.stringify(publishedPublicSet));}
 
+function closeDeckMenus(){
+  document.querySelectorAll('.dc-hmenu-pop.open').forEach(el=>el.classList.remove('open'));
+  document.querySelectorAll('.dc-hmenu-btn.open').forEach(el=>el.classList.remove('open'));
+}
+function toggleDeckMenu(id,ev){
+  const pop=document.getElementById('dc-hmenu-'+id);if(!pop)return;
+  const wasOpen=pop.classList.contains('open');
+  closeDeckMenus();
+  if(!wasOpen){
+    pop.classList.add('open');
+    const btn=ev&&ev.currentTarget;if(btn)btn.classList.add('open');
+  }
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.dc-hmenu'))closeDeckMenus();
+});
+
 async function publishDeckToPublic(deckId){
   if(!currentUser){toast('Log in to publish a deck');openAuthModal('login');return;}
   const d=myDecks.find(x=>String(x.id)===String(deckId));
@@ -852,10 +869,18 @@ function renderDecks(){
       </div>
       <div class="da">
         <div class="da-left">
-          <button class="btn btn-sm ${isPublishedPublic(d.id)?'btn-pub-on':'btn-g'}" onclick="event.stopPropagation();publishDeckToPublic('${d.id}')">${isPublishedPublic(d.id)?'✓ Published':'Publish to Public'}</button>
-          <button class="btn btn-sm ${isPublishedTeam(d.id)?'btn-pub-on':'btn-g'}" onclick="event.stopPropagation();publishDeckToTeam('${d.id}')">${isPublishedTeam(d.id)?'✓ On Team':'Publish to Team'}</button>
+          <div class="dc-hmenu">
+            <button class="btn btn-sm btn-g dc-hmenu-btn" aria-label="More actions" onclick="event.stopPropagation();toggleDeckMenu('${d.id}',event)">
+              <svg viewBox="0 0 16 16" fill="none" width="14" height="14"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </button>
+            <div class="dc-hmenu-pop" id="dc-hmenu-${d.id}">
+              <button class="dc-hmenu-item ${isPublishedPublic(d.id)?'is-on':''}" onclick="event.stopPropagation();closeDeckMenus();publishDeckToPublic('${d.id}')">${isPublishedPublic(d.id)?'✓ Published':'Publish to Public'}</button>
+              <button class="dc-hmenu-item ${isPublishedTeam(d.id)?'is-on':''}" onclick="event.stopPropagation();closeDeckMenus();publishDeckToTeam('${d.id}')">${isPublishedTeam(d.id)?'✓ On Team':'Publish to Team'}</button>
+              <button class="dc-hmenu-item dc-hmenu-danger" onclick="event.stopPropagation();closeDeckMenus();delDeck('${d.id}')">Delete</button>
+            </div>
+          </div>
         </div>
-        <button class="btn btn-sm btn-d" onclick="event.stopPropagation();delDeck('${d.id}')">Delete</button>
+        <button class="btn btn-sm btn-g dc-eye-btn" aria-label="View deck" onclick="event.stopPropagation();openDD('${d.id}')">👁️</button>
       </div>
     </div>`;
   }).join('');
@@ -983,7 +1008,7 @@ function renderDeckDetail(){
 
     <!-- PANEL: CARDS -->
     <div class="dd-panel${activeDDTab==='cards'?' active':''}" id="ddp-cards">
-      <div class="sr" style="margin-bottom:1rem;">
+      <div class="sr" style="margin-bottom:0;">
         <div class="sb"><div class="sv">${totalCards||0}</div><div class="sk">Cards</div></div>
         <div class="sb"><div class="sv">${d.wins||0}</div><div class="sk">Wins</div></div>
         <div class="sb"><div class="sv">${d.losses||0}</div><div class="sk">Losses</div></div>

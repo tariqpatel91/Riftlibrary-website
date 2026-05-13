@@ -164,8 +164,8 @@ select option{background:#1e1e2a;}
 .rb-rune-rainbow{display:inline-block;width:16px;height:16px;border-radius:50%;background:conic-gradient(var(--fury),var(--bodyc),var(--calm),var(--mind),var(--chaos),var(--order),var(--fury));vertical-align:middle;margin:0 2px;flex-shrink:0;}
 .rb-stat-icon{width:14px;height:14px;vertical-align:middle;margin:0 1px;color:var(--text-soft);display:inline-block;}
 .dg{display:grid;grid-template-columns:repeat(auto-fill,minmax(265px,1fr));gap:12px;}
-.dc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.25rem;transition:all 0.2s;position:relative;overflow:hidden;cursor:pointer;}
-.dc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:0;transition:opacity 0.2s;}
+.dc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.25rem;transition:all 0.2s;position:relative;overflow:visible;cursor:pointer;}
+.dc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:0;transition:opacity 0.2s;border-top-left-radius:14px;border-top-right-radius:14px;}
 .dc:hover{border-color:var(--border-hover);transform:translateY(-2px);background:var(--surface2);}
 .dc:hover::before{opacity:1;}
 .dt{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;gap:8px;}
@@ -178,6 +178,17 @@ select option{background:#1e1e2a;}
 .wg{color:var(--calm);}.wm{color:#f5c842;}.wb{color:var(--fury);}
 .da{display:flex;gap:6px;margin-top:10px;align-items:center;justify-content:space-between;}
 .da-left{display:flex;gap:6px;flex-wrap:wrap;}
+.dc-hmenu{position:relative;display:inline-block;}
+.dc-hmenu-btn{display:inline-flex;align-items:center;justify-content:center;padding:6px 9px;}
+.dc-hmenu-btn.open{background:var(--surface3);}
+.dc-hmenu-pop{position:absolute;left:0;bottom:calc(100% + 6px);min-width:170px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:5px;display:none;flex-direction:column;gap:2px;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,0.35);}
+.dc-hmenu-pop.open{display:flex;}
+.dc-hmenu-item{background:none;border:none;color:var(--text-soft);font-family:'Inter',system-ui,sans-serif;font-size:13px;text-align:left;padding:7px 10px;border-radius:6px;cursor:pointer;transition:background 0.1s,color 0.1s;}
+.dc-hmenu-item:hover{background:var(--surface3);color:var(--text);}
+.dc-hmenu-item.is-on{color:var(--calm);}
+.dc-hmenu-item.dc-hmenu-danger{color:var(--fury);}
+.dc-hmenu-item.dc-hmenu-danger:hover{background:rgba(255,107,74,0.15);}
+.dc-eye-btn{display:inline-flex;align-items:center;justify-content:center;padding:6px 9px;font-size:14px;line-height:1;}
 .es{text-align:center;padding:4rem 2rem;color:var(--text-muted);}
 .es h3{font-family:'Inter',system-ui,sans-serif;font-size:18px;color:var(--text-soft);margin-bottom:8px;font-weight:600;}
 .bb{display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-muted);font-size:13px;font-family:'Inter',system-ui,sans-serif;cursor:pointer;margin-bottom:1.5rem;padding:0;}
@@ -656,7 +667,7 @@ select option{background:#1e1e2a;}
 .deck-type-auto-grid{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;width:100%;min-width:0;row-gap:10px;}
 .deck-col-stack{display:flex;flex-direction:column;flex:1 1 0;min-width:60px;max-width:130px;}
 /* Curves + deck count row moved below the stats bar into the cards panel */
-.deck-info-bar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:10px 0 12px;border-bottom:1px solid var(--border);margin-bottom:12px;}
+.deck-info-bar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:0 0 12px;border-bottom:1px solid var(--border);margin-bottom:12px;}
 /* Sort-by moved into cards-view-bar; separator between view toggles and sort */
 .cvt-bar-sep{display:inline-block;width:1px;height:18px;background:var(--border);margin:0 4px;align-self:center;}
 .cards-view-bar .dhs-label{font-size:12px;color:var(--text-muted);font-family:'Inter',system-ui,sans-serif;letter-spacing:0.04em;white-space:nowrap;}
