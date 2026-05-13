@@ -1438,7 +1438,7 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 .hand-fan-overlay.hand-fan-top .opp-card-back{width:118px;height:164px;margin:0 var(--hand-card-mx,-28px);border-radius:9px;background:linear-gradient(160deg,#102f5e 0%,#091f44 50%,#04122c 100%);border:1.5px solid rgba(200,154,58,0.55);box-shadow:0 6px 14px rgba(0,0,0,0.6);pointer-events:auto;}
 
 /* ── Board cards ── */
-.board-card{width:52px;height:72px;border-radius:5px;overflow:hidden;cursor:grab;border:1px solid rgba(180,140,50,0.3);background:rgba(10,18,36,0.9);position:relative;flex-shrink:0;transition:transform 0.12s,box-shadow 0.12s;}
+.board-card{width:52px;height:72px;border-radius:5px;overflow:hidden;cursor:grab;border:1px solid rgba(180,140,50,0.3);background:#0a1224;position:relative;flex-shrink:0;transition:transform 0.12s,box-shadow 0.12s;}
 .board-card:hover{transform:translateY(-5px) scale(1.06);box-shadow:0 8px 20px rgba(0,0,0,0.8),0 0 8px rgba(180,140,50,0.3);}
 .board-card img{width:100%;height:100%;object-fit:cover;display:block;}
 .board-card.exhausted{transform:rotate(90deg);opacity:0.85;}
