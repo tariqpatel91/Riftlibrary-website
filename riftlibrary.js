@@ -4231,7 +4231,7 @@ function showAllExtras(){
   renderCollection();
 }
 
-const CF2={q:'',type:'',dom:'',rar:'',set:'',show:'all',view:'grid',binder:'',binderMode:'view',collMode:'edit',showGrey:true};
+const CF2={q:'',type:'',dom:'',rar:'',variant:'',set:'',show:'all',view:'grid',binder:'',binderMode:'view',collMode:'edit',showGrey:true};
 function toggleCollGrey(){CF2.showGrey=!CF2.showGrey;renderCollection();}
 
 function setBinderMode(mode){CF2.binderMode=mode;renderCollection();}
@@ -4649,6 +4649,12 @@ function renderCollection(){
   if(CF2.type) source=source.filter(c=>c.type===CF2.type||(CF2.type==='Champion'&&(c.supertype||'').toLowerCase().includes('champion')));
   if(CF2.dom) source=source.filter(c=>c.doms.includes(CF2.dom));
   if(CF2.rar) source=source.filter(c=>c.rarity===CF2.rar);
+  if(CF2.variant){
+    if(CF2.variant==='Signature') source=source.filter(c=>c.isSignature);
+    else if(CF2.variant==='Alt Art') source=source.filter(c=>c.isAltArt||c.variant==='Alt Art');
+    else if(CF2.variant==='Overnumbered') source=source.filter(c=>c.isOvernumbered||c.variant==='Overnumbered');
+    else source=source.filter(c=>c.variant===CF2.variant);
+  }
   if(CF2.show==='owned') source=source.filter(c=>collOwned[c.id]);
   if(CF2.show==='missing') source=source.filter(c=>!collOwned[c.id]);
   if(CF2.show==='complete') source=source.filter(c=>(collOwned[c.id]||0)>=3);
@@ -4679,6 +4685,9 @@ function renderCollection(){
       <option value="">All Rarities</option>
       ${Object.keys(rarityGroups).map(r=>`<option${CF2.rar===r?' selected':''} value="${r}">${r}</option>`).join('')}
     </select>
+    <select class="coll-select" onchange="CF2.variant=this.value;renderCollection()" title="Art variant">
+      ${[['','Art Variants'],['Standard','Standard'],['Alt Art','Alt Art'],['Overnumbered','Overnumbered'],['Promo','Promo'],['Signature','Artist Signed'],['Foil','Foil']].map(([v,l])=>`<option${CF2.variant===v?' selected':''} value="${v}">${l}</option>`).join('')}
+    </select>
     <div class="coll-view-toggle">
       <button class="coll-pill${CF2.view==='grid'?' on':''}" onclick="CF2.view='grid';renderCollection()">⊞ Grid</button>
       <button class="coll-pill${CF2.view==='list'?' on':''}" onclick="CF2.view='list';renderCollection()">☰ List</button>
@@ -4686,10 +4695,12 @@ function renderCollection(){
     <button class="coll-pill${CF2.showGrey?' on':''}" onclick="toggleCollGrey()" title="Toggle greyed-out unowned cards">${CF2.showGrey?'🌑 Grey: On':'☀ Grey: Off'}</button>
   </div>`;
 
+  const _inWishlistBinder=activeBinder&&activeBinder._kind==='wishlist';
+  const _showPills=_inWishlistBinder?['wanted']:['all','owned','missing','complete','wanted'];
   html+=`<div class="coll-filter-row coll-filter-centered">
-    ${['all','owned','missing','complete','wanted'].map(s=>`<button class="coll-pill${CF2.show===s?' on':''}" onclick="CF2.show='${s}';renderCollection()">${{all:'All',owned:'Owned',missing:'Missing',complete:'Playset',wanted:'♥ Wishlist'}[s]}</button>`).join('')}
+    ${_showPills.map(s=>`<button class="coll-pill${CF2.show===s?' on':''}" onclick="CF2.show='${s}';renderCollection()">${{all:'All',owned:'Owned',missing:'Missing',complete:'Playset',wanted:'♥ Wishlist'}[s]}</button>`).join('')}
     <span style="margin-left:4px;font-size:12px;color:var(--text-muted);">${source.length} cards</span>
-    ${(CF2.q||CF2.type||CF2.dom||CF2.rar||CF2.show!=='all')?`<button class="coll-pill" onclick="CF2.q='';CF2.type='';CF2.dom='';CF2.rar='';CF2.show='all';renderCollection()">✕ Clear</button>`:''}
+    ${(CF2.q||CF2.type||CF2.dom||CF2.rar||CF2.variant||CF2.show!=='all')?`<button class="coll-pill" onclick="CF2.q='';CF2.type='';CF2.dom='';CF2.rar='';CF2.variant='';CF2.show='all';renderCollection()">✕ Clear</button>`:''}
   </div>`;
 
   html+=`<div class="coll-filter-row coll-filter-centered">
