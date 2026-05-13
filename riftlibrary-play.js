@@ -390,6 +390,22 @@ function _renderScoreTrack(animate) {
 /* ── helpers ── */
 function _setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
 
+function _renderBaseBattlefield() {
+  const el = document.getElementById('play-base-bf');
+  if (!el) return;
+  const bf = (GS.me.bfLeft && GS.me.bfLeft[0]) || null;
+  const url = bf && (bf.image || bf.imageUrl) || '';
+  if (url) {
+    el.style.backgroundImage = `url("${url}")`;
+    el.classList.add('has-image');
+    el.title = bf.name || '';
+  } else {
+    el.style.backgroundImage = '';
+    el.classList.remove('has-image');
+    el.title = '';
+  }
+}
+
 /* ── RENDER ── */
 function renderFullBoard() {
   _setText('my-life', GS.me.life);
@@ -403,6 +419,7 @@ function renderFullBoard() {
   renderTrashTop();
   renderMyHand();
   renderOppHand();
+  _renderBaseBattlefield();
   // ONE merged BASE zone — both players' battle cards render into the same
   // freeform-positioned canvas. Each card keeps its own (_x, _y) so cards
   // stay where they were dropped, regardless of owner.

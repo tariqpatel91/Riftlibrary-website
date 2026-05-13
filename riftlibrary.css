@@ -1166,6 +1166,9 @@ body.on-play-tab #play-board{height:100vh;}
    render into it via the freeform-positioning renderer. */
 /* No fill — just the gold border so the base zone doesn't look like a solid box */
 #play-base-zone{grid-column:2;grid-row:1;align-self:stretch;background:transparent;border:1px solid rgba(180,140,50,0.35);border-radius:10px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.play-base-bf{position:absolute;left:14%;top:36%;width:30%;height:32%;background-repeat:no-repeat;background-position:center;background-size:contain;pointer-events:none;opacity:0.95;filter:drop-shadow(0 6px 18px rgba(0,0,0,0.55));border-radius:6px;z-index:0;display:none;}
+.play-base-bf.has-image{display:block;}
+#play-base-zone #play-base-cards{z-index:1;}
 /* opp BASE uses the same freeform positioning; flex layout removed */
 #opp-play-base-zone.drag-over{border-color:#e8d47a;box-shadow:0 0 18px rgba(232,212,122,0.4);background:linear-gradient(160deg,rgba(200,154,58,0.18),rgba(60,90,180,0.18));}
 /* Resize grips disabled — Base / Runes / Legend / Champion zones are locked */
