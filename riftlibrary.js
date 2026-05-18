@@ -4446,8 +4446,9 @@ function toggleCollWanted(id){
 }
 function setCollWanted(id,delta){
   const cur=(collWanted[id]&&collWanted[id]!==true)?collWanted[id]:collWanted[id]?3:0;
-  const next=Math.max(1,Math.min(15,cur+delta));
-  collWanted[id]=next;
+  const next=cur+delta;
+  if(next<=0) delete collWanted[id];
+  else collWanted[id]=Math.min(15,next);
   persistColl();saveCardToCloud(id);renderCollection();
 }
 function setCollSet(s){CF2.set=CF2.set===s?'':s;renderCollection();}
@@ -4649,11 +4650,15 @@ function renderCollection(){
   if(CF2.type) source=source.filter(c=>c.type===CF2.type||(CF2.type==='Champion'&&(c.supertype||'').toLowerCase().includes('champion')));
   if(CF2.dom) source=source.filter(c=>c.doms.includes(CF2.dom));
   if(CF2.rar) source=source.filter(c=>c.rarity===CF2.rar);
+  // Hide foils by default unless explicitly filtering for the Foil variant
+  if(CF2.variant!=='Foil') source=source.filter(c=>!c.isFoil);
   if(CF2.variant){
-    if(CF2.variant==='Signature') source=source.filter(c=>c.isSignature);
-    else if(CF2.variant==='Alt Art') source=source.filter(c=>c.isAltArt||c.variant==='Alt Art');
-    else if(CF2.variant==='Overnumbered') source=source.filter(c=>c.isOvernumbered||c.variant==='Overnumbered');
-    else source=source.filter(c=>c.variant===CF2.variant);
+    if(CF2.variant==='Alt Art') source=source.filter(c=>c.isAltArt);
+    else if(CF2.variant==='Overnumbered') source=source.filter(c=>c.isOvernumbered);
+    else if(CF2.variant==='Promo') source=source.filter(c=>c.rarity==='Promo');
+    else if(CF2.variant==='Artist Signed') source=source.filter(c=>c.isSignature);
+    else if(CF2.variant==='Foil') source=source.filter(c=>c.isFoil);
+    else if(CF2.variant==='Standard') source=source.filter(c=>!c.isAltArt&&!c.isOvernumbered&&c.rarity!=='Promo'&&!c.isSignature&&!c.isFoil);
   }
   if(CF2.show==='owned') source=source.filter(c=>collOwned[c.id]);
   if(CF2.show==='missing') source=source.filter(c=>!collOwned[c.id]);
@@ -4686,7 +4691,7 @@ function renderCollection(){
       ${Object.keys(rarityGroups).map(r=>`<option${CF2.rar===r?' selected':''} value="${r}">${r}</option>`).join('')}
     </select>
     <select class="coll-select" onchange="CF2.variant=this.value;renderCollection()" title="Art variant">
-      ${[['','Art Variants'],['Standard','Standard'],['Alt Art','Alt Art'],['Overnumbered','Overnumbered'],['Promo','Promo'],['Signature','Artist Signed'],['Foil','Foil']].map(([v,l])=>`<option${CF2.variant===v?' selected':''} value="${v}">${l}</option>`).join('')}
+      ${[['','Art Variants'],['Standard','Standard'],['Alt Art','Alt Art'],['Overnumbered','Overnumbered'],['Promo','Promo'],['Artist Signed','Artist Signed'],['Foil','Foil']].map(([v,l])=>`<option${CF2.variant===v?' selected':''} value="${v}">${l}</option>`).join('')}
     </select>
     <div class="coll-view-toggle">
       <button class="coll-pill${CF2.view==='grid'?' on':''}" onclick="CF2.view='grid';renderCollection()">⊞ Grid</button>
