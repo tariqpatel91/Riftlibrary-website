@@ -4787,6 +4787,7 @@ function renderCollection(){
         </div>`;
       } else {
         let binderRemoveBtn='';
+        let zoomBtn='';
         if(activeBinder){
           if(activeBinder._kind==='wishlist'){
             binderRemoveBtn=`<button class="coll-binder-btn remove" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="Remove from wishlist">✕</button>`;
@@ -4794,9 +4795,13 @@ function renderCollection(){
             binderRemoveBtn=`<button class="coll-binder-btn remove" onclick="event.stopPropagation();hideFromExtras('${si}')" title="Hide from Extras (keeps ownership)">✕</button>`;
           } else if(CF2.binderMode==='edit'){
             const inBinder=!!_binderHas(activeBinder,c.id);
-            binderRemoveBtn=inBinder
-              ?`<button class="coll-binder-btn in-binder" onclick="event.stopPropagation();removeCardFromBinder('${si}',${activeBinder.id})" title="In binder — click to remove">✓</button>`
-              :`<button class="coll-binder-btn add" onclick="event.stopPropagation();_addCardSilent('${si}',${activeBinder.id})" title="Add to binder">+</button>`;
+            // In edit mode the + button is gone — clicking the card itself
+            // adds a copy. The ✓ chip stays as both an "in-binder" indicator
+            // and a one-click remove. A zoom 🔍 button opens the card modal.
+            if(inBinder){
+              binderRemoveBtn=`<button class="coll-binder-btn in-binder" onclick="event.stopPropagation();removeCardFromBinder('${si}',${activeBinder.id})" title="In binder — click to remove">✓</button>`;
+            }
+            zoomBtn=`<button class="coll-binder-btn zoom" onclick="event.stopPropagation();openCardModal('${si}')" title="Zoom card details">🔍</button>`;
           } else {
             binderRemoveBtn=`<button class="coll-binder-btn remove" onclick="event.stopPropagation();removeCardFromBinder('${si}',${activeBinder.id})" title="Remove from binder">📁✕</button>`;
           }
@@ -4812,9 +4817,17 @@ function renderCollection(){
         }
         const inBinderView=!!activeBinder;
         const hideOwnerControls=inBinderView||CF2.collMode==='view';
-        html+=`<div class="coll-card ${cls}${bfCls}${isWanted?' wishlisted':''}${hideOwnerControls?' in-binder-view':''}${dragAttrs?' coll-card-draggable':''}" title="${c.name}" onclick="openCardModal('${si}')"${dragAttrs}>
+        // In binder edit mode (real binders only) clicking the card adds a
+        // copy to the binder instead of opening the modal — the new zoom 🔍
+        // button is the way to open the modal there.
+        const isEditableBinder=activeBinder&&!activeBinder._static&&CF2.binderMode==='edit';
+        const cardClick=isEditableBinder
+          ?`_addCardSilent('${si}',${activeBinder.id})`
+          :`openCardModal('${si}')`;
+        html+=`<div class="coll-card ${cls}${bfCls}${isWanted?' wishlisted':''}${hideOwnerControls?' in-binder-view':''}${dragAttrs?' coll-card-draggable':''}${isEditableBinder?' coll-card-click-add':''}" title="${c.name}" onclick="${cardClick}"${dragAttrs}>
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
           ${hideOwnerControls?'':`<button class="coll-wishlist-top-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>`}
+          ${zoomBtn}
           ${binderRemoveBtn}
           ${badgeHtml}
           ${hideOwnerControls?'':`<div class="coll-card-actions">
