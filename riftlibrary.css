@@ -1041,6 +1041,10 @@ select option{background:#1e1e2a;}
 .coll-binder-btn.add:hover{background:var(--accent);color:#000;}
 .coll-binder-btn.in-binder{background:var(--calm);color:#0a0d12;border-color:var(--calm);font-size:14px;}
 .coll-binder-btn.in-binder:hover{background:rgba(220,38,38,0.7);border-color:#f87171;color:#fff;}
+.coll-binder-btn.zoom{right:auto;left:6px;background:rgba(0,0,0,0.7);color:#d4c58a;border-color:rgba(200,168,75,0.45);font-size:13px;}
+.coll-binder-btn.zoom:hover{background:rgba(200,168,75,0.3);color:var(--accent);}
+.coll-card-click-add{cursor:copy;}
+.coll-card-click-add:hover{box-shadow:0 0 0 2px var(--accent),0 8px 20px rgba(0,0,0,0.55);}
 /* Binder View/Edit mode toggle */
 .binder-mode-toggle{display:inline-flex;background:var(--surface3);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
 .bmt{padding:6px 14px;border:none;background:none;color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',system-ui,sans-serif;transition:all 0.15s;}
