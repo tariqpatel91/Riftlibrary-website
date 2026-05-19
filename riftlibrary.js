@@ -1806,9 +1806,14 @@ function _buildEditResultsHtml(d,slice,total,pages){
       const isRune=c.type==='Rune';
       const isBF=c.type==='Battlefield';
       const isBanned=isBannedCard(c);
-      const addFn=isBanned?`toast('This card is banned')`:(isRune?`addRune('${si}','${sn}')`:isBF?`addBattlefield(-1,'${si}','${sn}')`:(variantTotal<3?`editDeckCard('${si}','${sn}','${at}',1)`:''));
-      const dragAttrs=isBanned?'draggable="false"':`draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')"`;
-      html+=`<div class="ct ct-img lib-card${isBF?' lib-card-bf':''}${isBanned?' lib-card-banned':''}" ${dragAttrs} title="${c.name}" onclick="${addFn}">`;
+      const bfInDeck=isBF&&(d.battlefields||[]).some(s=>s&&s.id===c.id);
+      // Maxed = at the per-card cap for this deck slot. Battlefields cap at 1
+      // copy of each, regular cards at 3. Runes don't grey out here (their
+      // own counts panel handles limits).
+      const isMaxed=!isBanned&&(isBF?bfInDeck:(!isRune&&variantTotal>=3));
+      const addFn=isBanned?`toast('This card is banned')`:isMaxed?`toast('Already at max for this card')`:(isRune?`addRune('${si}','${sn}')`:isBF?`addBattlefield(-1,'${si}','${sn}')`:`editDeckCard('${si}','${sn}','${at}',1)`);
+      const dragAttrs=(isBanned||isMaxed)?'draggable="false"':`draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')"`;
+      html+=`<div class="ct ct-img lib-card${isBF?' lib-card-bf':''}${isBanned?' lib-card-banned':''}${isMaxed?' lib-card-maxed':''}" ${dragAttrs} title="${c.name}" onclick="${addFn}">`;
       html+= c.imageUrl
         ?`<div class="ct-img-wrap"><img src="${c.imageUrl}" alt="${c.name}" loading="lazy" onerror="this.parentElement.classList.add('no-img')"></div>`
         :`<div class="ct-img-wrap no-img"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:11px;">No image</div></div>`;
