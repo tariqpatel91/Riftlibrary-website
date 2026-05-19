@@ -2146,7 +2146,16 @@ function editZoneDrop(e,zone){
     persist();renderEditSearch();renderEditPreview();
   } else if(zone==='deck'){
     if(_DRAG.t==='Battlefield'){toast('Battlefield cards go in battlefield zones');_DRAG=null;return;}
-    if(_DRAG.src==='library') editDeckCard(_DRAG.id,_DRAG.n,_DRAG.t,1);
+    if(_DRAG.src==='library'){
+      // Use the card's actual type (e.g. 'Unit') rather than _DRAG.t — the
+      // library drag-start passes the effective type ('Champion' for any
+      // supertype-Champion card) which would route Champion Units into the
+      // special champion zone instead of the main deck. Click "+ Add to
+      // deck" uses the raw c.type, so this matches that behavior.
+      const _full=CARDS.find(x=>x.id===_DRAG.id);
+      const _realT=_full?_full.type:_DRAG.t;
+      editDeckCard(_DRAG.id,_DRAG.n,_realT,1);
+    }
     else if(_DRAG.src==='sideboard') _moveSideboardToDeck();
     else if(_DRAG.src==='maybeboard') _moveMaybeboardToDeck();
   } else if(zone==='sideboard'){
