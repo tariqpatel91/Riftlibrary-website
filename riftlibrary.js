@@ -1588,12 +1588,13 @@ function addDirectToSB(deckId,cardId,cardName,cardType){
   if(!d.sideboard) d.sideboard=[];
   const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
   if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}
-  // Enforce combined 3-copy cap across deck + sideboard + champion zone (variants share the cap by base name)
+  // Enforce combined 3-copy cap across deck + sideboard + champion zone + maybeboard (variants share the cap by base name)
   const bn=baseName(cardName);
   const deckCnt=(d.cards||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const sbCnt=(d.sideboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
+  const mbCnt=(d.maybeboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const zoneCnt=(d.champion&&baseName(d.champion.n)===bn)?1:0;
-  if(deckCnt+sbCnt+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
+  if(deckCnt+sbCnt+mbCnt+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
   const existing=d.sideboard.find(c=>c.id===cardId);
   if(existing) existing.cnt++;
   else d.sideboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
@@ -1612,6 +1613,13 @@ function addDirectToMB(deckId,cardId,cardName,cardType){
   if(!d.maybeboard) d.maybeboard=[];
   const total=d.maybeboard.reduce((a,c)=>a+c.cnt,0);
   if(total>=MAYBE_MAX){toast('Maybe board is full ('+MAYBE_MAX+' cards max)');return;}
+  // Combined 3-copy cap across deck + sideboard + maybeboard + champion zone
+  const _bn=baseName(cardName);
+  const _dC=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
+  const _sC=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
+  const _mC=d.maybeboard.filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
+  const _zC=(d.champion&&baseName(d.champion.n)===_bn)?1:0;
+  if(_dC+_sC+_mC+_zC>=3){toast('Max 3 copies (including variants)');return;}
   const existing=d.maybeboard.find(c=>c.id===cardId);
   if(existing){
     if(existing.cnt>=MAYBE_PER_CARD_MAX){toast('Max '+MAYBE_PER_CARD_MAX+' copies of any one card in the maybe board');return;}
@@ -1795,7 +1803,13 @@ function _buildEditResultsHtml(d,slice,total,pages){
       const entry=(d.cards||[]).find(x=>x.id===c.id);
       const cnt=entry?entry.cnt:0;
       const bn=baseName(c.name);
-      const variantTotal=(d.cards||[]).filter(x=>baseName(x.n)===bn).reduce((a,x)=>a+x.cnt,0);
+      // Cap = 3 copies of the same base card across deck + champion zone +
+      // sideboard + maybe board (variants share the cap by base name).
+      const _vDeck=(d.cards||[]).filter(x=>baseName(x.n)===bn).reduce((a,x)=>a+x.cnt,0);
+      const _vSB=(d.sideboard||[]).filter(x=>baseName(x.n)===bn).reduce((a,x)=>a+x.cnt,0);
+      const _vMB=(d.maybeboard||[]).filter(x=>baseName(x.n)===bn).reduce((a,x)=>a+x.cnt,0);
+      const _vChamp=(d.champion&&baseName(d.champion.n)===bn)?1:0;
+      const variantTotal=_vDeck+_vSB+_vMB+_vChamp;
       const sn=c.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const isChamp=(c.supertype||'').toLowerCase().includes('champion');
       const effType=isChamp?'Champion':c.type;
@@ -1934,6 +1948,13 @@ function addToMaybeboard(deckId,cardId,cardName,cardType){
   if(!d.maybeboard) d.maybeboard=[];
   const total=d.maybeboard.reduce((a,c)=>a+c.cnt,0);
   if(total>=MAYBE_MAX){toast('Maybe board is full ('+MAYBE_MAX+' cards max)');return;}
+  // Combined 3-copy cap across deck + sideboard + maybeboard + champion zone
+  const _bn=baseName(cardName);
+  const _dC=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
+  const _sC=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
+  const _mC=d.maybeboard.filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
+  const _zC=(d.champion&&baseName(d.champion.n)===_bn)?1:0;
+  if(_dC+_sC+_mC+_zC>=3){toast('Max 3 copies (including variants)');return;}
   const existing=d.maybeboard.find(c=>c.id===cardId);
   if(existing){
     if(existing.cnt>=MAYBE_PER_CARD_MAX){toast('Max '+MAYBE_PER_CARD_MAX+' copies of any one card in the maybe board');return;}
@@ -2129,11 +2150,12 @@ function editZoneDrop(e,zone){
     }
     if(d.champion){toast('Champion zone already has a card — remove it first');_DRAG=null;return;}
     if(_DRAG.src==='library'){
-      // From library: add to zone (counts toward max 3)
+      // From library: add to zone (counts toward max 3 across deck + sideboard + maybeboard + champion zone)
       const _bn=baseName(_DRAG.n);
       const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
       const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
-      if(deckCntBN+sbCntBN>=3){toast('Max 3 copies (including variants)');_DRAG=null;return;}
+      const mbCntBN=(d.maybeboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
+      if(deckCntBN+sbCntBN+mbCntBN>=3){toast('Max 3 copies (including variants)');_DRAG=null;return;}
       d.champion={id:_DRAG.id,n:_DRAG.n};
     } else if(_DRAG.src==='deck'){
       // From main deck: move 1 copy out of deck into zone
@@ -2547,8 +2569,9 @@ function editDeckCard(cardId,cardName,cardType,delta){
     const bn=baseName(cardName);
     const deckCnt=(d.cards||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
     const sbCnt=(d.sideboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
+    const mbCnt=(d.maybeboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
     const zoneCnt=(d.champion&&baseName(d.champion.n)===bn)?1:0;
-    if(deckCnt+sbCnt+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
+    if(deckCnt+sbCnt+mbCnt+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
   }
   if(idx>=0){
     d.cards[idx].cnt=Math.max(0,d.cards[idx].cnt+delta);
@@ -2651,7 +2674,8 @@ function editChampionCard(cardId,cardName,actualType){
   const zoneCnt=(d.champion&&d.champion.id===cardId)?1:0;
   const deckEntry=d.cards.find(c=>c.id===cardId);
   const sbCnt=((d.sideboard||[]).find(c=>c.id===cardId)||{cnt:0}).cnt;
-  const total=zoneCnt+(deckEntry?deckEntry.cnt:0)+sbCnt;
+  const mbCnt=((d.maybeboard||[]).find(c=>c.id===cardId)||{cnt:0}).cnt;
+  const total=zoneCnt+(deckEntry?deckEntry.cnt:0)+sbCnt+mbCnt;
   if(total>=3){toast('Max 3 copies total across all zones');return;}
   if(!d.champion){
     d.champion={id:cardId,n:cardName};
