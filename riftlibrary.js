@@ -383,6 +383,9 @@ async function fetchAllCards(){
     cardsLoaded=true;
     populateLegendDropdowns();
     renderCards();
+    // If the page was opened via a shared #binder=... link, the viewer was
+    // showing a "Loading…" placeholder. Re-render now that CARDS is ready.
+    if(typeof _checkPublicBinderHash==='function') _checkPublicBinderHash();
     if(activeDeckId&&activeDDTab==='edit'){renderEditSearch();renderEditPreview();}
     if(activeDeckId&&activeDDTab==='sideboard'){
       const panel=document.getElementById('ddp-sideboard');
@@ -4357,6 +4360,80 @@ function _addCardSilent(cardId,binderId){
   persistBinders();renderCollection();
 }
 
+/* ── Public binder share link ─────────────────────────
+ * Encode the binder (name + card entries) into a base64 hash and copy a
+ * shareable URL. When someone opens the link, the page detects the hash
+ * and renders a read-only viewer (renderPublicBinder) — no nav, no edit
+ * controls, just the cards laid out like a trade binder.
+ */
+function shareBinderLink(binderId){
+  const b=rlBinders.find(x=>x.id===binderId);if(!b){toast('Binder not found');return;}
+  try{
+    const payload={n:b.name||'Shared Binder',c:(b.cards||[]).map(e=>({id:e.id,cnt:e.cnt}))};
+    const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    const url=window.location.origin+window.location.pathname+'#binder='+encoded;
+    navigator.clipboard.writeText(url).then(()=>toast('Binder link copied!')).catch(()=>prompt('Copy this link:',url));
+  }catch(e){toast('Could not generate link');}
+}
+
+function _decodePublicBinder(hash){
+  try{
+    const m=/(?:^|#|&)binder=([^&]+)/.exec(hash||'');
+    if(!m) return null;
+    const json=decodeURIComponent(escape(atob(decodeURIComponent(m[1]))));
+    const data=JSON.parse(json);
+    if(!data||!Array.isArray(data.c)) return null;
+    return data;
+  }catch(e){ return null; }
+}
+
+function renderPublicBinder(data){
+  // Hide the rest of the app — nav, all pages, footer — and inject a single
+  // read-only view of the shared binder. The viewer waits until CARDS is
+  // loaded so card art resolves; the init code retries when cards arrive.
+  const nav=document.querySelector('nav');if(nav)nav.style.display='none';
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  let host=document.getElementById('public-binder-view');
+  if(!host){
+    host=document.createElement('div');
+    host.id='public-binder-view';
+    host.style.cssText='max-width:1300px;margin:0 auto;padding:2rem 1.5rem 4rem;';
+    document.body.appendChild(host);
+  }
+  if(!cardsLoaded||!CARDS.length){
+    host.innerHTML=`<div style="text-align:center;padding:4rem 2rem;color:var(--text-muted);"><div class="spin"></div><div style="margin-top:12px;">Loading card data…</div></div>`;
+    return;
+  }
+  const fakeBinder={id:'__public',name:data.n||'Shared Binder',cards:data.c||[]};
+  const total=fakeBinder.cards.reduce((a,e)=>a+(e.cnt||1),0);
+  let html=`<div style="text-align:center;margin-bottom:1.5rem;">
+    <div style="font-family:'Syne',sans-serif;font-size:28px;font-weight:700;color:var(--accent);letter-spacing:0.02em;">RiftLibrary</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Shared Trade Binder</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:140px;">
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;">${(fakeBinder.name||'').replace(/[<>]/g,'')}</div>
+      <div style="font-size:12px;color:var(--text-muted);">${total} card${total!==1?'s':''} • Read-only view</div>
+    </div>
+    <a href="${window.location.origin+window.location.pathname}" class="btn btn-g" style="font-size:12px;text-decoration:none;">Open RiftLibrary</a>
+  </div>`;
+  html+=_renderBinderSlot(fakeBinder,false);
+  host.innerHTML=html;
+}
+
+// Run on script load and on hashchange — switches to/from the public viewer.
+function _checkPublicBinderHash(){
+  const data=_decodePublicBinder(window.location.hash);
+  const existing=document.getElementById('public-binder-view');
+  if(data){
+    renderPublicBinder(data);
+  } else if(existing){
+    existing.remove();
+    const nav=document.querySelector('nav');if(nav)nav.style.display='';
+  }
+}
+window.addEventListener('hashchange',_checkPublicBinderHash);
+
 /* ── Binder drag-and-drop ────────────────────────── */
 // Drag a card thumb from the bottom collection grid into the top binder slot.
 // Only owned cards are draggable (the cards-grid filters to owned in edit mode),
@@ -4660,12 +4737,22 @@ function renderCollection(){
         <button class="bmt ${!isEdit?'on':''}" onclick="setBinderMode('view')">👁 View</button>
         <button class="bmt ${isEdit?'on':''}" onclick="setBinderMode('edit')">✎ Edit</button>
       </div>
+      <button class="btn btn-g" style="font-size:12px;" onclick="shareBinderLink(${activeBinder.id})" title="Copy a shareable public link to this binder">🔗 Share</button>
       <button class="btn btn-g" style="font-size:12px;" onclick="renameBinder(${activeBinder.id})">Rename</button>
       <button class="btn btn-d" style="font-size:12px;" onclick="deleteBinder(${activeBinder.id})">Delete</button>`}
     </div>`;
 
     // Binder slot — replaces the sets-grid area as a drop zone in edit mode.
     html+=_renderBinderSlot(activeBinder,isEdit);
+
+    // View mode on a real (non-static) binder = read-only trade-binder layout.
+    // Hide the "My Collection" controls / filters / bottom grid entirely so
+    // the page looks like the public share view. Edit mode keeps the bottom
+    // collection grid so the user can still pick cards to drag in.
+    if(!isEdit&&!activeBinder._static){
+      html+=`</div></div>`;
+      el.innerHTML=html;return;
+    }
   }
 
   // filter source — use per-set cards (not allUnique) when a set is selected so promos appear
@@ -4897,6 +4984,9 @@ function renderStatistics(){
 /* ── INIT ────────────────────────────────────────── */
 loadStorage();
 ['energy','power','might'].forEach(n=>{document.getElementById('rf-'+n).style.cssText='left:0%;width:100%;';});
+// Show the public-binder placeholder right away if the URL has #binder=…;
+// fetchAllCards re-renders it once CARDS is populated.
+if(typeof _checkPublicBinderHash==='function') _checkPublicBinderHash();
 fetchAllCards();
 
 let _resizeTimer;
