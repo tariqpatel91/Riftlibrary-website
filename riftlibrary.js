@@ -4844,7 +4844,8 @@ function renderCollection(){
   }
 
   if(CF2.view==='grid'){
-    html+=`<div class="coll-grid${CF2.showGrey?'':' no-grey'}">`;
+    const _editGrid=activeBinder&&!activeBinder._static&&CF2.binderMode==='edit';
+    html+=`<div class="coll-grid${CF2.showGrey?'':' no-grey'}${_editGrid?' edit-mode':''}">`;
     source.forEach(c=>{
       const owned=collOwned[c.id]||0;
       const wantedRaw=collWanted[c.id];
