@@ -4541,6 +4541,21 @@ function setCollWanted(id,delta){
 }
 function setCollSet(s){CF2.set=CF2.set===s?'':s;renderCollection();}
 
+async function clearAllCollection(){
+  const ownedCount=Object.keys(collOwned).length;
+  const wantedCount=Object.keys(collWanted).length;
+  if(!ownedCount&&!wantedCount){toast('Collection is already empty');return;}
+  if(!confirm(`Remove ALL ${ownedCount} owned cards and ${wantedCount} wishlist cards? This cannot be undone.`))return;
+  collOwned={};collWanted={};
+  persistColl();
+  if(currentUser){
+    try{await _sb.from('collection').delete().eq('user_id',currentUser.id);}
+    catch(e){console.warn('Cloud clear failed:',e);}
+  }
+  toast('Collection cleared');
+  renderCollection();
+}
+
 function renderCollection(){
   const el=document.getElementById('collection-content');
   if(!el)return;
@@ -4608,7 +4623,7 @@ function renderCollection(){
       <span class="cbs-count">${wishlistCount}</span>
     </button>
     <button class="cbs-item cbs-item-static${CF2.binder==='extras'?' active':''}" onclick="setActiveBinder('extras')">
-      <span class="cbs-label">📦 Extra Cards</span>
+      <span class="cbs-label">Extra Cards</span>
       <span class="cbs-count">${extrasCount}</span>
     </button>`;
   rlBinders.forEach(b=>{
@@ -4623,6 +4638,9 @@ function renderCollection(){
       </div>
     </div>`;
   });
+  sidebarHtml+=`<div class="cbs-footer">
+    <button class="cbs-wipe-btn" onclick="clearAllCollection()" title="Remove every card from your collection and wishlist">Remove all cards in collection</button>
+  </div>`;
   sidebarHtml+=`</div>`;
 
   // When a binder is open, the binder slot takes the prime real estate at the
@@ -4691,7 +4709,7 @@ function renderCollection(){
   } else {
     // Binder header
     const isEdit=CF2.binderMode==='edit'&&!activeBinder._static;
-    const icon=activeBinder._kind==='wishlist'?'♥':activeBinder._kind==='extras'?'📦':'';
+    const icon=activeBinder._kind==='wishlist'?'♥':'';
     const subtitle=activeBinder._kind==='wishlist'
       ?'Auto-updates from your wishlist'
       :activeBinder._kind==='extras'
