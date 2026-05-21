@@ -4296,7 +4296,7 @@ function setActiveBinder(id){
     CF2.q='';
     CF2.binderMode='view';
   } else {
-    CF2.binder=id;CF2.show='all';CF2.q='';CF2.binderMode='view';
+    CF2.binder=id;CF2.show='all';CF2.q='';CF2.binderMode='edit';
   }
   renderCollection();
   window.scrollTo({top:0,behavior:'smooth'});
@@ -4833,7 +4833,9 @@ ${activeBinder._static?'':`<div class="binder-mode-toggle">
 
   if(CF2.view==='grid'){
     const _editGrid=activeBinder&&!activeBinder._static&&CF2.binderMode==='edit';
-    html+=`<div class="coll-grid${CF2.showGrey?'':' no-grey'}${_editGrid?' edit-mode':''}">`;
+    // Binder view mode (non-edit) shows larger cards, matching the Cards tab grid.
+    const _largeGrid=activeBinder&&!activeBinder._static&&CF2.binderMode==='view';
+    html+=`<div class="coll-grid${CF2.showGrey?'':' no-grey'}${_editGrid?' edit-mode':''}${_largeGrid?' coll-grid-large':''}">`;
     source.forEach(c=>{
       const owned=collOwned[c.id]||0;
       const wantedRaw=collWanted[c.id];
@@ -4872,13 +4874,8 @@ ${activeBinder._static?'':`<div class="binder-mode-toggle">
             // here. Card surfaces while owned > 3 and disappears otherwise.
             binderRemoveBtn='';
           } else if(CF2.binderMode==='edit'){
-            const inBinder=!!_binderHas(activeBinder,c.id);
-            // In edit mode the + button is gone — clicking the card itself
-            // adds a copy. The ✓ chip stays as both an "in-binder" indicator
-            // and a one-click remove. A zoom 🔍 button opens the card modal.
-            if(inBinder){
-              binderRemoveBtn=`<button class="coll-binder-btn in-binder" onclick="event.stopPropagation();removeCardFromBinder('${si}',${activeBinder.id})" title="In binder — click to remove">✓</button>`;
-            }
+            // Edit mode: clicking the card adds a copy. Zoom 🔍 opens the
+            // modal. No corner indicator for already-added cards.
             zoomBtn=`<button class="coll-binder-btn zoom" onclick="event.stopPropagation();openCardModal('${si}')" title="Zoom card details">🔍</button>`;
           } else {
             binderRemoveBtn=`<button class="coll-binder-btn remove" onclick="event.stopPropagation();removeCardFromBinder('${si}',${activeBinder.id})" title="Remove from binder">📁✕</button>`;
