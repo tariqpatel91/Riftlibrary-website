@@ -167,11 +167,12 @@ function _send(payload) {
 
 /* ── INCOMING MESSAGES ── */
 function handleMsg(msg) {
+  const oppName = () => GS.opp.name || 'Opponent';
   switch (msg.type) {
     case 'player_join':
       GS.opp.name = msg.name;
       _setText('opp-name-label', msg.name);
-      appendChat('System', msg.name + ' joined.');
+      logAction(msg.name + ' joined the game');
       break;
     case 'life':
       GS.opp.life = msg.value;
@@ -184,6 +185,7 @@ function handleMsg(msg) {
       break;
     case 'play_card':
       _addToOppZone(msg.zone, msg.card);
+      logAction(oppName() + ' played ' + (msg.card && msg.card.name || 'a card') + ' → ' + (msg.zone === 'battle' ? 'BASE' : msg.zone));
       break;
     case 'move_card':
       _moveOppCard(msg.uid, msg.from, msg.to);
@@ -194,13 +196,13 @@ function handleMsg(msg) {
     case 'end_turn':
       GS.myTurn = true;
       updateTurnBadge();
-      appendChat('System', GS.opp.name + ' ended their turn. Your turn!');
+      logAction(oppName() + ' ended their turn — your turn');
       break;
     case 'chat':
-      appendChat(GS.opp.name, msg.text);
+      appendChat(oppName(), msg.text);
       break;
     case 'concede':
-      appendChat('System', GS.opp.name + ' conceded. You win!');
+      logAction(oppName() + ' conceded — you win!');
       break;
   }
 }
@@ -325,7 +327,7 @@ function startBoard(isFirst) {
   } catch(e) {}
   renderFullBoard();
   updateTurnBadge();
-  appendChat('System', 'Game started! ' + (GS.myTurn ? 'You go first.' : (GS.opp.name||'Opponent') + ' goes first.'));
+  logAction('Game started — ' + (GS.myTurn ? 'you go first' : (GS.opp.name||'Opponent') + ' goes first'));
 }
 
 function _bindScoreTrack() {
@@ -896,6 +898,12 @@ function dropToZone(e, toZone) {
 
   _sendHandCount();
   renderFullBoard();
+  // Log the resulting movement. Re-positioning within BASE is noise, so skip it.
+  const nm = card.name || 'a card';
+  const zoneLabels = {battle:'BASE',support:'runes',legend:'Legend',champion:'Champion',hand:'hand',deck:'deck',trash:'discard',discard:'discard','rune-deck':'rune deck'};
+  const zl = zoneLabels[toZone];
+  const isRepositionInBase = (toZone === 'battle' && (_dragZone === 'play-base-cards' || _dragZone === 'battle-cards' || _dragZone === 'battle'));
+  if (zl && !isRepositionInBase) logAction('You moved ' + nm + ' → ' + zl);
   _dragUid = null;
   _dragZone = null;
 }
@@ -1009,7 +1017,12 @@ function _moveToZone(uid, fromZone, toZone) {
 
 function _discardCard(uid, zone) {
   const card = _pluckMyCard(uid, zone);
-  if (card) { GS.me.discard.push(card); _sendHandCount(); renderFullBoard(); }
+  if (card) {
+    GS.me.discard.push(card);
+    _sendHandCount();
+    renderFullBoard();
+    logAction('You discarded ' + (card.name || 'a card'));
+  }
 }
 
 // Send a rune from the runes zone to the bottom of the rune deck (or main deck
@@ -1100,9 +1113,11 @@ function adjustLife(side, delta) {
     GS.me.life = Math.max(0, GS.me.life + delta);
     _setText('my-life', GS.me.life);
     _send({ type:'life', value: GS.me.life });
+    logAction('Your life ' + (delta>0?'+':'') + delta + ' → ' + GS.me.life);
   } else {
     GS.opp.life = Math.max(0, GS.opp.life + delta);
     _setText('opp-life', GS.opp.life);
+    logAction((GS.opp.name||'Opponent') + ' life ' + (delta>0?'+':'') + delta + ' → ' + GS.opp.life);
   }
 }
 
@@ -1113,6 +1128,7 @@ function drawCard() {
   _setText('my-deck-count', GS.me.deck.length);
   renderMyHand();
   _updateCounts();
+  logAction('You drew a card');
 }
 
 function playRune() {
@@ -1123,6 +1139,7 @@ function playRune() {
   GS.me.support.push(rune);
   _setText('my-rune-count', GS.me.runes.length);
   renderZone('support-cards', GS.me.support);
+  logAction('You played a rune (' + (rune.name || 'rune') + ')');
 }
 
 function viewDiscard() {
@@ -1150,11 +1167,11 @@ function endTurn() {
   GS.me.battle.forEach(c=>c._exhausted=false);
   GS.me.support.forEach(c=>c._exhausted=false);
   if (GS.roomCode === 'SOLO') {
-    // solo: immediately flip back
-    appendChat('System', 'New turn — draw a card?');
+    logAction('New turn started');
   } else {
     GS.myTurn = false;
     _send({ type:'end_turn' });
+    logAction('You ended your turn');
   }
   updateTurnBadge();
   renderFullBoard();
@@ -1164,7 +1181,7 @@ function concede() {
   const label = GS.roomCode === 'SOLO' ? 'Exit practice session?' : 'Concede the game?';
   if (!confirm(label)) return;
   if (GS.roomCode !== 'SOLO') _send({ type:'concede' });
-  appendChat('System', GS.roomCode === 'SOLO' ? 'Practice ended.' : 'You conceded.');
+  logAction(GS.roomCode === 'SOLO' ? 'Practice ended' : 'You conceded the game');
   leaveBoard();
 }
 
@@ -1213,11 +1230,12 @@ document.addEventListener('dragleave', e => {
   if (zone && !zone.contains(e.relatedTarget)) zone.classList.remove('drag-over');
 });
 
-/* ── CHAT ── */
+/* ── CHAT + GAME LOG ── */
+// The right-side panel is always visible. toggleChat is kept for the legacy
+// hamburger/divider buttons — it just focuses the input so the user can type.
 function toggleChat() {
-  const panel = document.getElementById('chat-panel');
-  if (!panel) return;
-  panel.style.display = panel.style.display === 'none' ? '' : 'none';
+  const input = document.getElementById('chat-input');
+  if (input) input.focus();
 }
 
 function sendChat() {
@@ -1238,10 +1256,28 @@ function appendChat(name, msg) {
   const msgs = document.getElementById('chat-msgs');
   if (!msgs) return;
   const div = document.createElement('div');
-  div.className = 'chat-msg';
-  div.innerHTML = `<strong>${name}:</strong> ${msg}`;
+  // System messages render as log entries; everything else as a chat bubble.
+  const isLog = name === 'System' || name === 'Log';
+  div.className = 'chat-msg' + (isLog ? ' log-msg' : '');
+  const t = new Date();
+  const ts = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0');
+  div.innerHTML = isLog
+    ? `<strong>${ts}</strong>${msg}`
+    : `<strong>${name}:</strong> ${msg}`;
   msgs.appendChild(div);
   msgs.scrollTop = msgs.scrollHeight;
+}
+
+// Log a game action to the right-side panel. Use this for any state change
+// the user should be able to look back on (draws, plays, taps, discards, turn
+// shifts, score adjustments, shuffles, concedes, etc.).
+function logAction(text) {
+  appendChat('Log', text);
+}
+
+function clearGameLog() {
+  const msgs = document.getElementById('chat-msgs');
+  if (msgs) msgs.innerHTML = '';
 }
 
 /* ── HELPERS ── */
@@ -1813,11 +1849,13 @@ function shuffleDeck() {
   if (!GS.me.deck || GS.me.deck.length < 2) { if (typeof showToast === 'function') showToast('Nothing to shuffle'); return; }
   _shuffleArr(GS.me.deck);
   if (typeof showToast === 'function') showToast('Deck shuffled (' + GS.me.deck.length + ' cards)');
+  logAction('You shuffled your deck (' + GS.me.deck.length + ' cards)');
   renderFullBoard();
 }
 function shuffleRuneDeck() {
   if (!GS.me.runes || GS.me.runes.length < 2) { if (typeof showToast === 'function') showToast('Nothing to shuffle'); return; }
   _shuffleArr(GS.me.runes);
   if (typeof showToast === 'function') showToast('Rune deck shuffled (' + GS.me.runes.length + ' cards)');
+  logAction('You shuffled your rune deck (' + GS.me.runes.length + ' cards)');
   renderFullBoard();
 }

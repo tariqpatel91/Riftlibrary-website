@@ -436,6 +436,19 @@
           <div class="track-name track-name-me" id="track-name-me">You</div>
         </div>
 
+        <!-- Game log + chat: lives in grid col 4, full top-to-bottom height -->
+        <div id="chat-panel">
+          <div class="chat-header">
+            <span class="chat-title">Game Log</span>
+            <button class="chat-clear" onclick="clearGameLog()" title="Clear log">⟲</button>
+          </div>
+          <div id="chat-msgs"></div>
+          <div class="chat-input-row">
+            <input type="text" id="chat-input" placeholder="Type a message…" onkeydown="if(event.key==='Enter')sendChat()">
+            <button class="chat-send-btn" onclick="sendChat()" title="Send">➤</button>
+          </div>
+        </div>
+
         <!-- BASE strip (units zone) sits along the bottom; controls bar centers horizontally -->
         <div class="bz" id="center-base" ondragover="boardDragOver(event)" ondrop="dropToZone(event,'battle')">
           <div class="center-opp-units" id="opp-base-cards"></div>
@@ -492,15 +505,6 @@
       <div id="my-hand-count" style="display:none;"></div>
 
     </div><!-- /board-arena -->
-
-    <!-- Chat panel -->
-    <div id="chat-panel" style="display:none;">
-      <div id="chat-msgs"></div>
-      <div style="display:flex;gap:6px;padding:8px;">
-        <input type="text" id="chat-input" placeholder="Message…" style="flex:1;padding-left:12px;" onkeydown="if(event.key==='Enter')sendChat()">
-        <button class="btn btn-sm btn-g" onclick="sendChat()">Send</button>
-      </div>
-    </div>
 
   </div><!-- /play-board -->
 

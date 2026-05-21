@@ -1175,7 +1175,7 @@ body.on-play-tab #play-board{height:100vh;}
 /* ── Play board layout: hero column LEFT, big battlefields center, score track RIGHT ── */
 /* margin-top:3px replaces the old board-arena gap between top-row and play-main;
    margin-bottom:0 ensures bottom-row is flush against the base zone */
-#play-main{flex:1;min-height:0;display:grid;grid-template-columns:130px minmax(0,1fr) 70px;grid-template-rows:1fr;gap:8px;padding:6px;position:relative;margin-top:3px;margin-bottom:0;}
+#play-main{flex:1;min-height:0;display:grid;grid-template-columns:130px minmax(0,1fr) 70px 260px;grid-template-rows:1fr;gap:8px;padding:6px;position:relative;margin-top:3px;margin-bottom:0;}
 #hero-column{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:8px;min-height:0;}
 /* Battlefield + opp-BASE zones removed — play area is now ONE giant merged
    BASE zone that fills the full middle column. Both players' battle cards
@@ -1255,15 +1255,16 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 #play-main #center-base .bz-base-hint,
 #play-main #center-base > .bz-lbl{display:none;}
 /* Thin horizontal divider line that runs across the entire play area at the midline */
-#play-main::before{content:'';position:absolute;left:140px;right:65px;top:50%;height:1px;background:rgba(180,140,50,0.35);z-index:5;pointer-events:none;}
+#play-main::before{content:'';position:absolute;left:140px;right:340px;top:50%;height:1px;background:rgba(180,140,50,0.35);z-index:5;pointer-events:none;}
 
 /* Ensure card images fit nicely in champion/legend pieces with the new flex sizing */
 .hero-half .piece-bz .bz-cards{position:absolute;inset:6px;padding:0;display:flex;align-items:center;justify-content:center;}
 .hero-half .piece-bz .board-card{width:100%;height:100%;}
 
 @media(max-width:1100px){
-  #play-main{grid-template-columns:1fr 50px 110px;}
+  #play-main{grid-template-columns:1fr 50px 110px 200px;}
   #hero-column{gap:5px;}
+  #play-main::before{right:265px;}
 }
 /* Player's BATTLEFIELD ZONE — wide rectangle below the divider, left of the buttons,
    wraps over the champion+legend cluster on its lower-left corner */
@@ -1483,11 +1484,24 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 .board-card-menu button{display:block;width:100%;padding:7px 14px;background:none;border:none;color:#d4c58a;font-size:12px;cursor:pointer;text-align:left;transition:background 0.1s;}
 .board-card-menu button:hover{background:rgba(180,140,50,0.15);}
 
-/* ── Chat ── */
-#chat-panel{position:absolute;bottom:0;left:0;right:0;z-index:10;background:rgba(4,10,22,0.96);border-top:1px solid rgba(180,140,50,0.25);max-height:180px;display:flex;flex-direction:column;}
-#chat-msgs{flex:1;overflow-y:auto;padding:6px 12px;font-size:12px;display:flex;flex-direction:column;gap:3px;}
-.chat-msg{padding:2px 0;color:rgba(255,255,255,0.7);}
+/* ── Game log + chat panel: grid col 4 of #play-main, top→bottom ── */
+#chat-panel{grid-column:4;grid-row:1;display:flex;flex-direction:column;min-height:0;background:linear-gradient(180deg,rgba(15,30,55,0.92),rgba(4,10,22,0.96));border:1px solid rgba(180,140,50,0.4);border-radius:10px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.5);}
+.chat-header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid rgba(180,140,50,0.3);background:rgba(0,0,0,0.35);flex-shrink:0;}
+.chat-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#e8d47a;letter-spacing:0.1em;text-transform:uppercase;}
+.chat-clear{width:24px;height:24px;border-radius:6px;border:1px solid rgba(180,140,50,0.4);background:rgba(10,18,36,0.6);color:rgba(232,212,122,0.75);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+.chat-clear:hover{background:rgba(200,154,58,0.25);color:#e8d47a;}
+#chat-msgs{flex:1;min-height:0;overflow-y:auto;padding:8px 10px;font-size:12px;display:flex;flex-direction:column;gap:4px;line-height:1.4;}
+#chat-msgs::-webkit-scrollbar{width:6px;}
+#chat-msgs::-webkit-scrollbar-thumb{background:rgba(180,140,50,0.35);border-radius:3px;}
+.chat-msg{padding:3px 6px;border-radius:5px;color:rgba(255,255,255,0.78);word-wrap:break-word;}
 .chat-msg strong{color:#e8d47a;}
+.chat-msg.log-msg{color:rgba(232,212,122,0.75);background:rgba(200,154,58,0.06);border-left:2px solid rgba(200,154,58,0.45);padding-left:8px;font-size:11px;font-style:italic;}
+.chat-msg.log-msg strong{color:rgba(232,212,122,0.55);font-weight:600;font-style:normal;margin-right:4px;}
+.chat-input-row{display:flex;gap:4px;padding:8px;border-top:1px solid rgba(180,140,50,0.25);background:rgba(0,0,0,0.25);flex-shrink:0;}
+#chat-input{flex:1;padding:7px 10px;border-radius:6px;border:1px solid rgba(180,140,50,0.4);background:rgba(10,18,36,0.7);color:#fff;font-size:12px;font-family:'Inter',system-ui,sans-serif;outline:none;transition:border-color 0.15s;}
+#chat-input:focus{border-color:#e8d47a;}
+.chat-send-btn{width:32px;border-radius:6px;border:1px solid rgba(200,154,58,0.5);background:rgba(200,154,58,0.18);color:#e8d47a;font-size:12px;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:center;}
+.chat-send-btn:hover{background:rgba(200,154,58,0.4);color:#fff;}
 
 /* ── Pre-game deck customizer overlay ── */
 #play-deck-overlay{display:none;position:fixed;inset:0;background:rgba(4,10,22,0.96);z-index:600;flex-direction:column;color:#fff;font-family:'Inter',system-ui,sans-serif;}
