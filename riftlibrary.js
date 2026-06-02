@@ -5267,8 +5267,44 @@ async function submitLogin() {
   } finally { btn.textContent = 'Log in'; btn.disabled = false; }
 }
 
-function oauthLogin(provider) {
-  _sb.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.href } });
+async function oauthLogin(provider) {
+  // Use the bare origin+pathname so the redirect URL is stable and matches
+  // whatever you've whitelisted in Supabase → Auth → URL Configuration.
+  // Passing window.location.href would include the current hash (e.g. a
+  // shared #binder=… link) and Supabase rejects redirects whose hash isn't
+  // in the allow list, so the user just sees nothing happen.
+  const redirectTo = window.location.origin + window.location.pathname;
+  try {
+    if (!_sb || !_sb.auth || typeof _sb.auth.signInWithOAuth !== 'function') {
+      showAuthError('Auth client not ready — please refresh and try again.');
+      return;
+    }
+    const { data, error } = await _sb.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo }
+    });
+    if (error) {
+      // Common: "provider is not enabled" when Google/Facebook OAuth hasn't
+      // been turned on (with client id/secret) in the Supabase dashboard.
+      console.error('[oauth]', provider, error);
+      showAuthError(
+        (error.message || 'OAuth failed') +
+        ' — make sure ' + provider + ' is enabled in your Supabase Auth providers' +
+        ' and that ' + redirectTo + ' is added to the redirect allow-list.'
+      );
+      return;
+    }
+    // signInWithOAuth performs a top-level redirect. If we're still on the
+    // page after a moment, the redirect didn't happen — surface that too.
+    setTimeout(() => {
+      if (document.visibilityState === 'visible') {
+        showAuthError('Could not redirect to ' + provider + '. Pop-up blocked or provider not configured?');
+      }
+    }, 4000);
+  } catch (e) {
+    console.error('[oauth]', provider, e);
+    showAuthError((e && e.message) || ('Could not sign in with ' + provider));
+  }
 }
 
 function openProfileModal(){
