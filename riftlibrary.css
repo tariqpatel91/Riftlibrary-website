@@ -950,6 +950,7 @@ select option{background:#1e1e2a;}
 .coll-copy-minus{background:rgba(220,38,38,0.9);color:#fff;}
 .coll-copy-plus{background:rgba(200,168,75,0.95);color:#000;}
 .coll-copy-count{font-size:12px;font-weight:800;color:#fff;min-width:28px;text-align:center;text-shadow:0 1px 3px rgba(0,0,0,0.9);}
+.coll-copy-count-wanted{background:var(--chaos);color:#fff;padding:3px 9px;border-radius:6px;text-shadow:none;box-shadow:0 2px 6px rgba(0,0,0,0.6);white-space:nowrap;}
 /* Count badge sits on the right edge, vertically centered, so the top-right
    corner stays clear for art / overlays. */
 .coll-card-badge{position:absolute;top:50%;right:6px;transform:translateY(-50%);font-size:10px;font-weight:800;padding:3px 7px;border-radius:6px;line-height:1.4;box-shadow:0 2px 6px rgba(0,0,0,0.6);}

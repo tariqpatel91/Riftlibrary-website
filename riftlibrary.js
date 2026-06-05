@@ -4855,10 +4855,9 @@ ${activeBinder._static?'':`<div class="binder-mode-toggle">
         const need=Math.max(0,wantedCount-owned);
         html+=`<div class="coll-card wanted-card${bfCls} ${isComplete?'complete':owned>0?'owned':''}" title="${c.name}" onclick="openCardModal('${si}')">
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
-          <div class="coll-card-badge coll-badge-wanted">♥ ×${wantedCount}</div>
           <div class="coll-card-actions">
             <button class="coll-copy-btn coll-copy-minus" onclick="event.stopPropagation();setCollWanted('${si}',-1)" title="Want fewer">−</button>
-            <span class="coll-copy-count" style="font-size:10px;min-width:32px;">${owned}/${wantedCount}</span>
+            <span class="coll-copy-count coll-copy-count-wanted">♥ ${owned}/${wantedCount}</span>
             <button class="coll-copy-btn coll-copy-plus" onclick="event.stopPropagation();setCollWanted('${si}',1)" title="Want more">+</button>
           </div>
           <div class="coll-card-name" style="${need>0?'color:#f87171;':'color:var(--calm);'}">${need>0?`Need ${need}`:'✓ Done'}</div>
