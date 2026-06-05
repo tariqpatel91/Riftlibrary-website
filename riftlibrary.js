@@ -5063,7 +5063,7 @@ window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=se
    ═══════════════════════════════════════════════════════════════ */
 
 const SUPABASE_URL  = 'https://rxolycfdleetydbbehep.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ4b2x5Y2ZkbGVldHlkYmJlaGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTg1NjIsImV4cCI6MjA5Mjg3NDU2Mn0.d2iPG_2hPAwpjbX466-4ZAb1hO83CEtP4tg-M-ky_BA';
+const SUPABASE_ANON = 'sb_publishable_mqBXbj-SNubaSctoWxjusw_b3DBBV0v';
 const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 async function initAuth() {
@@ -5259,8 +5259,44 @@ async function submitLogin() {
   } finally { btn.textContent = 'Log in'; btn.disabled = false; }
 }
 
-function oauthLogin(provider) {
-  _sb.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.href } });
+async function oauthLogin(provider) {
+  // Use the bare origin+pathname so the redirect URL is stable and matches
+  // whatever you've whitelisted in Supabase → Auth → URL Configuration.
+  // Passing window.location.href would include the current hash (e.g. a
+  // shared #binder=… link) and Supabase rejects redirects whose hash isn't
+  // in the allow list, so the user just sees nothing happen.
+  const redirectTo = window.location.origin + window.location.pathname;
+  try {
+    if (!_sb || !_sb.auth || typeof _sb.auth.signInWithOAuth !== 'function') {
+      showAuthError('Auth client not ready — please refresh and try again.');
+      return;
+    }
+    const { data, error } = await _sb.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo }
+    });
+    if (error) {
+      // Common: "provider is not enabled" when Google/Facebook OAuth hasn't
+      // been turned on (with client id/secret) in the Supabase dashboard.
+      console.error('[oauth]', provider, error);
+      showAuthError(
+        (error.message || 'OAuth failed') +
+        ' — make sure ' + provider + ' is enabled in your Supabase Auth providers' +
+        ' and that ' + redirectTo + ' is added to the redirect allow-list.'
+      );
+      return;
+    }
+    // signInWithOAuth performs a top-level redirect. If we're still on the
+    // page after a moment, the redirect didn't happen — surface that too.
+    setTimeout(() => {
+      if (document.visibilityState === 'visible') {
+        showAuthError('Could not redirect to ' + provider + '. Pop-up blocked or provider not configured?');
+      }
+    }, 4000);
+  } catch (e) {
+    console.error('[oauth]', provider, e);
+    showAuthError((e && e.message) || ('Could not sign in with ' + provider));
+  }
 }
 
 function openProfileModal(){
