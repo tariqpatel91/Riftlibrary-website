@@ -4647,7 +4647,10 @@ function renderCollection(){
   // top, so the page title slides down to sit just above the controls/search.
   // No binder open → page title stays at the very top, above the mode toggle.
   const titleHtml=`<div class="ph coll-ph-centered"><h1>My Collection</h1><p>Track your Riftbound card collection</p></div>`;
-  let html='';
+  // Layout: sidebar (left) + main column (right). Both title and the
+  // view/edit toggle live inside coll-main so they share the right column
+  // and never overlap the floating binder list.
+  let html=`<div class="coll-layout">${sidebarHtml}<div class="coll-main">`;
   if(!activeBinder){
     html+=titleHtml;
     html+=`<div class="coll-mode-toggle-wrap">
@@ -4655,7 +4658,6 @@ function renderCollection(){
       <button class="cmt ${CF2.collMode==='edit'?'on':''}" onclick="setCollMode('edit')">✎ Edit my Collection</button>
     </div>`;
   }
-  html+=`<div class="coll-layout">${sidebarHtml}<div class="coll-main">`;
 
   if(!activeBinder){
     // overall mini stat bar
