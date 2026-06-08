@@ -4861,9 +4861,16 @@ ${activeBinder._static?'':`<div class="binder-mode-toggle">
       const ownedLabel=owned>=15?'15+':String(owned);
       const inWishlistView=CF2.show==='wanted';
       const bfCls=c.type==='Battlefield'?' coll-card-bf':'';
+      // In binder edit mode, figure out how many copies of this card are already
+      // in the binder. Once every owned copy has been added, there's nothing
+      // left to add — we grey the card out and stop drag/click-add.
+      const _editBinder=!!activeBinder&&!activeBinder._static&&CF2.binderMode==='edit';
+      const _inBinderCnt=_editBinder?((_binderHas(activeBinder,c.id)||{}).cnt||0):0;
+      const _binderMaxed=_editBinder&&owned>0&&_inBinderCnt>=owned;
       // Drag enabled only when an editable binder is active and this card is
-      // actually owned — those are the only cards we let drop into a binder.
-      const canDragToBinder=!!activeBinder&&!activeBinder._static&&CF2.binderMode==='edit'&&owned>0;
+      // actually owned (and not already fully added) — those are the only cards
+      // we let drop into a binder.
+      const canDragToBinder=_editBinder&&owned>0&&!_binderMaxed;
       const dragAttrs=canDragToBinder?` draggable="true" ondragstart="binderCollDragStart(event,'${si}')" ondragend="_DRAG=null"`:'';
       if(inWishlistView){
         const need=Math.max(0,wantedCount-owned);
@@ -4909,10 +4916,12 @@ ${activeBinder._static?'':`<div class="binder-mode-toggle">
         // copy to the binder instead of opening the modal — the new zoom 🔍
         // button is the way to open the modal there.
         const isEditableBinder=activeBinder&&!activeBinder._static&&CF2.binderMode==='edit';
-        const cardClick=isEditableBinder
-          ?`_addCardSilent('${si}',${activeBinder.id})`
-          :`openCardModal('${si}')`;
-        html+=`<div class="coll-card ${cls}${bfCls}${isWanted?' wishlisted':''}${hideOwnerControls?' in-binder-view':''}${dragAttrs?' coll-card-draggable':''}${isEditableBinder?' coll-card-click-add':''}" title="${c.name}" onclick="${cardClick}"${dragAttrs}>
+        const cardClick=_binderMaxed
+          ?`toast('All ${owned} cop${owned===1?'y':'ies'} already in this binder')`
+          :isEditableBinder
+            ?`_addCardSilent('${si}',${activeBinder.id})`
+            :`openCardModal('${si}')`;
+        html+=`<div class="coll-card ${cls}${bfCls}${isWanted?' wishlisted':''}${hideOwnerControls?' in-binder-view':''}${dragAttrs?' coll-card-draggable':''}${isEditableBinder&&!_binderMaxed?' coll-card-click-add':''}${_binderMaxed?' binder-maxed':''}" title="${_binderMaxed?`All ${owned} copies in binder`:c.name}" onclick="${cardClick}"${dragAttrs}>
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
           ${hideOwnerControls?'':`<button class="coll-wishlist-top-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>`}
           ${zoomBtn}
