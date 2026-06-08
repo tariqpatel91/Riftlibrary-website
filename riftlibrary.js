@@ -4302,6 +4302,22 @@ function setActiveBinder(id){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
+// Export the wishlist as a plain-text list (copied to clipboard). Each line is
+// "<need>x <name>  (own X/Y)" so it's easy to paste into a trade thread.
+function exportWishlist(){
+  const ids=Object.keys(collWanted).filter(id=>collWanted[id]);
+  if(!ids.length){toast('Your wishlist is empty');return;}
+  const rows=ids.map(id=>{
+    const c=CARDS.find(x=>x.id===id);
+    const want=collWanted[id]===true?3:(collWanted[id]||0);
+    const own=collOwned[id]||0;
+    return {name:c?c.name:id,want,own,need:Math.max(0,want-own)};
+  }).sort((a,b)=>a.name.localeCompare(b.name));
+  const lines=rows.map(r=>`${r.need}x ${r.name}  (own ${r.own}/${r.want})`);
+  const text=`Wishlist — ${rows.length} card${rows.length!==1?'s':''}\n`+lines.join('\n');
+  navigator.clipboard.writeText(text).then(()=>toast('Wishlist copied to clipboard!')).catch(()=>prompt('Copy your wishlist:',text));
+}
+
 function addCardToBinder(cardId,binderId){
   if(!binderId){
     if(!rlBinders.length){toast('Create a binder first');return;}
@@ -4644,15 +4660,25 @@ function renderCollection(){
   // view/edit toggle live inside coll-main so they share the right column
   // and never overlap the floating binder list.
   let html=`<div class="coll-layout">${sidebarHtml}<div class="coll-main">`;
+  // Wishlist view = the main collection grid filtered to wanted cards. It gets
+  // a stripped-down layout: no overall stats bar, no Sets grid, no collection
+  // mode toggle — just the wishlist cards pulled up to the top, plus an export.
+  const _wishlistView=!activeBinder&&CF2.show==='wanted';
   if(!activeBinder){
     html+=titleHtml;
-    html+=`<div class="coll-mode-toggle-wrap">
-      <button class="cmt ${CF2.collMode==='view'?'on':''}" onclick="setCollMode('view')">👁 View my Collection</button>
-      <button class="cmt ${CF2.collMode==='edit'?'on':''}" onclick="setCollMode('edit')">✎ Edit my Collection</button>
-    </div>`;
+    if(_wishlistView){
+      html+=`<div class="coll-mode-toggle-wrap">
+        <button class="cmt" onclick="exportWishlist()" title="Copy your wishlist as a text list">⬇ Export Wishlist</button>
+      </div>`;
+    } else {
+      html+=`<div class="coll-mode-toggle-wrap">
+        <button class="cmt ${CF2.collMode==='view'?'on':''}" onclick="setCollMode('view')">👁 View my Collection</button>
+        <button class="cmt ${CF2.collMode==='edit'?'on':''}" onclick="setCollMode('edit')">✎ Edit my Collection</button>
+      </div>`;
+    }
   }
 
-  if(!activeBinder){
+  if(!activeBinder&&!_wishlistView){
     // overall mini stat bar
     const overallPct=totalUnique?Math.round(totalOwned/totalUnique*100):0;
     html+=`<div style="display:flex;align-items:center;gap:16px;margin-bottom:1.5rem;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
