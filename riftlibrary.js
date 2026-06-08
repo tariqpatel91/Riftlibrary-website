@@ -4585,6 +4585,7 @@ function _renderBinderSlot(binder,isEdit){
       const titleSuffix=clickRemoves?' — click to remove one':'';
       return `<div class="cbs-card${bf?' cbs-card-bf':''}" title="${c.name}${titleSuffix}" onclick="${clickRemoves?rmFn:`openCardModal('${si}')`}">
         ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="cbs-no-img">${c.name}</div>`}
+        <button class="cbs-zoom" onclick="event.stopPropagation();openCardModal('${si}')" title="Zoom card details">🔍</button>
         ${cnt>1?`<div class="cbs-cnt">×${cnt}</div>`:''}
       </div>`;
     }).join('');

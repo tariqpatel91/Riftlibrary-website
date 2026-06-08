@@ -1085,13 +1085,16 @@ select option{background:#1e1e2a;}
 .coll-binder-slot .cbs-group{margin-bottom:14px;}
 .coll-binder-slot .cbs-group:last-child{margin-bottom:0;}
 .coll-binder-slot .cbs-group-hdr{font-family:'Inter',system-ui,sans-serif;font-size:11px;font-weight:700;color:var(--text);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);}
-.coll-binder-slot .cbs-group-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:6px;}
-.coll-binder-slot .cbs-card{position:relative;border-radius:6px;overflow:hidden;background:var(--surface);border:1.5px solid var(--border);cursor:pointer;aspect-ratio:2.5/3.5;transition:transform 0.12s,border-color 0.12s,box-shadow 0.12s;}
-.coll-binder-slot .cbs-card:hover{transform:translateY(-2px);border-color:var(--fury);box-shadow:0 0 10px rgba(255,107,74,0.4);}
+.coll-binder-slot .cbs-group-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+.coll-binder-slot .cbs-card{position:relative;border-radius:8px;overflow:hidden;background:var(--surface);border:2px solid var(--border);cursor:pointer;aspect-ratio:2.5/3.5;transition:transform 0.12s,border-color 0.12s,box-shadow 0.12s;}
+.coll-binder-slot .cbs-card:hover{transform:translateY(-3px);border-color:var(--fury);box-shadow:0 0 12px rgba(255,107,74,0.4);}
 .coll-binder-slot .cbs-card>img{width:100%;height:100%;object-fit:cover;display:block;}
 .coll-binder-slot .cbs-card-bf>img{position:absolute;top:50%;left:50%;width:140%;height:auto;object-fit:unset;transform:translate(-50%,-50%) rotate(-90deg);}
-.coll-binder-slot .cbs-no-img{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text-muted);padding:4px;text-align:center;}
-.coll-binder-slot .cbs-cnt{position:absolute;top:3px;right:3px;background:var(--accent);color:#000;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;line-height:1.3;}
+.coll-binder-slot .cbs-no-img{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-muted);padding:6px;text-align:center;}
+.coll-binder-slot .cbs-cnt{position:absolute;top:5px;right:5px;background:var(--accent);color:#000;font-size:12px;font-weight:700;padding:2px 7px;border-radius:5px;line-height:1.3;}
+.coll-binder-slot .cbs-zoom{position:absolute;top:5px;left:5px;z-index:3;width:30px;height:30px;border-radius:6px;border:1.5px solid rgba(200,168,75,0.45);background:rgba(0,0,0,0.7);color:#d4c58a;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;opacity:0;transition:all 0.15s;}
+.coll-binder-slot .cbs-card:hover .cbs-zoom{opacity:1;}
+.coll-binder-slot .cbs-zoom:hover{background:rgba(200,168,75,0.3);color:var(--accent);transform:scale(1.1);}
 /* Bottom-grid cards become draggable in edit mode — give them a hint */
 .coll-card-draggable{cursor:grab;}
 .coll-card-draggable:active{cursor:grabbing;}
