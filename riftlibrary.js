@@ -26,12 +26,60 @@ let myTeam=JSON.parse(localStorage.getItem('rl_team')||'null');
 let teamAnnouncements=JSON.parse(localStorage.getItem('rl_team_announcements')||'[]');
 let teamDecklists=JSON.parse(localStorage.getItem('rl_team_decklists')||'[]');
 let activeTeamTab='all';
-let teamPhotos=JSON.parse(localStorage.getItem('rl_team_photos')||'[]');
-function persistTeamPhotos(){localStorage.setItem('rl_team_photos',JSON.stringify(teamPhotos));}
 function setTeamCover(){const u=prompt('Cover photo URL:',myTeam&&myTeam.cover||'');if(u===null||!myTeam)return;myTeam.cover=u.trim();persistTeam();renderTeam();}
 function setTeamAvatar(){const u=prompt('Team profile picture URL:',myTeam&&myTeam.img||'');if(u===null||!myTeam)return;myTeam.img=u.trim();persistTeam();renderTeam();}
-function addTeamPhoto(){const u=prompt('Photo URL:');if(!u)return;teamPhotos.unshift({id:Date.now(),url:u.trim(),ts:new Date().toISOString()});persistTeamPhotos();renderTeam();}
-function deleteTeamPhoto(id){teamPhotos=teamPhotos.filter(p=>p.id!==id);persistTeamPhotos();renderTeam();}
+
+// ── Team discussion (forum) ──────────────────────────────
+// A thread = {id, title, author, ts, posts:[{id,author,text,ts}]}. The forum
+// list shows every topic; clicking one opens the thread with its replies.
+let teamThreads=JSON.parse(localStorage.getItem('rl_team_threads')||'[]');
+let activeTeamThread=null;
+function persistTeamThreads(){localStorage.setItem('rl_team_threads',JSON.stringify(teamThreads));}
+function _teamEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function _teamAuthorName(){
+  if(typeof currentUser!=='undefined'&&currentUser){
+    return (currentUser.user_metadata&&(currentUser.user_metadata.username||currentUser.user_metadata.full_name))
+      ||(currentUser.email||'').split('@')[0]||'You';
+  }
+  return 'You';
+}
+function createTeamThread(){
+  const ti=document.getElementById('tm-thread-title');
+  const bi=document.getElementById('tm-thread-body');
+  const title=(ti||{}).value||'';
+  const body=(bi||{}).value||'';
+  if(!title.trim()){toast('Add a topic title');return;}
+  const now=new Date().toISOString();
+  const author=_teamAuthorName();
+  const id=Date.now();
+  teamThreads.unshift({id,title:title.trim(),author,ts:now,posts:body.trim()?[{id:id+1,author,text:body.trim(),ts:now}]:[]});
+  persistTeamThreads();
+  if(ti)ti.value='';
+  if(bi)bi.value='';
+  renderTeam();
+}
+function openTeamThread(id){activeTeamThread=id;renderTeam();}
+function closeTeamThread(){activeTeamThread=null;renderTeam();}
+function deleteTeamThread(id){
+  if(!confirm('Delete this discussion topic and all of its replies?'))return;
+  teamThreads=teamThreads.filter(t=>t.id!==id);
+  if(activeTeamThread===id)activeTeamThread=null;
+  persistTeamThreads();renderTeam();
+}
+function postThreadReply(threadId){
+  const ta=document.getElementById('tm-reply-text');
+  const text=(ta||{}).value||'';
+  if(!text.trim()){toast('Write a reply first');return;}
+  const t=teamThreads.find(x=>x.id===threadId);if(!t)return;
+  t.posts=t.posts||[];
+  t.posts.push({id:Date.now(),author:_teamAuthorName(),text:text.trim(),ts:new Date().toISOString()});
+  persistTeamThreads();renderTeam();
+}
+function deleteThreadReply(threadId,postId){
+  const t=teamThreads.find(x=>x.id===threadId);if(!t)return;
+  t.posts=(t.posts||[]).filter(p=>p.id!==postId);
+  persistTeamThreads();renderTeam();
+}
 function persistMyEvents(){localStorage.setItem('rl_myEvents',JSON.stringify(myEvents));saveEventsToCloud();}
 function switchEvtTab(t){activeEvtTab=t;renderEvents();}
 function createMyEvent(){
@@ -4009,7 +4057,7 @@ function renderTeam(){
       <button class="fb-tab-btn${activeTeamTab==='all'?' on':''}" onclick="switchTeamTab('all')">Announcements</button>
       <button class="fb-tab-btn${activeTeamTab==='about'?' on':''}" onclick="switchTeamTab('about')">Decklists</button>
       <button class="fb-tab-btn${activeTeamTab==='friends'?' on':''}" onclick="switchTeamTab('friends')">Team Members</button>
-      <button class="fb-tab-btn${activeTeamTab==='photos'?' on':''}" onclick="switchTeamTab('photos')">Photos</button>
+      <button class="fb-tab-btn${activeTeamTab==='discussion'?' on':''}" onclick="switchTeamTab('discussion')">Discussion</button>
     </div>
   </div>`;
   if(activeTeamTab==='all'){
@@ -4082,21 +4130,69 @@ function renderTeam(){
         <button class="btn btn-p" onclick="addTeamMember()" style="font-size:12px;padding:6px 14px;">Add Member</button>
       </div>
     </div>`;
-  }else if(activeTeamTab==='photos'){
-    html+=`<div class="team-section">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;">Photos · ${teamPhotos.length}</div>
-        <button class="btn btn-p" onclick="addTeamPhoto()" style="font-size:12px;padding:6px 14px;">+ Add Photo</button>
+  }else if(activeTeamTab==='discussion'){
+    const openThread=activeTeamThread?teamThreads.find(t=>t.id===activeTeamThread):null;
+    if(openThread){
+      // ── Single thread view ──
+      const dt=new Date(openThread.ts).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+      html+=`<div class="team-section">
+        <button class="bb" onclick="closeTeamThread()" style="margin-bottom:14px;">← Back to discussions</button>
+        <div class="forum-thread-head">
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <div class="forum-thread-title">${_teamEsc(openThread.title)}</div>
+            <button class="team-post-del" style="margin-left:auto;" onclick="deleteTeamThread(${openThread.id})" title="Delete topic">×</button>
+          </div>
+          <div class="forum-thread-meta">Started by ${_teamEsc(openThread.author||'Member')} · ${dt}</div>
+        </div>`;
+      const posts=openThread.posts||[];
+      if(!posts.length){
+        html+=`<div class="team-empty">No replies yet. Be the first to reply!</div>`;
+      }else{
+        posts.forEach(p=>{
+          const pdt=new Date(p.ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+          html+=`<div class="forum-post">
+            <div class="forum-post-avatar">${(p.author||'?')[0].toUpperCase()}</div>
+            <div class="forum-post-body">
+              <div class="forum-post-head"><span class="forum-post-author">${_teamEsc(p.author||'Member')}</span><span class="forum-post-date">${pdt}</span><button class="team-post-del" style="margin-left:auto;" onclick="deleteThreadReply(${openThread.id},${p.id})" title="Delete">×</button></div>
+              <div class="forum-post-text">${_teamEsc(p.text).replace(/\n/g,'<br>')}</div>
+            </div>
+          </div>`;
+        });
+      }
+      html+=`<div class="team-compose" style="margin-top:14px;">
+          <textarea id="tm-reply-text" placeholder="Write a reply…"></textarea>
+          <button class="btn btn-p" onclick="postThreadReply(${openThread.id})">Reply</button>
+        </div>
       </div>`;
-    if(!teamPhotos.length){
-      html+=`<div class="team-empty">No photos yet. Add one above!</div>`;
     }else{
-      html+=`<div class="fb-photos-grid">${teamPhotos.map(p=>`<div class="fb-photo">
-        <img src="${p.url}" alt="team photo" onerror="this.style.display='none'">
-        <button class="team-post-del fb-photo-del" onclick="deleteTeamPhoto(${p.id})" title="Delete">×</button>
-      </div>`).join('')}</div>`;
+      // ── Forum topic list ──
+      html+=`<div class="team-section">
+        <div class="forum-new">
+          <input id="tm-thread-title" type="text" class="forum-new-title" placeholder="Topic title…" maxlength="140">
+          <textarea id="tm-thread-body" placeholder="Start the discussion (optional)…"></textarea>
+          <button class="btn btn-p" onclick="createTeamThread()">Post Topic</button>
+        </div>`;
+      if(!teamThreads.length){
+        html+=`<div class="team-empty">No discussions yet. Start a topic above!</div>`;
+      }else{
+        teamThreads.forEach(t=>{
+          const posts=t.posts||[];
+          const replies=posts.length;
+          const last=posts[posts.length-1];
+          const dt=new Date((last&&last.ts)||t.ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+          const info=last?`Last reply by ${_teamEsc(last.author||'Member')}`:`Started by ${_teamEsc(t.author||'Member')}`;
+          html+=`<div class="forum-row" onclick="openTeamThread(${t.id})">
+            <div class="forum-row-main">
+              <div class="forum-row-title">${_teamEsc(t.title)}</div>
+              <div class="forum-row-meta">${info} · ${dt}</div>
+            </div>
+            <div class="forum-row-count"><span class="forum-row-num">${replies}</span><span class="forum-row-lbl">repl${replies===1?'y':'ies'}</span></div>
+            <button class="team-post-del" onclick="event.stopPropagation();deleteTeamThread(${t.id})" title="Delete topic">×</button>
+          </div>`;
+        });
+      }
+      html+=`</div>`;
     }
-    html+=`</div>`;
   }
   el.innerHTML=html;
 }
