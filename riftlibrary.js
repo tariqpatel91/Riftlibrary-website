@@ -4754,8 +4754,11 @@ ${activeBinder._static?'':`<div class="binder-mode-toggle">
     } else if(activeBinder._kind==='extras'){
       source=source.filter(c=>(collOwned[c.id]||0)>3);
     } else if(CF2.binderMode==='edit'){
-      // show only owned cards (from the user's collection) so they can pick what to add
-      source=source.filter(c=>collOwned[c.id]);
+      // Show owned cards (from the user's collection) so they can pick what to
+      // add — plus any cards already in this binder, so the grid is always
+      // populated with this binder's owned cards even if the collection list
+      // hasn't been re-synced.
+      source=source.filter(c=>collOwned[c.id]||_binderHas(activeBinder,c.id));
     } else {
       // view mode: only cards already added to the binder
       source=source.filter(c=>!!_binderHas(activeBinder,c.id));
