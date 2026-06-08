@@ -4773,10 +4773,15 @@ ${activeBinder._static?'':`<div class="binder-mode-toggle">
     else if(CF2.variant==='Foil') source=source.filter(c=>c.isFoil);
     else if(CF2.variant==='Standard') source=source.filter(c=>!c.isAltArt&&!c.isOvernumbered&&c.rarity!=='Promo'&&!c.isSignature&&!c.isFoil);
   }
-  if(CF2.show==='owned') source=source.filter(c=>collOwned[c.id]);
-  if(CF2.show==='missing') source=source.filter(c=>!collOwned[c.id]);
-  if(CF2.show==='complete') source=source.filter(c=>(collOwned[c.id]||0)>=3);
-  if(CF2.show==='wanted') source=source.filter(c=>collWanted[c.id]);
+  // The show filter (All/Owned/Missing/Playset/Wishlist) only applies on the
+  // main collection view. Binders already scope their own source (owned cards
+  // in edit mode, binder contents in view mode), so we skip it there.
+  if(!activeBinder){
+    if(CF2.show==='owned') source=source.filter(c=>collOwned[c.id]);
+    if(CF2.show==='missing') source=source.filter(c=>!collOwned[c.id]);
+    if(CF2.show==='complete') source=source.filter(c=>(collOwned[c.id]||0)>=3);
+    if(CF2.show==='wanted') source=source.filter(c=>collWanted[c.id]);
+  }
 
   const rarityGroups={Legendary:0,Epic:0,Rare:0,Uncommon:0,Common:0};
   const rarityTotal={Legendary:0,Epic:0,Rare:0,Uncommon:0,Common:0};
@@ -4813,13 +4818,17 @@ ${activeBinder._static?'':`<div class="binder-mode-toggle">
     <button class="coll-pill${CF2.showGrey?' on':''}" onclick="toggleCollGrey()" title="Toggle greyed-out unowned cards">${CF2.showGrey?'🌑 Grey: On':'☀ Grey: Off'}</button>
   </div>`;
 
-  const _inWishlistBinder=activeBinder&&activeBinder._kind==='wishlist';
-  const _showPills=_inWishlistBinder?['wanted']:['all','owned','missing','complete','wanted'];
-  html+=`<div class="coll-filter-row coll-filter-centered">
-    ${_showPills.map(s=>`<button class="coll-pill${CF2.show===s?' on':''}" onclick="CF2.show='${s}';renderCollection()">${{all:'All',owned:'Owned',missing:'Missing',complete:'Playset',wanted:'♥ Wishlist'}[s]}</button>`).join('')}
-    <span style="margin-left:4px;font-size:12px;color:var(--text-muted);">${source.length} cards</span>
-    ${(CF2.q||CF2.type||CF2.dom||CF2.rar||CF2.variant||CF2.show!=='all')?`<button class="coll-pill" onclick="CF2.q='';CF2.type='';CF2.dom='';CF2.rar='';CF2.variant='';CF2.show='all';renderCollection()">✕ Clear</button>`:''}
-  </div>`;
+  // Inside a binder we hide the All/Owned/Missing/Playset/Wishlist pill row
+  // entirely — the binder view is locked to owned cards (as if "Owned" were
+  // selected). The pills only show on the main collection view.
+  if(!activeBinder){
+    const _showPills=['all','owned','missing','complete','wanted'];
+    html+=`<div class="coll-filter-row coll-filter-centered">
+      ${_showPills.map(s=>`<button class="coll-pill${CF2.show===s?' on':''}" onclick="CF2.show='${s}';renderCollection()">${{all:'All',owned:'Owned',missing:'Missing',complete:'Playset',wanted:'♥ Wishlist'}[s]}</button>`).join('')}
+      <span style="margin-left:4px;font-size:12px;color:var(--text-muted);">${source.length} cards</span>
+      ${(CF2.q||CF2.type||CF2.dom||CF2.rar||CF2.variant||CF2.show!=='all')?`<button class="coll-pill" onclick="CF2.q='';CF2.type='';CF2.dom='';CF2.rar='';CF2.variant='';CF2.show='all';renderCollection()">✕ Clear</button>`:''}
+    </div>`;
+  }
 
   html+=`<div class="coll-filter-row coll-filter-centered">
     ${['fury','chaos','calm','mind','body','order'].map(d=>`<button class="coll-dom-pill ${d}${CF2.dom===d?' on':''}" onclick="CF2.dom=CF2.dom==='${d}'?'':'${d}';renderCollection()">${d[0].toUpperCase()+d.slice(1)}</button>`).join('')}
