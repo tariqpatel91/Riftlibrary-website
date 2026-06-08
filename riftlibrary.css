@@ -30,7 +30,7 @@ body.on-play-tab .play-floating-logo{display:inline-block;}
 .nl:hover{color:var(--text-soft);}
 .nl.active{color:var(--accent);border-bottom-color:var(--accent);}
 .page{display:none;position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:2rem 1.5rem;}
-#page-collection{max-width:none;padding:2rem 1.5rem 2rem 232px;}
+#page-collection{max-width:none;padding:2rem 1.5rem;}
 #page-decks{max-width:1600px;}
 .page.active{display:block;}
 .ph{margin-bottom:1.75rem;}
@@ -1018,8 +1018,8 @@ select option{background:#1e1e2a;}
 .coll-wishlist-btn{display:none;}
 
 /* ── BINDER SIDEBAR ─────────────────────────────── */
-.coll-layout{display:flex;gap:16px;align-items:flex-start;}
-.coll-binder-sidebar{width:240px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:14px;overflow:hidden;position:fixed;top:78px;left:20px;max-height:calc(100vh - 96px);overflow-y:auto;z-index:5;box-shadow:0 4px 18px rgba(0,0,0,0.32);display:flex;flex-direction:column;}
+.coll-layout{display:flex;gap:24px;align-items:flex-start;}
+.coll-binder-sidebar{width:240px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:14px;overflow:hidden;position:sticky;top:78px;max-height:calc(100vh - 96px);overflow-y:auto;z-index:5;box-shadow:0 4px 18px rgba(0,0,0,0.32);display:flex;flex-direction:column;}
 .coll-main{flex:1;min-width:0;}
 .cbs-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 12px;border-bottom:1px solid var(--border);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em;background:linear-gradient(180deg,rgba(200,168,75,0.08),transparent);}
 .cbs-new-btn{width:26px;height:26px;border-radius:50%;border:1px solid var(--accent);background:var(--surface3);color:var(--accent);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all 0.15s;font-weight:700;}
@@ -1067,7 +1067,7 @@ select option{background:#1e1e2a;}
 .cmt.on{background:var(--accent);color:#000;border-color:var(--accent);}
 .coll-filter-centered{justify-content:center;}
 
-@media(max-width:900px){.coll-layout{flex-direction:column;}.coll-binder-sidebar{width:100%;position:static;left:auto;top:auto;max-height:none;}#page-collection{padding-left:1.5rem;}}
+@media(max-width:900px){.coll-layout{flex-direction:column;}.coll-binder-sidebar{width:100%;position:static;top:auto;max-height:none;}}
 
 /* ── BINDER SLOT (top of collection page when a binder is open) ──
    Replaces the sets-grid panel. In edit mode it's a drag target — owned
