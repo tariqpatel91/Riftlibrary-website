@@ -4727,7 +4727,7 @@ function renderCollection(){
     html+=`<div style="margin-top:2rem;margin-bottom:1rem;display:flex;align-items:center;gap:10px;">
       ${CF2.set?`<div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;">${SET_META[CF2.set]?.label||CF2.set}</div><button class="coll-pill" onclick="setCollSet('')" style="font-size:11px;">✕ Show all sets</button>`:''}
     </div>`;
-  } else {
+  } else if(activeBinder){
     // Binder header
     const isEdit=CF2.binderMode==='edit'&&!activeBinder._static;
     const icon=activeBinder._kind==='wishlist'?'♥':'';
