@@ -4493,6 +4493,23 @@ function renderPublicBinder(data){
   }
   const fakeBinder={id:'__public',name:data.n||'Shared Binder',cards:data.c||[]};
   const total=fakeBinder.cards.reduce((a,e)=>a+(e.cnt||1),0);
+  // Resolve + sort cards alphabetically once, then render a big tile grid.
+  const cards=[];
+  (fakeBinder.cards||[]).forEach(entry=>{
+    const c=CARDS.find(x=>x.id===entry.id);
+    if(!c)return;
+    cards.push({card:c,cnt:entry.cnt||1});
+  });
+  cards.sort((a,b)=>a.card.name.localeCompare(b.card.name));
+  _publicBinderCards=cards;
+  const cardHtml=cards.map(({card:c,cnt})=>{
+    const si=c.id.replace(/'/g,"\\'");
+    const bf=c.type==='Battlefield';
+    return `<div class="pbs-card${bf?' pbs-card-bf':''}" data-name="${(c.name||'').toLowerCase().replace(/"/g,'&quot;')}" title="${c.name}" onclick="openCardModal('${si}')">
+      ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="pbs-no-img">${c.name}</div>`}
+      ${cnt>1?`<div class="pbs-cnt">×${cnt}</div>`:''}
+    </div>`;
+  }).join('');
   let html=`<div style="text-align:center;margin-bottom:1.5rem;">
     <div style="font-family:'Syne',sans-serif;font-size:28px;font-weight:700;color:var(--accent);letter-spacing:0.02em;">RiftLibrary</div>
     <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Shared Trade Binder</div>
@@ -4504,8 +4521,35 @@ function renderPublicBinder(data){
     </div>
     <a href="${window.location.origin+window.location.pathname}" class="btn btn-g" style="font-size:12px;text-decoration:none;">Open RiftLibrary</a>
   </div>`;
-  html+=_renderBinderSlot(fakeBinder,false);
+  if(total){
+    html+=`<div class="pub-search-wrap">
+      <span class="pub-search-icon">🔍</span>
+      <input type="text" class="pub-search-inp" id="pub-search-inp" placeholder="Search cards by name…" oninput="_filterPublicBinder(this.value)" autocomplete="off">
+    </div>
+    <div class="public-binder-slot"><div class="pbs-grid" id="pub-binder-grid">${cardHtml}</div>
+    <div class="pbs-empty" id="pub-binder-empty" style="display:none;">No cards match your search.</div></div>`;
+  }else{
+    html+=`<div class="public-binder-slot"><div class="pbs-empty">This binder is empty.</div></div>`;
+  }
   host.innerHTML=html;
+}
+
+// Live-filter the public binder grid by card name. Toggles each tile's display
+// via the DOM (instead of re-rendering innerHTML) so the search input keeps focus.
+let _publicBinderCards=[];
+function _filterPublicBinder(val){
+  const q=(val||'').trim().toLowerCase();
+  const grid=document.getElementById('pub-binder-grid');
+  const empty=document.getElementById('pub-binder-empty');
+  if(!grid)return;
+  let shown=0;
+  grid.querySelectorAll('.pbs-card').forEach(el=>{
+    const name=el.getAttribute('data-name')||'';
+    const match=!q||name.indexOf(q)!==-1;
+    el.style.display=match?'':'none';
+    if(match)shown++;
+  });
+  if(empty)empty.style.display=shown?'none':'';
 }
 
 // Run on script load and on hashchange — switches to/from the public viewer.
