@@ -4442,16 +4442,16 @@ function binderSlotDrop(e,binderId){
 // a drop target for cards dragged out of the bottom collection grid.
 function _renderBinderSlot(binder,isEdit){
   const total=_binderTotal(binder);
-  const groupOrder=['Champion','Unit','Spell','Gear','Battlefield','Rune','Legend'];
-  const groups={};
+  // All cards live in a single grid sorted alphabetically by name — no per-type
+  // (Champion / Spell / Gear …) sections. Applies to every binder, including
+  // the Wishlist and Extra Cards static binders.
+  const cards=[];
   (binder.cards||[]).forEach(entry=>{
     const c=CARDS.find(x=>x.id===entry.id);
     if(!c)return;
-    const t=(c.supertype&&c.supertype.toLowerCase().includes('champion'))?'Champion':(c.type||'Other');
-    if(!groups[t])groups[t]=[];
-    groups[t].push({card:c,cnt:entry.cnt});
+    cards.push({card:c,cnt:entry.cnt});
   });
-  const orderedGroups=[...groupOrder.filter(t=>groups[t]),...Object.keys(groups).filter(t=>!groupOrder.includes(t))];
+  cards.sort((a,b)=>a.card.name.localeCompare(b.card.name));
   const isStatic=!!binder._static;
   const dropAttrs=isEdit?` ondragover="binderSlotDragOver(event)" ondragleave="binderSlotDragLeave(event)" ondrop="binderSlotDrop(event,${binder.id})"`:'';
   let inner='';
@@ -4463,27 +4463,20 @@ function _renderBinderSlot(binder,isEdit){
         :isEdit?'Drag owned cards from below to add them. Only cards you own can go in a binder.':'This binder is empty. Switch to Edit mode to add cards.';
     inner=`<div class="cbs-empty">${hint}</div>`;
   } else {
-    inner=orderedGroups.map(t=>{
-      const cards=groups[t].slice().sort((a,b)=>a.card.name.localeCompare(b.card.name));
-      const groupTotal=cards.reduce((a,e)=>a+e.cnt,0);
-      // Extras is auto-derived from collOwned — no manual removal. Wishlist
-      // and non-static binders allow click-to-remove.
-      const clickRemoves=(isStatic&&binder._kind!=='extras')||isEdit;
-      const cardHtml=cards.map(({card:c,cnt})=>{
-        const si=c.id.replace(/'/g,"\\'");
-        const bf=c.type==='Battlefield';
-        const rmFn=binder._kind==='wishlist'?`toggleCollWanted('${si}')`:`removeCardFromBinder('${si}',${binder.id})`;
-        const titleSuffix=clickRemoves?' — click to remove one':'';
-        return `<div class="cbs-card${bf?' cbs-card-bf':''}" title="${c.name}${titleSuffix}" onclick="${clickRemoves?rmFn:`openCardModal('${si}')`}">
-          ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="cbs-no-img">${c.name}</div>`}
-          ${cnt>1?`<div class="cbs-cnt">×${cnt}</div>`:''}
-        </div>`;
-      }).join('');
-      return `<div class="cbs-group">
-        <div class="cbs-group-hdr">${t.toUpperCase()} <span style="color:var(--text-muted);font-weight:500;">(${groupTotal})</span></div>
-        <div class="cbs-group-grid">${cardHtml}</div>
+    // Extras is auto-derived from collOwned — no manual removal. Wishlist
+    // and non-static binders allow click-to-remove.
+    const clickRemoves=(isStatic&&binder._kind!=='extras')||isEdit;
+    const cardHtml=cards.map(({card:c,cnt})=>{
+      const si=c.id.replace(/'/g,"\\'");
+      const bf=c.type==='Battlefield';
+      const rmFn=binder._kind==='wishlist'?`toggleCollWanted('${si}')`:`removeCardFromBinder('${si}',${binder.id})`;
+      const titleSuffix=clickRemoves?' — click to remove one':'';
+      return `<div class="cbs-card${bf?' cbs-card-bf':''}" title="${c.name}${titleSuffix}" onclick="${clickRemoves?rmFn:`openCardModal('${si}')`}">
+        ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="cbs-no-img">${c.name}</div>`}
+        ${cnt>1?`<div class="cbs-cnt">×${cnt}</div>`:''}
       </div>`;
     }).join('');
+    inner=`<div class="cbs-group-grid">${cardHtml}</div>`;
   }
   return `<div class="coll-binder-slot${isEdit?' coll-binder-slot-edit':''}"${dropAttrs}>${inner}</div>`;
 }
