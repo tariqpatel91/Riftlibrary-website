@@ -1743,7 +1743,7 @@ function renderEditSearch(){
   html+='</div>';
 
   const ESETS=['','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
-  const ERARS=['','Legendary','Epic','Rare','Uncommon','Common','Promo'];
+  const ERARS=['','Epic','Rare','Uncommon','Common','Promo'];
   const ESUBTYPES=['','Action','Reaction','Champion','Token','Signature Card'];
   const EVARIANTS=['','Standard','Alt Art','Overnumbered','Promo','Artist Signed','Foil'];
 
@@ -4777,18 +4777,32 @@ function renderCollection(){
   if(CF2.dom) source=source.filter(c=>c.doms.includes(CF2.dom));
   if(CF2.rar) source=source.filter(c=>c.rarity===CF2.rar);
   if(CF2.variant){
-    if(CF2.variant==='Signature') source=source.filter(c=>c.isSignature);
-    else if(CF2.variant==='Alt Art') source=source.filter(c=>c.isAltArt||c.variant==='Alt Art');
-    else if(CF2.variant==='Overnumbered') source=source.filter(c=>c.isOvernumbered||c.variant==='Overnumbered');
-    else source=source.filter(c=>c.variant===CF2.variant);
+    // The deduped collection list (allUnique / per-set map) keeps only one
+    // printing per base card — so filtering directly on c.variant would miss
+    // base cards whose Standard printing won the dedupe but which DO have a
+    // matching variant printing somewhere in CARDS. Build a set of base-card
+    // names that have at least one printing matching the requested variant,
+    // then filter source by base-name membership.
+    const _match=c=>{
+      const v=CF2.variant;
+      if(v==='Signature') return !!c.isSignature;
+      if(v==='Alt Art')      return !!c.isAltArt || c.variant==='Alt Art';
+      if(v==='Overnumbered') return !!c.isOvernumbered || c.variant==='Overnumbered';
+      if(v==='Foil')         return !!c.hasFoil || c.variant==='Foil';
+      if(v==='Standard')     return !c.variant || c.variant==='Standard';
+      return c.variant===v;
+    };
+    const _matchingNames=new Set();
+    CARDS.forEach(c=>{ if(_match(c)) _matchingNames.add(baseName(c.name).toLowerCase()); });
+    source=source.filter(c=>_matchingNames.has(baseName(c.name).toLowerCase()));
   }
   if(CF2.show==='owned') source=source.filter(c=>collOwned[c.id]);
   if(CF2.show==='missing') source=source.filter(c=>!collOwned[c.id]);
   if(CF2.show==='complete') source=source.filter(c=>(collOwned[c.id]||0)>=3);
   if(CF2.show==='wanted') source=source.filter(c=>collWanted[c.id]);
 
-  const rarityGroups={Legendary:0,Epic:0,Rare:0,Uncommon:0,Common:0};
-  const rarityTotal={Legendary:0,Epic:0,Rare:0,Uncommon:0,Common:0};
+  const rarityGroups={Epic:0,Rare:0,Uncommon:0,Common:0};
+  const rarityTotal={Epic:0,Rare:0,Uncommon:0,Common:0};
   allUnique.filter(c=>!CF2.set||c.set===CF2.set).forEach(c=>{
     const r=c.rarity;if(rarityTotal[r]!==undefined){rarityTotal[r]++;if(collOwned[c.id])rarityGroups[r]++;}
   });
