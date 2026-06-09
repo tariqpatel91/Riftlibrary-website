@@ -1791,7 +1791,7 @@ function renderEditSearch(){
   html+='</div>';
 
   const ESETS=['','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
-  const ERARS=['','Legendary','Epic','Rare','Uncommon','Common','Promo'];
+  const ERARS=['','Epic','Rare','Uncommon','Common','Promo'];
   const ESUBTYPES=['','Action','Reaction','Champion','Token','Signature Card'];
   const EVARIANTS=['','Standard','Alt Art','Overnumbered','Promo','Artist Signed','Foil'];
 
@@ -4746,20 +4746,22 @@ function renderCollection(){
   const RR={Legendary:5,Epic:4,Rare:3,Uncommon:2,Common:1,Showcase:0,Promo:0};
   const rarColors={Legendary:'var(--order)',Epic:'var(--chaos)',Rare:'var(--accent)',Uncommon:'var(--calm)',Common:'var(--text-muted)',Showcase:'var(--mind)',Promo:'var(--fury)'};
 
-  // unique cards per set (deduplicated by base name within each set)
+  // unique cards per set: dedupe by (base name + foil-ness) so a card and its
+  // foil printing show as two separate collectible slots — set collectors want
+  // both for completion.
   const setMap={};
   CARDS.forEach(c=>{
     const s=c.set||'?';
     if(!setMap[s]) setMap[s]={cards:new Map(),label:c.setLabel||s};
-    const key=baseName(c.name).toLowerCase();
+    const key=baseName(c.name).toLowerCase()+(c.isFoil?'|foil':'|reg');
     const ex=setMap[s].cards.get(key);
     if(!ex||(RR[c.rarity]??1)>(RR[ex.rarity]??1)) setMap[s].cards.set(key,c);
   });
 
-  // overall unique pool (across all sets, best rarity globally)
+  // overall unique pool across all sets; same foil-aware dedupe
   const globalSeen=new Map();
   CARDS.forEach(c=>{
-    const key=baseName(c.name).toLowerCase();
+    const key=baseName(c.name).toLowerCase()+(c.isFoil?'|foil':'|reg');
     const ex=globalSeen.get(key);
     if(!ex||(RR[c.rarity]??1)>(RR[ex.rarity]??1)) globalSeen.set(key,c);
   });
@@ -4957,15 +4959,31 @@ ${activeBinder._static?'':`<div class="binder-mode-toggle">
   if(CF2.type) source=source.filter(c=>c.type===CF2.type||(CF2.type==='Champion'&&(c.supertype||'').toLowerCase().includes('champion')));
   if(CF2.dom) source=source.filter(c=>c.doms.includes(CF2.dom));
   if(CF2.rar) source=source.filter(c=>c.rarity===CF2.rar);
-  // Hide foils by default unless explicitly filtering for the Foil variant
-  if(CF2.variant!=='Foil') source=source.filter(c=>!c.isFoil);
   if(CF2.variant){
-    if(CF2.variant==='Alt Art') source=source.filter(c=>c.isAltArt);
-    else if(CF2.variant==='Overnumbered') source=source.filter(c=>c.isOvernumbered);
-    else if(CF2.variant==='Promo') source=source.filter(c=>c.rarity==='Promo');
-    else if(CF2.variant==='Artist Signed') source=source.filter(c=>c.isSignature);
-    else if(CF2.variant==='Foil') source=source.filter(c=>c.isFoil);
-    else if(CF2.variant==='Standard') source=source.filter(c=>!c.isAltArt&&!c.isOvernumbered&&c.rarity!=='Promo'&&!c.isSignature&&!c.isFoil);
+    const v=CF2.variant;
+    // Foil / Standard are direct properties on the printing itself, so filter
+    // source directly — that's the only way to keep just foils (or just non-
+    // foils) now that allUnique carries both as separate entries.
+    if(v==='Foil'){
+      source=source.filter(c=>c.isFoil);
+    } else if(v==='Standard'){
+      source=source.filter(c=>!c.isAltArt&&!c.isOvernumbered&&c.rarity!=='Promo'&&!c.isSignature&&!c.isFoil);
+    } else {
+      // Alt Art / Overnumbered / Promo / Artist Signed get deduped away when
+      // a Standard printing of the same base card wins the rarity tiebreak.
+      // Fall back to a base-name match against the full CARDS list so those
+      // variants still surface.
+      const _match=c=>{
+        if(v==='Alt Art')       return !!c.isAltArt;
+        if(v==='Overnumbered')  return !!c.isOvernumbered;
+        if(v==='Promo')         return c.rarity==='Promo';
+        if(v==='Artist Signed') return !!c.isSignature;
+        return false;
+      };
+      const _matchingNames=new Set();
+      CARDS.forEach(c=>{ if(_match(c)) _matchingNames.add(baseName(c.name).toLowerCase()); });
+      source=source.filter(c=>_matchingNames.has(baseName(c.name).toLowerCase()));
+    }
   }
   // The show filter (All/Owned/Missing/Playset/Wishlist) only applies on the
   // main collection view. Binders already scope their own source (owned cards
@@ -4977,8 +4995,8 @@ ${activeBinder._static?'':`<div class="binder-mode-toggle">
     if(CF2.show==='wanted') source=source.filter(c=>collWanted[c.id]);
   }
 
-  const rarityGroups={Legendary:0,Epic:0,Rare:0,Uncommon:0,Common:0};
-  const rarityTotal={Legendary:0,Epic:0,Rare:0,Uncommon:0,Common:0};
+  const rarityGroups={Epic:0,Rare:0,Uncommon:0,Common:0};
+  const rarityTotal={Epic:0,Rare:0,Uncommon:0,Common:0};
   allUnique.filter(c=>!CF2.set||c.set===CF2.set).forEach(c=>{
     const r=c.rarity;if(rarityTotal[r]!==undefined){rarityTotal[r]++;if(collOwned[c.id])rarityGroups[r]++;}
   });
