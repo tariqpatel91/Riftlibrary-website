@@ -3812,6 +3812,7 @@ function importDeckFromText(){
   const sb=[];
   let importedLegendName=null;
   let importedChampion=null;
+  let importedDomains=null; // auto-derived from the Legend card's domains
 
   if(isSectioned){
     // Split raw text into named sections
@@ -3828,7 +3829,10 @@ function importDeckFromText(){
     // Legend
     parseSec('legend').forEach(({name})=>{
       const found=findCard(name)||findCard(name.split(',')[0].trim());
-      if(found&&found.type==='Legend') importedLegendName=found.name;
+      if(found&&found.type==='Legend'){
+        importedLegendName=found.name;
+        if(found.doms&&found.doms.length) importedDomains=found.doms.slice(0,2);
+      }
     });
 
     // Champion
@@ -3885,7 +3889,12 @@ function importDeckFromText(){
       matched++;
       const t=found.type||'';
       const tl=t.toLowerCase();
-      if(t==='Battlefield'||tl==='battlefield'){
+      if(t==='Legend'){
+        // Auto-recognize the deck's Legend from a plain pasted list and pull
+        // its domains, so the user doesn't have to set either by hand.
+        importedLegendName=found.name;
+        if(found.doms&&found.doms.length) importedDomains=found.doms.slice(0,2);
+      } else if(t==='Battlefield'||tl==='battlefield'){
         if(bfSlot<3) battlefields[bfSlot++]={id:found.id,n:found.name,t:'Battlefield'};
       } else if(t==='Rune'||tl==='rune'||found.name.toLowerCase().includes(' rune')){
         for(let i=0;i<cnt;i++) runes.push({id:found.id,n:found.name,t:t||'Rune'});
@@ -3909,7 +3918,17 @@ function importDeckFromText(){
   }
 
   const format=document.getElementById('import-mfmt').value||'Constructed';
-  const domains=[...document.querySelectorAll('.idtog.sel')].map(e=>e.classList[1]);
+  // Domains: if we recognized a Legend in the pasted list, its domains are
+  // authoritative (the toggle row is pre-filled from the default dropdown
+  // legend, so we can't trust it here). Otherwise use the manual toggles, then
+  // fall back to the static legend map.
+  let domains;
+  if(importedDomains&&importedDomains.length){
+    domains=importedDomains.slice(0,2);
+  } else {
+    domains=[...document.querySelectorAll('.idtog.sel')].map(e=>e.classList[1]);
+    if(!domains.length) domains=(LD[selectedLegend]||[]).slice(0,2);
+  }
   const deck={id:nextId++,name:deckName,legend:selectedLegend,domains,format,
     wins:0,losses:0,desc:'',cards:deckCards,champion:importedChampion||null,
     runes,battlefields,sideboard:sb,updated_at:new Date().toISOString()};
