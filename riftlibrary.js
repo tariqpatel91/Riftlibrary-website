@@ -3762,11 +3762,40 @@ function importDeckFromText(){
       ||CARDS.find(c=>strip(c.name)===strip(name));              // punctuation-stripped fallback
   }
 
-  // Parse lines — supports "3x Card Name", "3 Card Name", "3X Card Name"
+  // Strip a trailing set code / collector number that export tools tack on,
+  // e.g. "Card (OGN) 045", "Card | OGN-045", "Card (OGN-045)", "Card [OGN-045]",
+  // or a bare "Card OGN-045". Card names themselves never end in CODE-### so
+  // this is safe; faction words in parens (e.g. "(Demacia)") have no digits and
+  // are left untouched.
+  function _stripCardCode(name){
+    let n=String(name||'').trim();
+    n=n.replace(/\s*\|\s*[A-Za-z]{2,6}[-\s]?\d{1,4}[A-Za-z]?\s*$/,'');     // | OGN-045
+    n=n.replace(/\s*\([A-Za-z]{2,6}\)\s*\d{1,4}[A-Za-z]?\s*$/,'');         // (OGN) 045
+    n=n.replace(/\s*[\(\[][A-Za-z]{2,6}[-\s]?\d{1,4}[A-Za-z]?[\)\]]\s*$/,''); // (OGN-045)/[OGN-045]
+    n=n.replace(/\s+[A-Z]{2,6}-\d{1,4}[A-Za-z]?\s*$/,'');                  // bare OGN-045
+    return n.trim();
+  }
+
+  // Parse lines into {cnt,name}. Tolerates the many shapes export tools spit
+  // out: "3 Name", "3x Name", "3 x Name", "Name x3", leading bullets ("• 3 Name",
+  // "- Name"), trailing set codes, and bare names (count defaults to 1) so a
+  // Legend/Champion line without a quantity still resolves.
   function parseLines(str){
     return str.split('\n').map(l=>l.trim()).filter(Boolean).reduce((acc,l)=>{
-      const m=l.match(/^(\d+)x?\s+(.+)$/i);
-      if(m) acc.push({cnt:parseInt(m[1]),name:m[2].trim()});
+      l=l.replace(/^[•‣◦⁃∙·*\-–—]\s+/,'').trim(); // bullets / list markers
+      if(!l) return acc;
+      let cnt=null,name=null,m;
+      if((m=l.match(/^(\d+)\s*[x×]?\s+(.+)$/i))){          // "3 Name" / "3x Name" / "3 x Name"
+        cnt=parseInt(m[1]); name=m[2];
+      } else if((m=l.match(/^(.+?)\s*[x×]\s*(\d+)$/i))){   // "Name x3" / "Name ×3"
+        cnt=parseInt(m[2]); name=m[1];
+      } else if(l.indexOf(':')===-1 && l.length<=60){          // bare card name → 1 copy
+        cnt=1; name=l;
+      }
+      if(name){
+        name=_stripCardCode(name.trim());
+        if(name) acc.push({cnt:cnt||1,name});
+      }
       return acc;
     },[]);
   }
