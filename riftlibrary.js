@@ -4960,6 +4960,7 @@ ${activeBinder._static?'':`<div class="binder-mode-toggle">
     if(CF2.show==='missing') source=source.filter(c=>!collOwned[c.id]);
     if(CF2.show==='complete') source=source.filter(c=>(collOwned[c.id]||0)>=3);
     if(CF2.show==='wanted') source=source.filter(c=>collWanted[c.id]);
+  }
 
   const rarityGroups={Epic:0,Rare:0,Uncommon:0,Common:0};
   const rarityTotal={Epic:0,Rare:0,Uncommon:0,Common:0};
