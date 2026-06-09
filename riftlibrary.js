@@ -5098,10 +5098,13 @@ ${activeBinder._static?'':`<div class="binder-mode-toggle">
       // we let drop into a binder.
       const canDragToBinder=_editBinder&&owned>0&&!_binderMaxed;
       const dragAttrs=canDragToBinder?` draggable="true" ondragstart="binderCollDragStart(event,'${si}')" ondragend="_DRAG=null"`:'';
+      const foilTag=c.isFoil?`<div class="ct-foil-badge" title="Foil printing">✦ FOIL</div>`:'';
+      const foilCls=c.isFoil?' is-foil':'';
       if(inWishlistView){
         const need=Math.max(0,wantedCount-owned);
-        html+=`<div class="coll-card wanted-card${bfCls} ${isComplete?'complete':owned>0?'owned':''}" title="${c.name}" onclick="openCardModal('${si}')">
+        html+=`<div class="coll-card wanted-card${bfCls}${foilCls} ${isComplete?'complete':owned>0?'owned':''}" title="${c.name}" onclick="openCardModal('${si}')">
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
+          ${foilTag}
           <div class="coll-card-actions">
             <button class="coll-copy-btn coll-copy-minus" onclick="event.stopPropagation();setCollWanted('${si}',-1)" title="Want fewer">−</button>
             <span class="coll-copy-count coll-copy-count-wanted">♥ ${owned}/${wantedCount}</span>
@@ -5147,8 +5150,9 @@ ${activeBinder._static?'':`<div class="binder-mode-toggle">
           :isEditableBinder
             ?`_addCardSilent('${si}',${activeBinder.id})`
             :`openCardModal('${si}')`;
-        html+=`<div class="coll-card ${cls}${bfCls}${isWanted?' wishlisted':''}${hideOwnerControls?' in-binder-view':''}${dragAttrs?' coll-card-draggable':''}${isEditableBinder&&!_binderMaxed?' coll-card-click-add':''}${_binderMaxed?' binder-maxed':''}" title="${_binderMaxed?`All ${owned} copies in binder`:c.name}" onclick="${cardClick}"${dragAttrs}>
+        html+=`<div class="coll-card ${cls}${bfCls}${foilCls}${isWanted?' wishlisted':''}${hideOwnerControls?' in-binder-view':''}${dragAttrs?' coll-card-draggable':''}${isEditableBinder&&!_binderMaxed?' coll-card-click-add':''}${_binderMaxed?' binder-maxed':''}" title="${_binderMaxed?`All ${owned} copies in binder`:c.name}" onclick="${cardClick}"${dragAttrs}>
           ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-card-no-img">${c.name}</div>`}
+          ${foilTag}
           ${hideOwnerControls?'':`<button class="coll-wishlist-top-btn${isWanted?' active':''}" onclick="event.stopPropagation();toggleCollWanted('${si}')" title="${isWanted?'Remove from wishlist':'Add to wishlist'}">♥</button>`}
           ${zoomBtn}
           ${binderRemoveBtn}
@@ -5170,9 +5174,9 @@ ${activeBinder._static?'':`<div class="binder-mode-toggle">
       const cls=isComplete?'complete':owned>0?'owned':'';
       const si=c.id.replace(/'/g,"\\'");
       const rarCol=rarColors[c.rarity]||'var(--text-muted)';
-      html+=`<div class="coll-list-row ${cls}">
+      html+=`<div class="coll-list-row ${cls}${c.isFoil?' is-foil':''}">
         ${c.imageUrl?`<img class="coll-list-thumb" src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="coll-list-thumb"></div>`}
-        <div class="coll-list-name">${c.name}</div>
+        <div class="coll-list-name">${c.name}${c.isFoil?` <span class="coll-list-foil" title="Foil printing">✦ FOIL</span>`:''}</div>
         <div class="coll-list-type">${c.type}</div>
         <div class="coll-list-rar" style="color:${rarCol};font-size:11px;font-weight:600;">${c.rarity}</div>
         <div class="coll-list-copies" style="font-size:11px;color:var(--text-muted);">${owned>15?'15+':owned}/15</div>
