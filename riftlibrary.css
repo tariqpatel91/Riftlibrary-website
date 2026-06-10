@@ -576,7 +576,14 @@ input.sbg-cell-sub:focus{outline:none;background:rgba(255,255,255,0.05)!importan
    Persisted via ResizeObserver → localStorage in _sbgRenderEyeModal. */
 .sbg-eye-box{background:var(--surface);border:1px solid var(--border-hover);border-radius:14px;width:min(1200px,100%);height:calc(100vh - 64px);box-shadow:0 24px 60px rgba(0,0,0,0.65);display:flex;flex-direction:column;overflow:hidden;resize:both;min-width:520px;min-height:420px;max-width:calc(100vw - 32px);max-height:calc(100vh - 64px);position:relative;}
 /* Visible grip in the bottom-right corner so users notice it's resizable. */
-.sbg-eye-box::after{content:'';position:absolute;right:2px;bottom:2px;width:14px;height:14px;background:linear-gradient(135deg,transparent 0%,transparent 45%,var(--text-muted) 45%,var(--text-muted) 55%,transparent 55%,transparent 70%,var(--text-muted) 70%,var(--text-muted) 80%,transparent 80%);pointer-events:none;opacity:0.55;border-radius:2px;}
+.sbg-eye-box::after{content:'';position:absolute;right:2px;bottom:2px;width:14px;height:14px;background:linear-gradient(135deg,transparent 0%,transparent 45%,var(--text-muted) 45%,var(--text-muted) 55%,transparent 55%,transparent 70%,var(--text-muted) 70%,var(--text-muted) 80%,transparent 80%);pointer-events:none;opacity:0.55;border-radius:2px;z-index:6;}
+/* Custom edge resize handles: right + left for horizontal width changes,
+   bottom for height. (CSS resize:both only gives a single corner.) */
+.sbg-eye-resize{position:absolute;background:transparent;z-index:7;touch-action:none;}
+.sbg-eye-resize-right{top:0;bottom:14px;right:-2px;width:6px;cursor:ew-resize;}
+.sbg-eye-resize-left{top:0;bottom:14px;left:-2px;width:6px;cursor:ew-resize;}
+.sbg-eye-resize-bottom{left:0;right:14px;bottom:-2px;height:6px;cursor:ns-resize;}
+.sbg-eye-resize:hover{background:rgba(232,184,85,0.18);}
 .sbg-eye-hdr{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--border);background:var(--surface2);}
 .sbg-eye-title{display:flex;align-items:center;gap:10px;font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--text);flex:1;min-width:0;}
 .sbg-eye-eye{font-size:18px;color:var(--accent);}
@@ -607,10 +614,18 @@ input.sbg-cell-sub:focus{outline:none;background:rgba(255,255,255,0.05)!importan
    visual (each individual tile in the overlapping fan). */
 .gallery-card.sbg-eye-moved{outline:2px solid rgba(232,184,85,0.7);outline-offset:-2px;}
 .sbg-eye-col-stack .deck-card-item.sbg-eye-moved-tile{box-shadow:0 0 0 2px rgba(232,184,85,0.7);border-radius:7px;}
-/* Champion strip: a slim left-aligned section so the modal doesn't waste a
-   full row on one card. */
-.sbg-eye-champ-row{max-width:200px;margin-bottom:6px;}
+/* Champion + Battlefields side-by-side strip at the top of the modal. */
+.sbg-eye-top-strip{display:flex;gap:14px;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;}
+.sbg-eye-top-strip .sbg-eye-champ-section{flex:0 0 auto;width:180px;}
+.sbg-eye-top-strip .sbg-eye-bf-section{flex:1 1 360px;min-width:300px;}
 .sbg-eye-champ-section .cards-gallery-view{grid-template-columns:repeat(auto-fill,minmax(90px,1fr));}
+.sbg-eye-bf-section .cards-gallery-view-bf{justify-content:flex-start;gap:8px;}
+.sbg-eye-bf-section .gallery-card-bf{width:130px;cursor:pointer;}
+.sbg-eye-bf-tile{transition:transform 0.15s,filter 0.15s,outline 0.15s,opacity 0.15s;}
+.sbg-eye-bf-tile:hover{transform:translateY(-2px);}
+.sbg-eye-bf-faded{filter:grayscale(1) brightness(0.45);opacity:0.45;}
+.sbg-eye-bf-selected{outline:2px solid var(--accent);outline-offset:-2px;box-shadow:0 0 16px rgba(232,184,85,0.45);}
+.sbg-eye-bf-x{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:48px;font-weight:800;color:var(--fury);text-shadow:0 0 12px rgba(0,0,0,0.85),0 0 24px rgba(0,0,0,0.7);z-index:3;pointer-events:none;line-height:1;}
 .sbg-eye-view-tabs{margin-left:4px;}
 .sbg-eye-view-tabs .sbg-eye-tab{padding:6px 12px;font-size:12px;}
 /* Visual mode — overlapping card stacks, type-grouped, matches the

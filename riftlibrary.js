@@ -1771,6 +1771,24 @@ function sbgEyeClick(idx){
   _sbgRenderEyeModal();
 }
 function sbgEyeSetView(v){_sbgEye.view=v;_sbgRenderEyeModal();}
+function _sbgEyeBfClick(name){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const g=_sbgEnsure(d);
+  const {bfRows}=_sbgRowLabels(d);
+  const sub=_sbgEye.sub===0?1:2; // modal G2 → BF sub 1, G3 → BF sub 2
+  const r=bfRows.findIndex(row=>row.name===name);
+  if(r<0)return;
+  const key=`b|${r}|${_sbgEye.col}|${sub}`;
+  if(g.cells[key]){
+    delete g.cells[key];
+  } else {
+    // Only one BF per game — clear other BF picks in this sub first.
+    bfRows.forEach((_,i)=>{delete g.cells[`b|${i}|${_sbgEye.col}|${sub}`];});
+    g.cells[key]='✕';
+  }
+  persist();
+  _sbgRenderEyeModal();
+}
 function sbgEyeClose(){
   const m=document.getElementById('sbg-eye-modal');if(m)m.remove();
   // The grid in the background needs to refresh so any cell values the user
@@ -1839,6 +1857,7 @@ function _sbgRenderEyeModal(){
   const champion=d.champion?[{...d.champion,cnt:1}]:[];
   const mainDeck=(d.cards||[]).filter(c=>c.t!=='Legend').slice().sort(cmp);
   const sb=(d.sideboard||[]).slice().sort(cmp);
+  const battlefields=(d.battlefields||[]).filter(Boolean);
   // Build the "effective" deck state: each main card's count is reduced by
   // its side-out delta; the missing copies move to the SB display. Each SB
   // card's count is reduced by its side-in delta; the missing copies move
@@ -1967,9 +1986,30 @@ function _sbgRenderEyeModal(){
   // moves and can exceed 8 (per spec: ignore the 8-card cap in this view).
   const mainCnt=effMain.reduce((a,c)=>a+(c.cnt||1),0)+(d.champion?1:0);
   const sbCnt=effSb.reduce((a,c)=>a+(c.cnt||1),0);
+  // BF picks live in the BATTLEFIELDS section of d.sbGuide.cells. The modal
+  // sub maps to the BF sub-cell: G2 (sub 0) → BF sub 1, G3 (sub 1) → BF
+  // sub 2 (BF cells are split G1/G2/G3, indices 0/1/2).
+  const bfSubIdx=_sbgEye.sub===0?1:2;
+  const {bfRows}=_sbgRowLabels(d);
+  function _bfTile(bf){
+    const full=CARDS.find(c=>c.id===bf.id);
+    const img=full?(full.imageUrl||''):'';
+    const rowIdx=bfRows.findIndex(r=>r.name===bf.n);
+    const isSelected=rowIdx>=0&&!!g.cells[`b|${rowIdx}|${_sbgEye.col}|${bfSubIdx}`];
+    const anySelected=bfRows.some((_,i)=>!!g.cells[`b|${i}|${_sbgEye.col}|${bfSubIdx}`]);
+    const isFaded=anySelected&&!isSelected;
+    const safeName=_sbgEsc(bf.n).replace(/'/g,"\\'");
+    const xTag=isSelected?`<div class="sbg-eye-bf-x">✕</div>`:'';
+    const cls=`gallery-card gallery-card-bf sbg-eye-bf-tile${isSelected?' sbg-eye-bf-selected':''}${isFaded?' sbg-eye-bf-faded':''}`;
+    const inner=img?`<img src="${img}" alt="${_sbgEsc(bf.n)}" loading="lazy">`:`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${_sbgEsc(bf.n)}</div>`;
+    return `<div class="${cls}" title="${_sbgEsc(bf.n)} — click to ${isSelected?'unpick':'pick for this game'}" onclick="_sbgEyeBfClick('${safeName}')">${inner}${xTag}</div>`;
+  }
   let bodyHtml='';
-  // Champion header strip (read-only — sideboarding doesn't touch champion)
-  bodyHtml+=`<div class="sbg-eye-champ-row">`+section('Champion',`${champCnt}/1`,gcards(champion),'gallery-section-compact sbg-eye-champ-section')+`</div>`;
+  // Top read-only strip: Champion + Battlefields side by side. Battlefield
+  // tiles are interactive — click to set/unset the BF pick for this game.
+  let topStripHtml=`<div class="gallery-section gallery-section-compact sbg-eye-champ-section"><div class="gallery-section-hdr">Champion<span class="gallery-section-tally">${champCnt}/1</span></div><div class="cards-gallery-view">${gcards(champion)}</div></div>`;
+  topStripHtml+=`<div class="gallery-section gallery-section-compact sbg-eye-bf-section"><div class="gallery-section-hdr">Battlefields<span class="gallery-section-tally">${battlefields.length}/3</span></div><div class="cards-gallery-view-bf">${battlefields.length?battlefields.map(_bfTile).join(''):'<div style="font-size:11px;color:var(--text-muted);opacity:0.5;padding:8px;">No battlefields in this deck.</div>'}</div></div>`;
+  bodyHtml+=`<div class="sbg-eye-top-strip">${topStripHtml}</div>`;
   if(_sbgEye.view==='visual'){
     bodyHtml+=typeGroupedSection('Main Deck',`${mainCnt}/40`,effMain,'m');
     bodyHtml+=typeGroupedSection('Sideboard',`${sbCnt}/8`,effSb,'s');
@@ -2010,8 +2050,8 @@ function _sbgRenderEyeModal(){
         <span>${_sbgEsc(muName)}</span>
       </div>
       <div class="sbg-eye-tabs">
-        <button class="sbg-eye-tab${_sbgEye.sub===0?' on':''}" onclick="sbgEyeSetSub(0)">G2</button>
-        <button class="sbg-eye-tab${_sbgEye.sub===1?' on':''}" onclick="sbgEyeSetSub(1)">G3</button>
+        <button class="sbg-eye-tab${_sbgEye.sub===0?' on':''}" onclick="sbgEyeSetSub(0)" title="First post-board game">Game 2/3 - 1st</button>
+        <button class="sbg-eye-tab${_sbgEye.sub===1?' on':''}" onclick="sbgEyeSetSub(1)" title="Second post-board game">Game 2/3 - 2nd</button>
       </div>
       <div class="sbg-eye-tabs sbg-eye-view-tabs" title="Switch layout">
         <button class="sbg-eye-tab${_sbgEye.view==='gallery'?' on':''}" onclick="sbgEyeSetView('gallery')" title="Gallery view">⊞ Gallery</button>
@@ -2026,6 +2066,9 @@ function _sbgRenderEyeModal(){
       <span class="sbg-eye-hint">Click a card in the main deck to side it out · click a sideboard card to side it in · right-click to undo.</span>
     </div>
     <div class="sbg-eye-body">${galleryBody}</div>
+    <div class="sbg-eye-resize sbg-eye-resize-right" title="Drag to resize width"></div>
+    <div class="sbg-eye-resize sbg-eye-resize-left" title="Drag to resize width"></div>
+    <div class="sbg-eye-resize sbg-eye-resize-bottom" title="Drag to resize height"></div>
   </div>`;
   // Restore scroll and wire the resize observer (only attach once per box
   // lifetime — the box element is recreated every innerHTML rebuild).
@@ -2043,6 +2086,43 @@ function _sbgRenderEyeModal(){
     });
     _sbgEye._ro.observe(box);
   }
+  if(box) _attachSbgEyeEdgeHandles(box);
+}
+
+function _attachSbgEyeEdgeHandles(box){
+  const minW=520,minH=420;
+  function maxW(){return Math.max(minW,window.innerWidth-32);}
+  function maxH(){return Math.max(minH,window.innerHeight-64);}
+  function startDrag(handle,axis,direction){
+    handle.addEventListener('pointerdown',e=>{
+      e.preventDefault();e.stopPropagation();
+      handle.setPointerCapture(e.pointerId);
+      const startX=e.clientX,startY=e.clientY;
+      const startW=box.offsetWidth,startH=box.offsetHeight;
+      function move(ev){
+        if(axis==='x'){
+          const dx=(ev.clientX-startX)*direction;
+          const w=Math.max(minW,Math.min(maxW(),startW+dx));
+          box.style.width=w+'px';
+        } else {
+          const dy=(ev.clientY-startY)*direction;
+          const h=Math.max(minH,Math.min(maxH(),startH+dy));
+          box.style.height=h+'px';
+        }
+      }
+      function up(){
+        try{handle.releasePointerCapture(e.pointerId);}catch(_){}
+        handle.removeEventListener('pointermove',move);
+        handle.removeEventListener('pointerup',up);
+        _sbgSaveEyeSize(box.offsetWidth,box.offsetHeight);
+      }
+      handle.addEventListener('pointermove',move);
+      handle.addEventListener('pointerup',up);
+    });
+  }
+  const r=box.querySelector('.sbg-eye-resize-right');if(r)  startDrag(r,'x', 1);
+  const l=box.querySelector('.sbg-eye-resize-left'); if(l)  startDrag(l,'x',-1);
+  const b=box.querySelector('.sbg-eye-resize-bottom');if(b) startDrag(b,'y', 1);
 }
 function sbgSetCell(section,row,col,sub,val){
   // Back-compat shim: pre-split callers passed (section,row,col,val) without
