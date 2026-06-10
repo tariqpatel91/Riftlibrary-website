@@ -1753,7 +1753,7 @@ function buildSideboardGuide(d){
    G2/G3 toggle picks which sub-cell gets updated. Right-click / shift-
    click on a card undoes one tick. All state lives in d.sbGuide.cells so
    it stays in sync with the manual entries in the grid. */
-let _sbgEye={col:0,sub:0};
+let _sbgEye={col:0,sub:0,view:'gallery'};
 function sbgEyeClick(idx){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   _sbgEnsure(d);
@@ -1761,6 +1761,7 @@ function sbgEyeClick(idx){
   _sbgEye.sub=0;
   _sbgRenderEyeModal();
 }
+function sbgEyeSetView(v){_sbgEye.view=v;_sbgRenderEyeModal();}
 function sbgEyeClose(){
   const m=document.getElementById('sbg-eye-modal');if(m)m.remove();
   // The grid in the background needs to refresh so any cell values the user
@@ -1822,45 +1823,28 @@ function _sbgRenderEyeModal(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const g=_sbgEnsure(d);
   const muName=(g.matchups[_sbgEye.col]||'').trim()||`Matchup ${_sbgEye.col+1}`;
-  // Mirror the exact sort + section structure of buildCardsGalleryView so
-  // the modal body looks identical to the "Visual" decklist view. The only
-  // difference is that main-deck and sideboard tiles get interactive
-  // click-to-swap handlers + swap badges; everything else is read-only.
   const TYPE_ORDER=['Unit','Spell','Gear'];
   function _tSort(a,b){const ai=TYPE_ORDER.indexOf(a.t),bi=TYPE_ORDER.indexOf(b.t);return(ai<0?99:ai)-(bi<0?99:bi)||(a.n||'').localeCompare(b.n||'');}
   function _eSort(a,b){const ca=CARDS.find(x=>x.id===a.id);const cb=CARDS.find(x=>x.id===b.id);const ea=ca&&ca.cost!=null?ca.cost:999;const eb=cb&&cb.cost!=null?cb.cost:999;return ea!==eb?ea-eb:(a.n||'').localeCompare(b.n||'');}
   const cmp=deckSortMode==='energy'?_eSort:_tSort;
-  const legend=d.cards?d.cards.filter(c=>c.t==='Legend'):[];
   const champion=d.champion?[{...d.champion,cnt:1}]:[];
   const mainDeck=(d.cards||[]).filter(c=>c.t!=='Legend').slice().sort(cmp);
   const sb=(d.sideboard||[]).slice().sort(cmp);
-  const bfs=(d.battlefields||[]).filter(Boolean);
-  const runes=d.runes||[];
-  const runeGrouped={};
-  runes.forEach(r=>{if(!runeGrouped[r.id])runeGrouped[r.id]={id:r.id,n:r.n,cnt:0};runeGrouped[r.id].cnt++;});
-  const runesCompact=Object.values(runeGrouped);
-  // Card-tile renderers — match the existing .gallery-card markup exactly.
-  function gcards(entries,isBF,compact){
+  // Static (read-only) tile — only used for Champion in this modal.
+  function gcards(entries){
     return entries.map(entry=>{
       const full=CARDS.find(c=>c.id===entry.id);
       const img=full?full.imageUrl:'';
       const imgInner=img
         ?`<img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy">`
         :`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${_sbgEsc(entry.n)}</div>`;
-      if(compact){
-        const cntBadge=(entry.cnt||1)>1?`<div class="gallery-card-cnt">×${entry.cnt}</div>`:'';
-        return `<div class="gallery-card${isBF?' gallery-card-bf':''}" title="${_sbgEsc(entry.n)}">${imgInner}${cntBadge}</div>`;
-      }
-      const tiles=[];
-      for(let i=0;i<(entry.cnt||1);i++){
-        tiles.push(`<div class="gallery-card${isBF?' gallery-card-bf':''}" title="${_sbgEsc(entry.n)}">${imgInner}</div>`);
-      }
-      return tiles.join('');
+      const cntBadge=(entry.cnt||1)>1?`<div class="gallery-card-cnt">×${entry.cnt}</div>`:'';
+      return `<div class="gallery-card" title="${_sbgEsc(entry.n)}">${imgInner}${cntBadge}</div>`;
     }).join('');
   }
-  // Interactive variant for main+SB. Renders ONE tile per unique card with
-  // a stack badge AND a swap badge (-N for main, +N for sideboard). Clicks
-  // are routed to _sbgEyeAdjust.
+  // Interactive tile for main + sideboard cards. ONE tile per unique card
+  // with stack badge and swap badge. Click → side out (main) / in (SB);
+  // right-click → undo.
   function gcardsSwap(entries,section){
     return entries.map(entry=>{
       const full=CARDS.find(c=>c.id===entry.id);
@@ -1884,26 +1868,46 @@ function _sbgRenderEyeModal(){
       return `<div class="gallery-card sbg-eye-swap-card${fadedCls}" title="${_sbgEsc(title)}" ${click}>${imgInner}${stackBadge}${swapBadge}</div>`;
     }).join('');
   }
-  function section(label,tally,html,rawWrap,extraClass){
-    const inner=rawWrap?html:`<div class="cards-gallery-view">${html}</div>`;
+  function section(label,tally,html,extraClass){
     const tallyHtml=tally!=null?`<span class="gallery-section-tally">${tally}</span>`:'';
-    return`<div class="gallery-section${extraClass?' '+extraClass:''}"><div class="gallery-section-hdr">${label}${tallyHtml}</div>${inner}</div>`;
+    return`<div class="gallery-section${extraClass?' '+extraClass:''}"><div class="gallery-section-hdr">${label}${tallyHtml}</div><div class="cards-gallery-view">${html}</div></div>`;
   }
-  const legendCnt=legend.reduce((a,c)=>a+(c.cnt||1),0);
+  // Group cards by type for the Visual layout — shows a subsection like
+  // "UNIT (n) / SPELL (n) / GEAR (n)" within Main / Sideboard.
+  function groupByType(list){
+    const groups={};
+    list.forEach(c=>{const t=(c.t||'Other');if(!groups[t])groups[t]=[];groups[t].push(c);});
+    return TYPE_ORDER.filter(t=>groups[t]).map(t=>({type:t,cards:groups[t]}))
+      .concat(Object.keys(groups).filter(t=>!TYPE_ORDER.includes(t)).map(t=>({type:t,cards:groups[t]})));
+  }
+  function typeGroupedSection(label,tally,list,sectionKey){
+    const groups=groupByType(list);
+    let inner='';
+    groups.forEach(g=>{
+      const cnt=g.cards.reduce((a,c)=>a+(c.cnt||1),0);
+      inner+=`<div class="sbg-eye-type-grp">
+        <div class="sbg-eye-type-hdr">${g.type.toUpperCase()} <span class="sbg-eye-type-cnt">(${cnt})</span></div>
+        <div class="cards-gallery-view sbg-eye-visual-grid">${gcardsSwap(g.cards,sectionKey)}</div>
+      </div>`;
+    });
+    if(!groups.length) inner=`<div class="cards-gallery-view"><div style="grid-column:1/-1;padding:14px;text-align:center;color:var(--text-muted);font-size:12px;opacity:0.6;">No cards in ${label.toLowerCase()}.</div></div>`;
+    const tallyHtml=tally!=null?`<span class="gallery-section-tally">${tally}</span>`:'';
+    return `<div class="gallery-section"><div class="gallery-section-hdr">${label}${tallyHtml}</div>${inner}</div>`;
+  }
   const champCnt=champion.length;
   const mainCnt=mainDeck.reduce((a,c)=>a+(c.cnt||1),0)+(d.champion?1:0);
-  const runeCnt=runes.length;
-  const bfCnt=bfs.length;
   const sbCnt=sb.reduce((a,c)=>a+(c.cnt||1),0);
-  let topRow='';
-  topRow+=section('Legend',`${legendCnt}/1`,gcards(legend,false),false,'gallery-section-compact');
-  topRow+=section('Champion',`${champCnt}/1`,gcards(champion,false),false,'gallery-section-compact');
-  topRow+=section('Battlefield',`${bfCnt}/3`,`<div class="cards-gallery-view-bf">${gcards(bfs,true)}</div>`,true,'gallery-section-compact');
-  topRow+=section('Runes',`${runeCnt}/12`,gcards(runesCompact,false,true),false,'gallery-section-compact');
-  let bodyHtml=`<div class="gallery-top-row">${topRow}</div>`;
-  bodyHtml+=section('Main Deck',`${mainCnt}/40`,gcardsSwap(mainDeck,'m'));
-  bodyHtml+=section('Sideboard',`${sbCnt}/8`,gcardsSwap(sb,'s'));
-  const galleryBody=`<div class="gallery-all-sections">${bodyHtml}</div>`;
+  let bodyHtml='';
+  // Champion header strip (read-only — sideboarding doesn't touch champion)
+  bodyHtml+=`<div class="sbg-eye-champ-row">`+section('Champion',`${champCnt}/1`,gcards(champion),'gallery-section-compact sbg-eye-champ-section')+`</div>`;
+  if(_sbgEye.view==='visual'){
+    bodyHtml+=typeGroupedSection('Main Deck',`${mainCnt}/40`,mainDeck,'m');
+    bodyHtml+=typeGroupedSection('Sideboard',`${sbCnt}/8`,sb,'s');
+  } else {
+    bodyHtml+=section('Main Deck',`${mainCnt}/40`,gcardsSwap(mainDeck,'m'));
+    bodyHtml+=section('Sideboard',`${sbCnt}/8`,gcardsSwap(sb,'s'));
+  }
+  const galleryBody=`<div class="gallery-all-sections${_sbgEye.view==='visual'?' sbg-eye-mode-visual':''}">${bodyHtml}</div>`;
   // Running totals for header
   let totalOut=0,totalIn=0;
   mainDeck.forEach(c=>{const v=_sbgEyeCellValue('m',c.n);if(v<0)totalOut+=-v;});
@@ -1928,6 +1932,10 @@ function _sbgRenderEyeModal(){
       <div class="sbg-eye-tabs">
         <button class="sbg-eye-tab${_sbgEye.sub===0?' on':''}" onclick="sbgEyeSetSub(0)">G2</button>
         <button class="sbg-eye-tab${_sbgEye.sub===1?' on':''}" onclick="sbgEyeSetSub(1)">G3</button>
+      </div>
+      <div class="sbg-eye-tabs sbg-eye-view-tabs" title="Switch layout">
+        <button class="sbg-eye-tab${_sbgEye.view==='gallery'?' on':''}" onclick="sbgEyeSetView('gallery')" title="Gallery view">⊞ Gallery</button>
+        <button class="sbg-eye-tab${_sbgEye.view==='visual'?' on':''}" onclick="sbgEyeSetView('visual')" title="Visual view">▦ Visual</button>
       </div>
       <button class="sbg-eye-close" onclick="sbgEyeClose()" title="Close">✕</button>
     </div>

@@ -596,6 +596,18 @@ input.sbg-cell-sub:focus{outline:none;background:rgba(255,255,255,0.05)!importan
 .sbg-eye-swap-in{background:rgba(112,194,124,0.92);color:#0a1f10;}
 .gallery-card.sbg-eye-card-gone{filter:grayscale(1) brightness(0.55);}
 .gallery-card.sbg-eye-card-gone:hover{transform:none;box-shadow:none;}
+/* Champion strip: a slim left-aligned section so the modal doesn't waste a
+   full row on one card. */
+.sbg-eye-champ-row{max-width:200px;margin-bottom:6px;}
+.sbg-eye-champ-section .cards-gallery-view{grid-template-columns:repeat(auto-fill,minmax(90px,1fr));}
+.sbg-eye-view-tabs{margin-left:4px;}
+.sbg-eye-view-tabs .sbg-eye-tab{padding:6px 12px;font-size:12px;}
+/* Visual mode — bigger tiles, type-grouped subheaders inside Main / SB. */
+.sbg-eye-mode-visual .sbg-eye-visual-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+.sbg-eye-type-grp{margin-bottom:14px;}
+.sbg-eye-type-grp:last-child{margin-bottom:0;}
+.sbg-eye-type-hdr{font-family:'Inter',system-ui,sans-serif;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.12em;text-align:center;padding:8px 0 6px;}
+.sbg-eye-type-cnt{color:var(--text-muted);font-weight:500;margin-left:2px;}
 @media(max-width:780px){.sbg-eye-hint{display:none;}}
 .cards-view-bar{display:flex;gap:6px;margin-bottom:1.25rem;align-items:center;}
 .cvt-btn{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.15s;}
