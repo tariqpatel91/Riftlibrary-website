@@ -1283,12 +1283,6 @@ function renderDeckDetail(){
           </div>
         </div>
       </div>
-      <div class="deck-header-right">
-        <div id="deck-curves-panel">${buildDeckCurves(d)}</div>
-        <div class="deck-header-count">
-          <span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">${totalCards} / 40 cards</span>
-        </div>
-      </div>
     </div>
     <div class="hero-zone-bar" id="hero-zone-bar" style="display:none;"></div>
 
@@ -1302,10 +1296,6 @@ function renderDeckDetail(){
         <svg viewBox="0 0 16 16" fill="none"><path d="M11 2.5l2.5 2.5-7 7H4V9.5l7-7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.5 4l2.5 2.5" stroke="currentColor" stroke-width="1.2"/></svg>
         Edit
       </button>
-      <button class="dd-tab${activeDDTab==='stats'?' active':''}" onclick="switchDDTab('stats')">
-        <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="3" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="6" y="5" width="3" height="10" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="11" y="2" width="3" height="13" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
-        Decklist Data
-      </button>
       <button class="dd-tab${activeDDTab==='sbguide'?' active':''}" onclick="switchDDTab('sbguide')">
         <svg viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M1.5 5.5h13M1.5 9.5h13M5.5 1.5v13M10 1.5v13" stroke="currentColor" stroke-width="1.2"/></svg>
         Sideboard Guide
@@ -1314,6 +1304,16 @@ function renderDeckDetail(){
         <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Results
       </button>
+      <button class="dd-tab${activeDDTab==='stats'?' active':''}" onclick="switchDDTab('stats')">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="3" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="6" y="5" width="3" height="10" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="11" y="2" width="3" height="13" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
+        Decklist Data
+      </button>
+      <div class="dd-tabs-curves">
+        <div id="deck-curves-panel">${buildDeckCurves(d)}</div>
+        <div class="deck-header-count">
+          <span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">${totalCards} / 40 cards</span>
+        </div>
+      </div>
     </div>
 
     <!-- PANEL: CARDS -->
