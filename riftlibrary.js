@@ -1872,13 +1872,48 @@ function _sbgRenderEyeModal(){
     const tallyHtml=tally!=null?`<span class="gallery-section-tally">${tally}</span>`:'';
     return`<div class="gallery-section${extraClass?' '+extraClass:''}"><div class="gallery-section-hdr">${label}${tallyHtml}</div><div class="cards-gallery-view">${html}</div></div>`;
   }
-  // Group cards by type for the Visual layout — shows a subsection like
-  // "UNIT (n) / SPELL (n) / GEAR (n)" within Main / Sideboard.
+  // Group cards by type for the Visual layout.
   function groupByType(list){
     const groups={};
     list.forEach(c=>{const t=(c.t||'Other');if(!groups[t])groups[t]=[];groups[t].push(c);});
     return TYPE_ORDER.filter(t=>groups[t]).map(t=>({type:t,cards:groups[t]}))
       .concat(Object.keys(groups).filter(t=>!TYPE_ORDER.includes(t)).map(t=>({type:t,cards:groups[t]})));
+  }
+  // Visual mode — renders each unique card as a vertical stack of N tiles
+  // (one .deck-card-item per copy) so they overlap like a fan. This mirrors
+  // the decklist Visual layout exactly. Click handler / swap badge live on
+  // the .deck-col-stack wrapper so all copies act as one swap target.
+  function colStack(entry,section){
+    const full=CARDS.find(c=>c.id===entry.id);
+    const img=full?full.imageUrl:'';
+    const total=entry.cnt||1;
+    const delta=_sbgEyeCellValue(section,entry.n);
+    const remaining=section==='m'?(total+delta):(total-delta);
+    const badgeText=section==='m'?(delta?String(delta):''):(delta?`+${delta}`:'');
+    const badgeCls=section==='m'?'sbg-eye-swap sbg-eye-swap-out':'sbg-eye-swap sbg-eye-swap-in';
+    const swapBadge=badgeText?`<div class="${badgeCls}">${badgeText}</div>`:'';
+    const safeName=_sbgEsc(entry.n).replace(/'/g,"\\'");
+    const click=section==='m'
+      ?`onclick="_sbgEyeAdjust('m','${safeName}',-1)" oncontextmenu="event.preventDefault();_sbgEyeAdjust('m','${safeName}',1)"`
+      :`onclick="_sbgEyeAdjust('s','${safeName}',1)" oncontextmenu="event.preventDefault();_sbgEyeAdjust('s','${safeName}',-1)"`;
+    const title=section==='m'?`${entry.n} — click to side out · right-click to undo`:`${entry.n} — click to side in · right-click to undo`;
+    const tiles=[];
+    for(let i=0;i<total;i++){
+      // Faded once the i-th copy from the bottom has been "sided out". For
+      // main: top tiles fade first as you side them out. For SB: bottom tiles
+      // fade as they're sided in.
+      let isGone=false;
+      if(section==='m')   isGone=i>=remaining;       // sided-out copies fade
+      else if(section==='s') isGone=i>=remaining;    // sided-in copies leave the SB
+      const tile=img
+        ?`<div class="deck-card-item${isGone?' sbg-eye-card-gone':''}"><img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy"></div>`
+        :`<div class="deck-card-item${isGone?' sbg-eye-card-gone':''}"><div class="deck-card-no-img"><div class="dcni-name">${_sbgEsc(entry.n)}</div></div></div>`;
+      tiles.push(tile);
+    }
+    return `<div class="deck-col-stack sbg-eye-col-stack" title="${_sbgEsc(title)}" ${click}>
+      ${swapBadge}
+      ${tiles.join('')}
+    </div>`;
   }
   function typeGroupedSection(label,tally,list,sectionKey){
     const groups=groupByType(list);
@@ -1887,10 +1922,10 @@ function _sbgRenderEyeModal(){
       const cnt=g.cards.reduce((a,c)=>a+(c.cnt||1),0);
       inner+=`<div class="sbg-eye-type-grp">
         <div class="sbg-eye-type-hdr">${g.type.toUpperCase()} <span class="sbg-eye-type-cnt">(${cnt})</span></div>
-        <div class="cards-gallery-view sbg-eye-visual-grid">${gcardsSwap(g.cards,sectionKey)}</div>
+        <div class="deck-type-auto-grid sbg-eye-visual-grid">${g.cards.map(c=>colStack(c,sectionKey)).join('')}</div>
       </div>`;
     });
-    if(!groups.length) inner=`<div class="cards-gallery-view"><div style="grid-column:1/-1;padding:14px;text-align:center;color:var(--text-muted);font-size:12px;opacity:0.6;">No cards in ${label.toLowerCase()}.</div></div>`;
+    if(!groups.length) inner=`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:12px;opacity:0.6;">No cards in ${label.toLowerCase()}.</div>`;
     const tallyHtml=tally!=null?`<span class="gallery-section-tally">${tally}</span>`:'';
     return `<div class="gallery-section"><div class="gallery-section-hdr">${label}${tallyHtml}</div>${inner}</div>`;
   }
