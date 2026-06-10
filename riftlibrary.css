@@ -211,18 +211,26 @@ select option{background:#1e1e2a;}
 .deck-header-count{display:flex;gap:6px;align-items:baseline;}
 /* Curves+count block now lives inside the .dd-tabs row, pushed to the right
    so the chart x-axis numbers sit on the same baseline as the tab labels. */
-.dd-tabs-curves{margin-left:auto;display:flex;align-items:flex-end;gap:20px;padding:0 4px 9px 24px;flex-shrink:0;}
+.dd-tabs-curves{margin-left:auto;display:flex;align-items:flex-end;gap:24px;padding:6px 4px 10px 24px;flex-shrink:0;}
 .dd-tabs-curves #deck-curves-panel{display:flex;align-items:flex-end;}
 .dd-tabs-curves .deck-curves{padding:0;}
-.dd-tabs-curves .curve-sv{font-size:14px;}
-.dd-tabs-curves .curve-sl{font-size:8px;}
-.dd-tabs-curves .curve-chart-lbl{font-size:8px;}
-.dd-tabs-curves .mc-wrap{height:30px;gap:2px;}
-.dd-tabs-curves .mc-bar{width:10px;}
-.dd-tabs-curves .mc-lbl{font-size:8px;}
-.dd-tabs-curves .curve-pairs-row{gap:14px;}
-.dd-tabs-curves .curve-stat{min-width:36px;}
-.dd-tabs-curves .deck-header-count{white-space:nowrap;}
+/* Hide the redundant "ENERGY CURVE" / "POWER CURVE" subheader in this
+   compact placement — the bars are self-explanatory and the label was
+   the main culprit overlapping the bars. */
+.dd-tabs-curves .curve-chart-lbl{display:none;}
+.dd-tabs-curves .curve-pairs-row{gap:18px;align-items:flex-end;}
+.dd-tabs-curves .curve-pair{gap:6px;align-items:center;}
+.dd-tabs-curves .curve-stat{min-width:42px;align-items:center;}
+.dd-tabs-curves .curve-sv{font-size:15px;line-height:1;font-weight:700;}
+.dd-tabs-curves .curve-sl{font-size:8px;letter-spacing:0.06em;margin-top:3px;}
+.dd-tabs-curves .curve-chart-block{gap:3px;align-items:center;}
+/* Wrap must accommodate the full 44px-max bar plus the axis label below it
+   without the column overflowing upward into the row above. */
+.dd-tabs-curves .mc-wrap{height:52px;gap:2px;align-items:flex-end;overflow:visible;}
+.dd-tabs-curves .mc-col{gap:2px;}
+.dd-tabs-curves .mc-bar{width:9px;}
+.dd-tabs-curves .mc-lbl{font-size:8px;line-height:1;}
+.dd-tabs-curves .deck-header-count{white-space:nowrap;padding-bottom:2px;}
 .dd-tabs-curves .deck-header-count .dt-label{font-size:12px;color:var(--text-muted);}
 .dd-tabs-curves .deck-header-count .dt-count{font-size:12px;color:var(--accent);font-weight:600;}
 /* The tabs row's flexbox aligns children at their baseline by default; force
