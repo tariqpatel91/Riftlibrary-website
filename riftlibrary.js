@@ -1754,6 +1754,15 @@ function buildSideboardGuide(d){
    click on a card undoes one tick. All state lives in d.sbGuide.cells so
    it stays in sync with the manual entries in the grid. */
 let _sbgEye={col:0,sub:0,view:'gallery'};
+let _sbgEyeScroll=0; // remembered between re-renders so a click on a card
+                     // doesn't yank the body scrollTop back to 0
+function _sbgLoadEyeSize(){
+  try{const s=JSON.parse(localStorage.getItem('rl_sbg_eye_size')||'null');if(s&&s.w&&s.h)return s;}catch(e){}
+  return null;
+}
+function _sbgSaveEyeSize(w,h){
+  try{localStorage.setItem('rl_sbg_eye_size',JSON.stringify({w,h}));}catch(e){}
+}
 function sbgEyeClick(idx){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   _sbgEnsure(d);
@@ -1976,14 +1985,23 @@ function _sbgRenderEyeModal(){
   const balanceCls=balance===0?'sbg-eye-bal-ok':'sbg-eye-bal-off';
   const balanceText=balance===0?'Balanced':(balance>0?`+${balance} in`:`${balance} (over-sided out)`);
   let modal=document.getElementById('sbg-eye-modal');
-  if(!modal){
+  const firstOpen=!modal;
+  if(firstOpen){
     modal=document.createElement('div');
     modal.id='sbg-eye-modal';
     modal.className='sbg-eye-backdrop';
     modal.addEventListener('click',e=>{if(e.target===modal)sbgEyeClose();});
     document.body.appendChild(modal);
   }
-  modal.innerHTML=`<div class="sbg-eye-box">
+  // Preserve scrollTop across the rebuild so clicking a card doesn't jump
+  // the user back to the top.
+  const oldBody=modal.querySelector('.sbg-eye-body');
+  if(oldBody) _sbgEyeScroll=oldBody.scrollTop;
+  // Persisted resize: read once on first open, persist via observer on the
+  // .sbg-eye-box after we render.
+  const savedSize=firstOpen?_sbgLoadEyeSize():null;
+  const sizeStyle=savedSize?`style="width:${savedSize.w}px;height:${savedSize.h}px;"`:'';
+  modal.innerHTML=`<div class="sbg-eye-box" ${sizeStyle}>
     <div class="sbg-eye-hdr">
       <div class="sbg-eye-title">
         <span class="sbg-eye-eye">👁</span>
@@ -2007,6 +2025,22 @@ function _sbgRenderEyeModal(){
     </div>
     <div class="sbg-eye-body">${galleryBody}</div>
   </div>`;
+  // Restore scroll and wire the resize observer (only attach once per box
+  // lifetime — the box element is recreated every innerHTML rebuild).
+  const newBody=modal.querySelector('.sbg-eye-body');
+  if(newBody&&_sbgEyeScroll) newBody.scrollTop=_sbgEyeScroll;
+  const box=modal.querySelector('.sbg-eye-box');
+  if(box&&typeof ResizeObserver!=='undefined'){
+    if(_sbgEye._ro){try{_sbgEye._ro.disconnect();}catch(e){}}
+    _sbgEye._ro=new ResizeObserver(entries=>{
+      for(const ent of entries){
+        const cr=ent.contentRect;
+        // Skip tiny / first-frame measurements that fire during layout.
+        if(cr.width>200&&cr.height>200) _sbgSaveEyeSize(Math.round(cr.width),Math.round(cr.height));
+      }
+    });
+    _sbgEye._ro.observe(box);
+  }
 }
 function sbgSetCell(section,row,col,sub,val){
   // Back-compat shim: pre-split callers passed (section,row,col,val) without

@@ -571,7 +571,12 @@ input.sbg-cell-sub:focus{outline:none;background:rgba(255,255,255,0.05)!importan
 
 /* ── Eyeball matchup modal ─────────────────────────────────── */
 .sbg-eye-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto;}
-.sbg-eye-box{background:var(--surface);border:1px solid var(--border-hover);border-radius:14px;width:min(1200px,100%);box-shadow:0 24px 60px rgba(0,0,0,0.65);display:flex;flex-direction:column;max-height:calc(100vh - 64px);overflow:hidden;}
+/* User-resizable: drag the bottom-right corner to size the modal. The
+   browser's native resize handle appears because of resize:both + overflow.
+   Persisted via ResizeObserver → localStorage in _sbgRenderEyeModal. */
+.sbg-eye-box{background:var(--surface);border:1px solid var(--border-hover);border-radius:14px;width:min(1200px,100%);height:calc(100vh - 64px);box-shadow:0 24px 60px rgba(0,0,0,0.65);display:flex;flex-direction:column;overflow:hidden;resize:both;min-width:520px;min-height:420px;max-width:calc(100vw - 32px);max-height:calc(100vh - 64px);position:relative;}
+/* Visible grip in the bottom-right corner so users notice it's resizable. */
+.sbg-eye-box::after{content:'';position:absolute;right:2px;bottom:2px;width:14px;height:14px;background:linear-gradient(135deg,transparent 0%,transparent 45%,var(--text-muted) 45%,var(--text-muted) 55%,transparent 55%,transparent 70%,var(--text-muted) 70%,var(--text-muted) 80%,transparent 80%);pointer-events:none;opacity:0.55;border-radius:2px;}
 .sbg-eye-hdr{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--border);background:var(--surface2);}
 .sbg-eye-title{display:flex;align-items:center;gap:10px;font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--text);flex:1;min-width:0;}
 .sbg-eye-eye{font-size:18px;color:var(--accent);}
