@@ -1746,13 +1746,180 @@ function buildSideboardGuide(d){
     </div>
   </div>`;
 }
+/* ── EYEBALL MATCHUP MODAL ─────────────────────────────────
+   Opens a deck-visualization overlay scoped to one matchup column. Each
+   main-deck card click sides one copy out (writes "-N" into that card's
+   cell); each sideboard card click sides one copy in (writes "+N"). The
+   G2/G3 toggle picks which sub-cell gets updated. Right-click / shift-
+   click on a card undoes one tick. All state lives in d.sbGuide.cells so
+   it stays in sync with the manual entries in the grid. */
+let _sbgEye={col:0,sub:0};
 function sbgEyeClick(idx){
-  // Placeholder — wired up here so the button is interactive; the user will
-  // attach real functionality (e.g. open a matchup notes modal) later.
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  _sbgEnsure(d);
+  _sbgEye.col=idx;
+  _sbgEye.sub=0;
+  _sbgRenderEyeModal();
+}
+function sbgEyeClose(){
+  const m=document.getElementById('sbg-eye-modal');if(m)m.remove();
+  // The grid in the background needs to refresh so any cell values the user
+  // touched in the modal show up in the table.
+  const d=myDecks.find(x=>x.id===activeDeckId);
+  if(d&&document.getElementById('ddp-sbguide'))
+    document.getElementById('ddp-sbguide').innerHTML=buildSideboardGuide(d);
+}
+function sbgEyeSetSub(sub){
+  _sbgEye.sub=sub;
+  _sbgRenderEyeModal();
+}
+function _sbgRowIndexFor(rows,name){return rows.findIndex(r=>r.name===name);}
+function _sbgParseDelta(v){
+  // Cell stores either '' (untouched), '+N' / 'N', or '-N'. Return the
+  // signed integer represented by it; 0 if unparseable.
+  if(!v)return 0;
+  const m=String(v).trim().match(/^([+-]?)(\d+)/);
+  return m?(m[1]==='-'?-1:1)*parseInt(m[2],10):0;
+}
+function _sbgFormatDelta(n,positiveSign){
+  if(!n)return '';
+  return positiveSign&&n>0?`+${n}`:String(n);
+}
+function _sbgEyeAdjust(section,name,direction){
+  // direction: +1 or -1 added to current signed value, then clamped.
+  // section: 'm' (main) or 's' (sideboard).
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const g=_sbgEnsure(d);
-  const name=(g.matchups[idx]||'').trim()||`Matchup ${idx+1}`;
-  toast(`View "${name}" — coming soon`);
+  const {mainRows,sbRows}=_sbgRowLabels(d);
+  const rows=section==='m'?mainRows:sbRows;
+  const r=_sbgRowIndexFor(rows,name);
+  if(r<0)return;
+  const key=`${section}|${r}|${_sbgEye.col}|${_sbgEye.sub}`;
+  const cur=_sbgParseDelta(g.cells[key]);
+  let next=cur+direction;
+  // Clamps:
+  //   Main deck card: only negative (siding out). Cap by how many copies exist.
+  //   Sideboard card: only positive (siding in). Cap by sideboard count.
+  const row=rows[r];
+  const max=row.cnt||0;
+  if(section==='m') next=Math.min(0,Math.max(-max,next));
+  else              next=Math.max(0,Math.min(max,next));
+  if(next===0) delete g.cells[key];
+  else g.cells[key]=section==='s'?_sbgFormatDelta(next,true):String(next);
+  persist();
+  _sbgRenderEyeModal();
+}
+function _sbgEyeCellValue(section,name){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return 0;
+  const g=_sbgEnsure(d);
+  const {mainRows,sbRows}=_sbgRowLabels(d);
+  const rows=section==='m'?mainRows:sbRows;
+  const r=_sbgRowIndexFor(rows,name);
+  if(r<0)return 0;
+  return _sbgParseDelta(g.cells[`${section}|${r}|${_sbgEye.col}|${_sbgEye.sub}`]);
+}
+function _sbgRenderEyeModal(){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const g=_sbgEnsure(d);
+  const muName=(g.matchups[_sbgEye.col]||'').trim()||`Matchup ${_sbgEye.col+1}`;
+  // Build per-section cards. Reuse the gallery's sort order (alphabetical
+  // or energy depending on deckSortMode).
+  const TYPE_ORDER=['Unit','Spell','Gear'];
+  function _tSort(a,b){const ai=TYPE_ORDER.indexOf(a.t),bi=TYPE_ORDER.indexOf(b.t);return(ai<0?99:ai)-(bi<0?99:bi)||(a.n||'').localeCompare(b.n||'');}
+  function _eSort(a,b){const ca=CARDS.find(x=>x.id===a.id);const cb=CARDS.find(x=>x.id===b.id);const ea=ca&&ca.cost!=null?ca.cost:999;const eb=cb&&cb.cost!=null?cb.cost:999;return ea!==eb?ea-eb:(a.n||'').localeCompare(b.n||'');}
+  const cmp=deckSortMode==='energy'?_eSort:_tSort;
+  const mainDeck=(d.cards||[]).filter(c=>c.t!=='Legend').slice().sort(cmp);
+  const sb=(d.sideboard||[]).slice().sort(cmp);
+  // Top zones (read-only — these don't get swap badges)
+  const champion=d.champion?[{...d.champion,cnt:1}]:[];
+  const bfs=(d.battlefields||[]).filter(Boolean);
+  const runes=d.runes||[];
+  const runeGrouped={};
+  runes.forEach(r=>{if(!runeGrouped[r.id])runeGrouped[r.id]={id:r.id,n:r.n,cnt:0};runeGrouped[r.id].cnt++;});
+  const runesCompact=Object.values(runeGrouped);
+  function _staticTile(entry,isBF){
+    const full=CARDS.find(c=>c.id===entry.id);
+    const img=full?full.imageUrl:'';
+    const inner=img?`<img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy">`:`<div class="sbg-eye-no-img">${_sbgEsc(entry.n)}</div>`;
+    const cnt=(entry.cnt||1)>1?`<div class="sbg-eye-stack">×${entry.cnt}</div>`:'';
+    return `<div class="sbg-eye-tile sbg-eye-readonly${isBF?' sbg-eye-tile-bf':''}" title="${_sbgEsc(entry.n)}">${inner}${cnt}</div>`;
+  }
+  function _swapTile(entry,section){
+    const full=CARDS.find(c=>c.id===entry.id);
+    const img=full?full.imageUrl:'';
+    const inner=img?`<img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy">`:`<div class="sbg-eye-no-img">${_sbgEsc(entry.n)}</div>`;
+    const total=entry.cnt||1;
+    const delta=_sbgEyeCellValue(section,entry.n);
+    const remaining=section==='m'?(total+delta):(total-delta); // copies still in this zone
+    const badgeText=section==='m'?(delta?String(delta):''):(delta?`+${delta}`:'');
+    const badgeCls=section==='m'?'sbg-eye-badge sbg-eye-badge-out':'sbg-eye-badge sbg-eye-badge-in';
+    const fadedCls=remaining<=0?' sbg-eye-tile-gone':'';
+    const cntTag=total>1?`<div class="sbg-eye-stack">×${total}</div>`:'';
+    const safeName=_sbgEsc(entry.n).replace(/'/g,"\\'");
+    const click=section==='m'
+      ?`onclick="_sbgEyeAdjust('m','${safeName}',-1)" oncontextmenu="event.preventDefault();_sbgEyeAdjust('m','${safeName}',1)"`
+      :`onclick="_sbgEyeAdjust('s','${safeName}',1)" oncontextmenu="event.preventDefault();_sbgEyeAdjust('s','${safeName}',-1)"`;
+    const title=section==='m'?`Click to side out · right-click to undo`:`Click to side in · right-click to undo`;
+    return `<div class="sbg-eye-tile${fadedCls}" data-name="${_sbgEsc(entry.n)}" title="${_sbgEsc(entry.n)} — ${title}" ${click}>
+      ${inner}
+      ${cntTag}
+      ${badgeText?`<div class="${badgeCls}">${badgeText}</div>`:''}
+    </div>`;
+  }
+  const champHtml=champion.map(c=>_staticTile(c,false)).join('')||'<div class="sbg-eye-empty-mini">—</div>';
+  const bfHtml=bfs.map(b=>_staticTile(b,true)).join('')||'<div class="sbg-eye-empty-mini">—</div>';
+  const runeHtml=runesCompact.map(r=>_staticTile(r,false)).join('')||'<div class="sbg-eye-empty-mini">—</div>';
+  const mainHtml=mainDeck.map(c=>_swapTile(c,'m')).join('')||'<div class="sbg-eye-empty">Main deck is empty.</div>';
+  const sbHtml=sb.map(c=>_swapTile(c,'s')).join('')||'<div class="sbg-eye-empty">Sideboard is empty.</div>';
+  // Running totals
+  let totalOut=0,totalIn=0;
+  mainDeck.forEach(c=>{const v=_sbgEyeCellValue('m',c.n);if(v<0)totalOut+=-v;});
+  sb.forEach(c=>{const v=_sbgEyeCellValue('s',c.n);if(v>0)totalIn+=v;});
+  const balance=totalIn-totalOut;
+  const balanceCls=balance===0?'sbg-eye-bal-ok':'sbg-eye-bal-off';
+  const balanceText=balance===0?'Balanced':(balance>0?`+${balance} in`:`${balance} (over-sided out)`);
+  let modal=document.getElementById('sbg-eye-modal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='sbg-eye-modal';
+    modal.className='sbg-eye-backdrop';
+    modal.addEventListener('click',e=>{if(e.target===modal)sbgEyeClose();});
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML=`<div class="sbg-eye-box">
+    <div class="sbg-eye-hdr">
+      <div class="sbg-eye-title">
+        <span class="sbg-eye-eye">👁</span>
+        <span>${_sbgEsc(muName)}</span>
+      </div>
+      <div class="sbg-eye-tabs">
+        <button class="sbg-eye-tab${_sbgEye.sub===0?' on':''}" onclick="sbgEyeSetSub(0)">G2</button>
+        <button class="sbg-eye-tab${_sbgEye.sub===1?' on':''}" onclick="sbgEyeSetSub(1)">G3</button>
+      </div>
+      <button class="sbg-eye-close" onclick="sbgEyeClose()" title="Close">✕</button>
+    </div>
+    <div class="sbg-eye-stat-row">
+      <span class="sbg-eye-stat">In <strong>${totalIn}</strong></span>
+      <span class="sbg-eye-stat">Out <strong>${totalOut}</strong></span>
+      <span class="sbg-eye-stat ${balanceCls}">${balanceText}</span>
+      <span class="sbg-eye-hint">Click a card in the main deck to side it out · click a sideboard card to side it in · right-click to undo.</span>
+    </div>
+    <div class="sbg-eye-scroll">
+      <div class="sbg-eye-top-row">
+        <div class="sbg-eye-mini-section"><div class="sbg-eye-mini-hdr">Champion</div><div class="sbg-eye-mini-grid">${champHtml}</div></div>
+        <div class="sbg-eye-mini-section"><div class="sbg-eye-mini-hdr">Battlefields</div><div class="sbg-eye-mini-grid">${bfHtml}</div></div>
+        <div class="sbg-eye-mini-section"><div class="sbg-eye-mini-hdr">Runes</div><div class="sbg-eye-mini-grid">${runeHtml}</div></div>
+      </div>
+      <div class="sbg-eye-section">
+        <div class="sbg-eye-section-hdr">Main Deck <span class="sbg-eye-section-sub">${mainDeck.reduce((a,c)=>a+(c.cnt||0),0)+(d.champion?1:0)}/40</span></div>
+        <div class="sbg-eye-grid">${mainHtml}</div>
+      </div>
+      <div class="sbg-eye-section">
+        <div class="sbg-eye-section-hdr">Sideboard <span class="sbg-eye-section-sub">${sb.reduce((a,c)=>a+(c.cnt||0),0)}/8</span></div>
+        <div class="sbg-eye-grid">${sbHtml}</div>
+      </div>
+    </div>
+  </div>`;
 }
 function sbgSetCell(section,row,col,sub,val){
   // Back-compat shim: pre-split callers passed (section,row,col,val) without
