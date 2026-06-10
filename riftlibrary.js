@@ -2109,8 +2109,8 @@ function _sbgRenderEyeModal(){
         <span>${_sbgEsc(muName)}</span>
       </div>
       <div class="sbg-eye-tabs">
-        <button class="sbg-eye-tab${_sbgEye.sub===0?' on':''}" onclick="sbgEyeSetSub(0)" title="First post-board game">Game 2/3 - 1st</button>
-        <button class="sbg-eye-tab${_sbgEye.sub===1?' on':''}" onclick="sbgEyeSetSub(1)" title="Second post-board game">Game 2/3 - 2nd</button>
+        <button class="sbg-eye-tab${_sbgEye.sub===0?' on':''}" onclick="sbgEyeSetSub(0)" title="First post-board game">Post Board - 1st</button>
+        <button class="sbg-eye-tab${_sbgEye.sub===1?' on':''}" onclick="sbgEyeSetSub(1)" title="Second post-board game">Post Board - 2nd</button>
       </div>
       <div class="sbg-eye-tabs sbg-eye-view-tabs" title="Switch layout">
         <button class="sbg-eye-tab${_sbgEye.view==='gallery'?' on':''}" onclick="sbgEyeSetView('gallery')" title="Gallery view">⊞ Gallery</button>

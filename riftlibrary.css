@@ -627,8 +627,8 @@ input.sbg-cell-sub:focus{outline:none;background:rgba(255,255,255,0.05)!importan
 .sbg-eye-top-strip .sbg-eye-champ-section{flex:0 0 auto;width:180px;}
 .sbg-eye-top-strip .sbg-eye-bf-section{flex:1 1 360px;min-width:300px;}
 .sbg-eye-champ-section .cards-gallery-view{grid-template-columns:repeat(auto-fill,minmax(90px,1fr));}
-.sbg-eye-bf-section .cards-gallery-view-bf{justify-content:center;gap:14px;align-items:center;min-height:80px;}
-.sbg-eye-bf-section .gallery-card-bf{width:150px;cursor:pointer;}
+.sbg-eye-bf-section .cards-gallery-view-bf{justify-content:center;gap:18px;align-items:center;min-height:110px;width:100%;}
+.sbg-eye-bf-section .gallery-card-bf{width:185px;cursor:pointer;}
 .sbg-eye-bf-tile{transition:transform 0.15s,filter 0.15s,outline 0.15s,opacity 0.15s;}
 .sbg-eye-bf-tile:hover{transform:translateY(-2px);}
 .sbg-eye-bf-faded{filter:grayscale(1) brightness(0.45);opacity:0.45;}
