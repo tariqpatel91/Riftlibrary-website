@@ -1628,12 +1628,11 @@ function calcHG(){
     '<div class="hg-prob"><div class="hg-prob-val">'+pct(pAtLeast)+'</div><div class="hg-prob-lbl">'+k+' or more</div></div>';
 }
 /* ── SIDEBOARD GUIDE ─────────────────────────────────────────
-   Matchup planning grid. Y-axis: 15 main-deck rows + 8 sideboard rows.
+   Matchup planning grid. Y-axis: champion (always first), then every
+   unique main-deck card, then every unique sideboard card — no padding.
    X-axis: user-defined matchup column titles. Each cell holds a small
    string the user types — usually a number of copies to side in/out.
    All state lives on d.sbGuide so it persists with the deck. */
-const SBG_MAIN_ROWS = 15;
-const SBG_SB_ROWS = 8;
 const SBG_DEFAULT_COLS = 6;
 function _sbgEnsure(d){
   if(!d.sbGuide) d.sbGuide={matchups:Array(SBG_DEFAULT_COLS).fill(''),cells:{}};
@@ -1642,25 +1641,31 @@ function _sbgEnsure(d){
   return d.sbGuide;
 }
 function _sbgRowLabels(d){
-  // Y-axis labels prepopulated from the deck (legend → champion → main → sideboard).
-  // Main-deck rows: list each unique card with its count, padded to 15.
-  // Sideboard rows: same idea, padded to 8.
-  const mainCards=(d.cards||[]).filter(c=>c.t!=='Legend')
-    .slice().sort((a,b)=>(a.n||'').localeCompare(b.n||''));
+  // Champion always sits at the top of the main-deck section.
+  // (Legend rows live in d.cards with t==='Legend' OR the Riftbound legend
+  // sits in d.champion — handle both. The Legend itself stays out of the
+  // grid since it's not a card you can side in/out.)
   const mainRows=[];
-  mainCards.forEach(c=>mainRows.push({name:c.n,cnt:c.cnt}));
-  while(mainRows.length<SBG_MAIN_ROWS) mainRows.push({name:'',cnt:''});
+  if(d.champion&&d.champion.n) mainRows.push({name:d.champion.n,cnt:1,role:'champion'});
+  const champBaseName=d.champion?d.champion.n:'';
+  (d.cards||[])
+    .filter(c=>c.t!=='Legend'&&c.t!=='Champion'&&c.n!==champBaseName)
+    .slice().sort((a,b)=>(a.n||'').localeCompare(b.n||''))
+    .forEach(c=>mainRows.push({name:c.n,cnt:c.cnt}));
   const sbRows=[];
   (d.sideboard||[]).slice().sort((a,b)=>(a.n||'').localeCompare(b.n||''))
     .forEach(c=>sbRows.push({name:c.n,cnt:c.cnt}));
-  while(sbRows.length<SBG_SB_ROWS) sbRows.push({name:'',cnt:''});
-  return {mainRows:mainRows.slice(0,SBG_MAIN_ROWS),sbRows:sbRows.slice(0,SBG_SB_ROWS)};
+  // Main deck total (counts all copies + the 1 champion). Matches the same
+  // 40-card definition used elsewhere in the deck detail view.
+  const mainTotal=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+(c.cnt||0),0)+(d.champion?1:0);
+  const sbTotal=(d.sideboard||[]).reduce((a,c)=>a+(c.cnt||0),0);
+  return {mainRows,sbRows,mainTotal,sbTotal};
 }
 function _sbgEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function buildSideboardGuide(d){
   const g=_sbgEnsure(d);
   const cols=g.matchups.length;
-  const {mainRows,sbRows}=_sbgRowLabels(d);
+  const {mainRows,sbRows,mainTotal,sbTotal}=_sbgRowLabels(d);
   function cellKey(section,r,c){return `${section}|${r}|${c}`;}
   function cellInput(section,r,c){
     const v=g.cells[cellKey(section,r,c)]||'';
@@ -1677,12 +1682,18 @@ function buildSideboardGuide(d){
     </tr>`;
   }
   function dataRow(section,r,row){
-    const lbl=row.name?`${_sbgEsc(row.name)}${row.cnt?` <span class="sbg-row-cnt">${row.cnt}</span>`:''}`:`<span class="sbg-empty-row">—</span>`;
-    return `<tr>
+    const cntBadge=row.cnt?` <span class="sbg-row-cnt">${row.cnt}</span>`:'';
+    const isChamp=row.role==='champion';
+    const champBadge=isChamp?'<span class="sbg-champ-badge">★</span> ':'';
+    const lbl=`${champBadge}${_sbgEsc(row.name)}${cntBadge}`;
+    return `<tr${isChamp?' class="sbg-champ-row"':''}>
       <td class="sbg-row-label">${lbl}</td>
       ${Array.from({length:cols},(_,c)=>`<td class="sbg-cell-td">${cellInput(section,r,c)}</td>`).join('')}
       <td class="sbg-cell-td sbg-cell-pad"></td>
     </tr>`;
+  }
+  function emptyRow(msg){
+    return `<tr><td class="sbg-row-label"><span class="sbg-empty-row">${msg}</span></td><td colspan="${cols+1}"></td></tr>`;
   }
   function sectionHdr(label,extra){
     return `<tr class="sbg-section-row">
@@ -1696,10 +1707,10 @@ function buildSideboardGuide(d){
       <table class="sbg-table">
         <thead>${headerRow()}</thead>
         <tbody>
-          ${sectionHdr('MAIN DECK',`${mainRows.filter(r=>r.name).length}/${SBG_MAIN_ROWS}`)}
-          ${mainRows.map((row,r)=>dataRow('m',r,row)).join('')}
-          ${sectionHdr('SIDEBOARD',`${sbRows.filter(r=>r.name).length}/${SBG_SB_ROWS}`)}
-          ${sbRows.map((row,r)=>dataRow('s',r,row)).join('')}
+          ${sectionHdr('MAIN DECK',`${mainTotal}/40`)}
+          ${mainRows.length?mainRows.map((row,r)=>dataRow('m',r,row)).join(''):emptyRow('No cards in main deck yet.')}
+          ${sectionHdr('SIDEBOARD',`${sbTotal}/8`)}
+          ${sbRows.length?sbRows.map((row,r)=>dataRow('s',r,row)).join(''):emptyRow('No cards in sideboard yet.')}
         </tbody>
       </table>
     </div>
