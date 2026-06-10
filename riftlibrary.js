@@ -1822,56 +1822,89 @@ function _sbgRenderEyeModal(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const g=_sbgEnsure(d);
   const muName=(g.matchups[_sbgEye.col]||'').trim()||`Matchup ${_sbgEye.col+1}`;
-  // Build per-section cards. Reuse the gallery's sort order (alphabetical
-  // or energy depending on deckSortMode).
+  // Mirror the exact sort + section structure of buildCardsGalleryView so
+  // the modal body looks identical to the "Visual" decklist view. The only
+  // difference is that main-deck and sideboard tiles get interactive
+  // click-to-swap handlers + swap badges; everything else is read-only.
   const TYPE_ORDER=['Unit','Spell','Gear'];
   function _tSort(a,b){const ai=TYPE_ORDER.indexOf(a.t),bi=TYPE_ORDER.indexOf(b.t);return(ai<0?99:ai)-(bi<0?99:bi)||(a.n||'').localeCompare(b.n||'');}
   function _eSort(a,b){const ca=CARDS.find(x=>x.id===a.id);const cb=CARDS.find(x=>x.id===b.id);const ea=ca&&ca.cost!=null?ca.cost:999;const eb=cb&&cb.cost!=null?cb.cost:999;return ea!==eb?ea-eb:(a.n||'').localeCompare(b.n||'');}
   const cmp=deckSortMode==='energy'?_eSort:_tSort;
+  const legend=d.cards?d.cards.filter(c=>c.t==='Legend'):[];
+  const champion=d.champion?[{...d.champion,cnt:1}]:[];
   const mainDeck=(d.cards||[]).filter(c=>c.t!=='Legend').slice().sort(cmp);
   const sb=(d.sideboard||[]).slice().sort(cmp);
-  // Top zones (read-only — these don't get swap badges)
-  const champion=d.champion?[{...d.champion,cnt:1}]:[];
   const bfs=(d.battlefields||[]).filter(Boolean);
   const runes=d.runes||[];
   const runeGrouped={};
   runes.forEach(r=>{if(!runeGrouped[r.id])runeGrouped[r.id]={id:r.id,n:r.n,cnt:0};runeGrouped[r.id].cnt++;});
   const runesCompact=Object.values(runeGrouped);
-  function _staticTile(entry,isBF){
-    const full=CARDS.find(c=>c.id===entry.id);
-    const img=full?full.imageUrl:'';
-    const inner=img?`<img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy">`:`<div class="sbg-eye-no-img">${_sbgEsc(entry.n)}</div>`;
-    const cnt=(entry.cnt||1)>1?`<div class="sbg-eye-stack">×${entry.cnt}</div>`:'';
-    return `<div class="sbg-eye-tile sbg-eye-readonly${isBF?' sbg-eye-tile-bf':''}" title="${_sbgEsc(entry.n)}">${inner}${cnt}</div>`;
+  // Card-tile renderers — match the existing .gallery-card markup exactly.
+  function gcards(entries,isBF,compact){
+    return entries.map(entry=>{
+      const full=CARDS.find(c=>c.id===entry.id);
+      const img=full?full.imageUrl:'';
+      const imgInner=img
+        ?`<img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy">`
+        :`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${_sbgEsc(entry.n)}</div>`;
+      if(compact){
+        const cntBadge=(entry.cnt||1)>1?`<div class="gallery-card-cnt">×${entry.cnt}</div>`:'';
+        return `<div class="gallery-card${isBF?' gallery-card-bf':''}" title="${_sbgEsc(entry.n)}">${imgInner}${cntBadge}</div>`;
+      }
+      const tiles=[];
+      for(let i=0;i<(entry.cnt||1);i++){
+        tiles.push(`<div class="gallery-card${isBF?' gallery-card-bf':''}" title="${_sbgEsc(entry.n)}">${imgInner}</div>`);
+      }
+      return tiles.join('');
+    }).join('');
   }
-  function _swapTile(entry,section){
-    const full=CARDS.find(c=>c.id===entry.id);
-    const img=full?full.imageUrl:'';
-    const inner=img?`<img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy">`:`<div class="sbg-eye-no-img">${_sbgEsc(entry.n)}</div>`;
-    const total=entry.cnt||1;
-    const delta=_sbgEyeCellValue(section,entry.n);
-    const remaining=section==='m'?(total+delta):(total-delta); // copies still in this zone
-    const badgeText=section==='m'?(delta?String(delta):''):(delta?`+${delta}`:'');
-    const badgeCls=section==='m'?'sbg-eye-badge sbg-eye-badge-out':'sbg-eye-badge sbg-eye-badge-in';
-    const fadedCls=remaining<=0?' sbg-eye-tile-gone':'';
-    const cntTag=total>1?`<div class="sbg-eye-stack">×${total}</div>`:'';
-    const safeName=_sbgEsc(entry.n).replace(/'/g,"\\'");
-    const click=section==='m'
-      ?`onclick="_sbgEyeAdjust('m','${safeName}',-1)" oncontextmenu="event.preventDefault();_sbgEyeAdjust('m','${safeName}',1)"`
-      :`onclick="_sbgEyeAdjust('s','${safeName}',1)" oncontextmenu="event.preventDefault();_sbgEyeAdjust('s','${safeName}',-1)"`;
-    const title=section==='m'?`Click to side out · right-click to undo`:`Click to side in · right-click to undo`;
-    return `<div class="sbg-eye-tile${fadedCls}" data-name="${_sbgEsc(entry.n)}" title="${_sbgEsc(entry.n)} — ${title}" ${click}>
-      ${inner}
-      ${cntTag}
-      ${badgeText?`<div class="${badgeCls}">${badgeText}</div>`:''}
-    </div>`;
+  // Interactive variant for main+SB. Renders ONE tile per unique card with
+  // a stack badge AND a swap badge (-N for main, +N for sideboard). Clicks
+  // are routed to _sbgEyeAdjust.
+  function gcardsSwap(entries,section){
+    return entries.map(entry=>{
+      const full=CARDS.find(c=>c.id===entry.id);
+      const img=full?full.imageUrl:'';
+      const imgInner=img
+        ?`<img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy">`
+        :`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${_sbgEsc(entry.n)}</div>`;
+      const total=entry.cnt||1;
+      const delta=_sbgEyeCellValue(section,entry.n);
+      const remaining=section==='m'?(total+delta):(total-delta);
+      const stackBadge=total>1?`<div class="gallery-card-cnt">×${total}</div>`:'';
+      const badgeText=section==='m'?(delta?String(delta):''):(delta?`+${delta}`:'');
+      const badgeCls=section==='m'?'sbg-eye-swap sbg-eye-swap-out':'sbg-eye-swap sbg-eye-swap-in';
+      const swapBadge=badgeText?`<div class="${badgeCls}">${badgeText}</div>`:'';
+      const fadedCls=remaining<=0?' sbg-eye-card-gone':'';
+      const safeName=_sbgEsc(entry.n).replace(/'/g,"\\'");
+      const click=section==='m'
+        ?`onclick="_sbgEyeAdjust('m','${safeName}',-1)" oncontextmenu="event.preventDefault();_sbgEyeAdjust('m','${safeName}',1)"`
+        :`onclick="_sbgEyeAdjust('s','${safeName}',1)" oncontextmenu="event.preventDefault();_sbgEyeAdjust('s','${safeName}',-1)"`;
+      const title=section==='m'?`${entry.n} — click to side out · right-click to undo`:`${entry.n} — click to side in · right-click to undo`;
+      return `<div class="gallery-card sbg-eye-swap-card${fadedCls}" title="${_sbgEsc(title)}" ${click}>${imgInner}${stackBadge}${swapBadge}</div>`;
+    }).join('');
   }
-  const champHtml=champion.map(c=>_staticTile(c,false)).join('')||'<div class="sbg-eye-empty-mini">—</div>';
-  const bfHtml=bfs.map(b=>_staticTile(b,true)).join('')||'<div class="sbg-eye-empty-mini">—</div>';
-  const runeHtml=runesCompact.map(r=>_staticTile(r,false)).join('')||'<div class="sbg-eye-empty-mini">—</div>';
-  const mainHtml=mainDeck.map(c=>_swapTile(c,'m')).join('')||'<div class="sbg-eye-empty">Main deck is empty.</div>';
-  const sbHtml=sb.map(c=>_swapTile(c,'s')).join('')||'<div class="sbg-eye-empty">Sideboard is empty.</div>';
-  // Running totals
+  function section(label,tally,html,rawWrap,extraClass){
+    const inner=rawWrap?html:`<div class="cards-gallery-view">${html}</div>`;
+    const tallyHtml=tally!=null?`<span class="gallery-section-tally">${tally}</span>`:'';
+    return`<div class="gallery-section${extraClass?' '+extraClass:''}"><div class="gallery-section-hdr">${label}${tallyHtml}</div>${inner}</div>`;
+  }
+  const legendCnt=legend.reduce((a,c)=>a+(c.cnt||1),0);
+  const champCnt=champion.length;
+  const mainCnt=mainDeck.reduce((a,c)=>a+(c.cnt||1),0)+(d.champion?1:0);
+  const runeCnt=runes.length;
+  const bfCnt=bfs.length;
+  const sbCnt=sb.reduce((a,c)=>a+(c.cnt||1),0);
+  let topRow='';
+  topRow+=section('Legend',`${legendCnt}/1`,gcards(legend,false),false,'gallery-section-compact');
+  topRow+=section('Champion',`${champCnt}/1`,gcards(champion,false),false,'gallery-section-compact');
+  topRow+=section('Battlefield',`${bfCnt}/3`,`<div class="cards-gallery-view-bf">${gcards(bfs,true)}</div>`,true,'gallery-section-compact');
+  topRow+=section('Runes',`${runeCnt}/12`,gcards(runesCompact,false,true),false,'gallery-section-compact');
+  let bodyHtml=`<div class="gallery-top-row">${topRow}</div>`;
+  bodyHtml+=section('Main Deck',`${mainCnt}/40`,gcardsSwap(mainDeck,'m'));
+  bodyHtml+=section('Sideboard',`${sbCnt}/8`,gcardsSwap(sb,'s'));
+  const galleryBody=`<div class="gallery-all-sections">${bodyHtml}</div>`;
+  // Running totals for header
   let totalOut=0,totalIn=0;
   mainDeck.forEach(c=>{const v=_sbgEyeCellValue('m',c.n);if(v<0)totalOut+=-v;});
   sb.forEach(c=>{const v=_sbgEyeCellValue('s',c.n);if(v>0)totalIn+=v;});
@@ -1904,21 +1937,7 @@ function _sbgRenderEyeModal(){
       <span class="sbg-eye-stat ${balanceCls}">${balanceText}</span>
       <span class="sbg-eye-hint">Click a card in the main deck to side it out · click a sideboard card to side it in · right-click to undo.</span>
     </div>
-    <div class="sbg-eye-scroll">
-      <div class="sbg-eye-top-row">
-        <div class="sbg-eye-mini-section"><div class="sbg-eye-mini-hdr">Champion</div><div class="sbg-eye-mini-grid">${champHtml}</div></div>
-        <div class="sbg-eye-mini-section"><div class="sbg-eye-mini-hdr">Battlefields</div><div class="sbg-eye-mini-grid">${bfHtml}</div></div>
-        <div class="sbg-eye-mini-section"><div class="sbg-eye-mini-hdr">Runes</div><div class="sbg-eye-mini-grid">${runeHtml}</div></div>
-      </div>
-      <div class="sbg-eye-section">
-        <div class="sbg-eye-section-hdr">Main Deck <span class="sbg-eye-section-sub">${mainDeck.reduce((a,c)=>a+(c.cnt||0),0)+(d.champion?1:0)}/40</span></div>
-        <div class="sbg-eye-grid">${mainHtml}</div>
-      </div>
-      <div class="sbg-eye-section">
-        <div class="sbg-eye-section-hdr">Sideboard <span class="sbg-eye-section-sub">${sb.reduce((a,c)=>a+(c.cnt||0),0)}/8</span></div>
-        <div class="sbg-eye-grid">${sbHtml}</div>
-      </div>
-    </div>
+    <div class="sbg-eye-body">${galleryBody}</div>
   </div>`;
 }
 function sbgSetCell(section,row,col,sub,val){
