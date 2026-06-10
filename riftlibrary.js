@@ -542,7 +542,7 @@ let activeDeckTab='mine';
 
 function setDeckTab(tab){
   activeDeckTab=tab;
-  ['mine','public','team'].forEach(t=>{
+  ['mine','public','team','tournament'].forEach(t=>{
     const btn=document.getElementById('dst-'+t);
     const content=document.getElementById('dst-'+t+'-content');
     if(btn) btn.classList.toggle('on',t===tab);
@@ -551,6 +551,18 @@ function setDeckTab(tab){
   if(tab==='mine') renderDecks();
   if(tab==='public') renderPublicDecks();
   if(tab==='team') renderTeamDecksTab();
+  if(tab==='tournament') renderTournamentDecks();
+}
+
+// ── ADMIN ────────────────────────────────────────────────────
+// Tournament Decks are a curated, site-wide showcase: everyone can browse and
+// import them, but only admins can add / edit / delete. Frontend hides the
+// admin controls; the real enforcement lives in the Supabase RLS policy
+// (tournament_decks write access is gated to these emails — see
+// supabase-setup.sql). Add an email here AND in the SQL policy to grant access.
+const ADMIN_EMAILS=['tariqpatel91@gmail.com'];
+function isAdmin(){
+  return !!(currentUser&&currentUser.email&&ADMIN_EMAILS.includes(currentUser.email.toLowerCase()));
 }
 
 // Supabase returns a particular error code/message when a table doesn't exist
@@ -692,16 +704,184 @@ async function importPublicDeck(pubId){
     const {data,error}=await _sb.from('public_decks').select('*').eq('id',pubId).single();
     if(error||!data) throw error||new Error('not found');
     const newDeck={
-      id:Date.now(), name:data.name+' (imported)', legend:data.legend,
+      id:nextId++, name:data.name+' (imported)', legend:data.legend,
       format:data.format||'', domains:data.domains||[], cards:data.cards||[],
       wins:0, losses:0, sideboard:[], results:[], runes:[], battlefields:[]
     };
-    myDecks.push(newDeck);
-    persistDecks();
+    myDecks.unshift(newDeck);
+    persist();
     toast('Deck imported to My Decks!');
     setDeckTab('mine');
   }catch(e){
     toast('Import failed');
+  }
+}
+
+/* ── TOURNAMENT DECKS ─────────────────────────────────────────
+   A curated, site-wide showcase of competitive decklists. Everyone can browse
+   and import; only admins (see ADMIN_EMAILS + the matching Supabase RLS policy)
+   can add, edit, or delete. Backed by the `tournament_decks` table. */
+async function renderTournamentDecks(){
+  const el=document.getElementById('tournament-decks-content');
+  if(!el) return;
+  const admin=isAdmin();
+  const adminBtn=admin?`<button class="btn btn-p" style="font-size:12px;padding:7px 16px;" onclick="openAddTournamentDeckModal()">+ Add Tournament Deck</button>`:'';
+  const intro=`<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Curated competitive decklists. ${admin?'You can add and manage these as an admin.':'Only site admins can add or edit these — anyone can browse and import.'}</div>`;
+  el.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">Loading tournament decks…</div>`;
+  try{
+    const {data,error}=await _sb.from('tournament_decks').select('*').order('event_date',{ascending:false,nullsFirst:false}).limit(100);
+    if(error) throw error;
+    if(!data||!data.length){
+      el.innerHTML=intro+`<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:1rem;">${adminBtn}</div>`
+        +`<div style="padding:3rem;text-align:center;"><h3 style="margin-bottom:8px;">No tournament decks yet</h3><p style="color:var(--text-muted);font-size:13px;">${admin?'Add the first one!':'Check back soon for featured tournament decks.'}</p></div>`;
+      return;
+    }
+    let html=intro+`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">`
+      +`<span style="font-size:13px;color:var(--text-muted);">${data.length} tournament deck${data.length!==1?'s':''}</span>`
+      +adminBtn+`</div>`;
+    html+=`<div class="dg">`;
+    html+=data.map(d=>{
+      const totalC=(d.cards||[]).reduce((a,c)=>a+(c.cnt||0),0)||d.card_count||0;
+      const dcImg=d.legend_img||'';
+      const dcAvatar=dcImg
+        ?`<div class="dc-avatar"><img src="${dcImg}" alt="${_teamEsc(d.legend)}"></div>`
+        :`<div class="dc-avatar dc-avatar-empty"></div>`;
+      const meta=[];
+      if(d.placement) meta.push(`<span class="td-place">🏆 ${_teamEsc(d.placement)}</span>`);
+      if(d.event_name) meta.push(`<span class="td-event">${_teamEsc(d.event_name)}</span>`);
+      const byLine=[];
+      if(d.player) byLine.push(_teamEsc(d.player));
+      if(d.event_date) byLine.push(new Date(d.event_date).toLocaleDateString());
+      return `<div class="dc">
+        <div class="dt">
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${dcAvatar}
+            <div>
+              <div class="dn">${_teamEsc(d.name)}</div>
+              <div class="dl">${_teamEsc(d.legend||'—')}</div>
+            </div>
+          </div>
+          <span class="ftag">${_teamEsc(d.format||'')}</span>
+        </div>
+        ${meta.length?`<div class="td-meta">${meta.join('')}</div>`:''}
+        ${d.domains&&d.domains.length?`<div class="dr">${pills(d.domains)}</div>`:''}
+        ${byLine.length?`<div style="font-size:11px;color:var(--text-muted);padding-top:4px;">${byLine.join(' • ')}</div>`:''}
+        ${d.description?`<div style="font-size:12px;color:var(--text-muted);padding:4px 0;border-top:1px solid var(--border);margin-top:6px;">${_teamEsc(d.description).slice(0,120)}${d.description.length>120?'…':''}</div>`:''}
+        <div class="df"><span><strong>${totalC||'?'}</strong> cards</span></div>
+        <div class="da">
+          <button class="btn btn-sm btn-g" onclick="importTournamentDeck('${d.id}')">Import</button>
+          ${admin?`<button class="btn btn-sm btn-d" onclick="deleteTournamentDeck('${d.id}')">Delete</button>`:''}
+        </div>
+      </div>`;
+    }).join('');
+    html+=`</div>`;
+    el.innerHTML=html;
+  }catch(e){
+    if(_isMissingTableError(e)){
+      el.innerHTML=`<div style="padding:2rem;text-align:center;"><h3 style="margin-bottom:6px;">Tournament decks aren't set up yet</h3></div>`+_setupHint('tournament_decks');
+    } else {
+      el.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">Could not load tournament decks: ${(e&&e.message)||'unknown error'}</div>`;
+    }
+  }
+}
+
+function openAddTournamentDeckModal(){
+  if(!isAdmin()){toast('Admins only');return;}
+  if(!myDecks.length){toast('Build or import a deck first, then add it as a tournament deck');return;}
+  const inp='padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);width:100%;box-sizing:border-box;';
+  const lbl='font-size:13px;font-weight:600;';
+  const opts=myDecks.map(d=>`<option value="${d.id}">${_teamEsc(d.name)} (${_teamEsc(d.legend||'—')})</option>`).join('');
+  const m=document.createElement('div');
+  m.id='tournament-modal';
+  m.innerHTML=`<div class="modal-backdrop" onclick="document.getElementById('tournament-modal').remove()"></div>
+  <div class="modal-box" style="max-width:460px;">
+    <div class="modal-header"><h2>Add Tournament Deck</h2><button class="modal-close" onclick="document.getElementById('tournament-modal').remove()">✕</button></div>
+    <div style="display:flex;flex-direction:column;gap:12px;padding:16px;">
+      <label style="${lbl}">Deck</label>
+      <select id="td-deck-sel" style="${inp}">${opts}</select>
+      <label style="${lbl}">Event name</label>
+      <input id="td-event" type="text" placeholder="e.g. Riftbound Worlds 2026" style="${inp}">
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;"><label style="${lbl}">Placement</label><input id="td-place" type="text" placeholder="1st / Top 8" style="${inp}"></div>
+        <div style="flex:1;"><label style="${lbl}">Date</label><input id="td-date" type="date" style="${inp}"></div>
+      </div>
+      <label style="${lbl}">Player / pilot</label>
+      <input id="td-player" type="text" placeholder="Player name" style="${inp}">
+      <label style="${lbl}">Notes (optional)</label>
+      <textarea id="td-desc" rows="3" placeholder="Matchups, tech choices, strategy…" style="${inp}resize:vertical;"></textarea>
+      <button class="btn btn-p" onclick="submitTournamentDeck()">Publish Tournament Deck</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+async function submitTournamentDeck(){
+  if(!isAdmin()){toast('Admins only');return;}
+  const deckId=document.getElementById('td-deck-sel').value;
+  const d=myDecks.find(x=>String(x.id)===String(deckId));
+  if(!d){toast('Deck not found');return;}
+  const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
+  const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
+  const author=(currentUser.user_metadata&&(currentUser.user_metadata.username||currentUser.user_metadata.full_name))
+    ||(currentUser.email||'').split('@')[0]||'Admin';
+  const payload={
+    user_id:currentUser.id,
+    name:d.name, legend:d.legend, legend_img:dcLegFull?dcLegFull.imageUrl:'',
+    format:d.format||'', domains:d.domains||[], cards:d.cards||[],
+    card_count:(d.cards||[]).reduce((a,c)=>a+(c.cnt||0),0),
+    author,
+    description:(document.getElementById('td-desc').value||'').trim(),
+    event_name:(document.getElementById('td-event').value||'').trim(),
+    placement:(document.getElementById('td-place').value||'').trim(),
+    player:(document.getElementById('td-player').value||'').trim(),
+    event_date:document.getElementById('td-date').value||null,
+    created_at:new Date().toISOString()
+  };
+  try{
+    const {error}=await _sb.from('tournament_decks').insert([payload]);
+    if(error) throw error;
+    const modal=document.getElementById('tournament-modal'); if(modal) modal.remove();
+    toast('Tournament deck published!');
+    renderTournamentDecks();
+  }catch(e){
+    if(_isMissingTableError(e)){
+      toast('Tournament decks table missing — run supabase-setup.sql in your Supabase SQL Editor');
+    } else if(String(e.message||'').toLowerCase().includes('row-level security')||e.code==='42501'){
+      toast('Permission denied — your account is not an admin on the database');
+    } else {
+      toast('Could not publish: '+(e.message||'unknown error'));
+    }
+  }
+}
+
+async function importTournamentDeck(id){
+  try{
+    const {data,error}=await _sb.from('tournament_decks').select('*').eq('id',id).single();
+    if(error||!data) throw error||new Error('not found');
+    const newDeck={
+      id:nextId++, name:data.name+' (imported)', legend:data.legend,
+      format:data.format||'', domains:data.domains||[], cards:data.cards||[],
+      wins:0, losses:0, sideboard:[], results:[], runes:[], battlefields:[]
+    };
+    myDecks.unshift(newDeck);
+    persist();
+    toast('Tournament deck imported to My Decks!');
+    setDeckTab('mine');
+  }catch(e){
+    toast('Import failed');
+  }
+}
+
+async function deleteTournamentDeck(id){
+  if(!isAdmin()){toast('Admins only');return;}
+  if(!confirm('Delete this tournament deck for everyone? This cannot be undone.'))return;
+  try{
+    const {error}=await _sb.from('tournament_decks').delete().eq('id',id);
+    if(error) throw error;
+    toast('Tournament deck removed');
+    renderTournamentDecks();
+  }catch(e){
+    toast('Could not delete: '+(e.message||'unknown error'));
   }
 }
 

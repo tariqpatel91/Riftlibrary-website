@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RiftLibrary — Riftbound Deck Manager</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="riftlibrary.css?v=20260607h">
+<link rel="stylesheet" href="riftlibrary.css?v=20260607i">
 </head>
 <body>
 
@@ -35,6 +35,7 @@
       <button class="dst on" id="dst-mine" onclick="setDeckTab('mine')">My Decks</button>
       <button class="dst" id="dst-public" onclick="setDeckTab('public')">Public Decks</button>
       <button class="dst" id="dst-team" onclick="setDeckTab('team')">Team Decks</button>
+      <button class="dst" id="dst-tournament" onclick="setDeckTab('tournament')">Tournament Decks</button>
     </div>
     <!-- My Decks tab -->
     <div id="dst-mine-content">
@@ -55,6 +56,10 @@
     <!-- Team Decks tab -->
     <div id="dst-team-content" style="display:none;">
       <div id="team-decks-content"></div>
+    </div>
+    <!-- Tournament Decks tab -->
+    <div id="dst-tournament-content" style="display:none;">
+      <div id="tournament-decks-content"></div>
     </div>
   </div>
   <div id="dd" style="display:none;">
@@ -744,8 +749,8 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="riftlibrary.js?v=20260607h"></script>
+<script src="riftlibrary.js?v=20260607i"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" onerror="console.warn('PeerJS failed to load — Play tab will not work offline.')"></script>
-<script src="riftlibrary-play.js?v=20260607h"></script>
+<script src="riftlibrary-play.js?v=20260607i"></script>
 </body>
 </html>

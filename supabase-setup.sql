@@ -50,6 +50,51 @@ drop policy if exists "public_decks_delete_own" on public.public_decks;
 create policy "public_decks_delete_own"
   on public.public_decks for delete using (auth.uid() = user_id);
 
+-- ── TOURNAMENT DECKS ────────────────────────────────────────
+-- A curated, site-wide showcase. Anyone (even logged-out) can read; only the
+-- admins listed below can insert / update / delete. To grant another admin,
+-- add their email to BOTH this policy list AND the ADMIN_EMAILS array in
+-- riftlibrary.js. Emails are compared lower-cased.
+create table if not exists public.tournament_decks (
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid references auth.users(id) on delete set null,
+  name            text not null,
+  legend          text,
+  legend_img      text,
+  format          text,
+  domains         jsonb default '[]'::jsonb,
+  cards           jsonb default '[]'::jsonb,
+  card_count      integer default 0,
+  author          text,
+  description     text,
+  event_name      text,
+  placement       text,
+  player          text,
+  event_date      date,
+  created_at      timestamptz default now()
+);
+
+alter table public.tournament_decks enable row level security;
+
+drop policy if exists "tournament_decks_select_anyone" on public.tournament_decks;
+create policy "tournament_decks_select_anyone"
+  on public.tournament_decks for select using (true);
+
+drop policy if exists "tournament_decks_insert_admin" on public.tournament_decks;
+create policy "tournament_decks_insert_admin"
+  on public.tournament_decks for insert
+  with check ( lower(auth.jwt() ->> 'email') in ('tariqpatel91@gmail.com') );
+
+drop policy if exists "tournament_decks_update_admin" on public.tournament_decks;
+create policy "tournament_decks_update_admin"
+  on public.tournament_decks for update
+  using ( lower(auth.jwt() ->> 'email') in ('tariqpatel91@gmail.com') );
+
+drop policy if exists "tournament_decks_delete_admin" on public.tournament_decks;
+create policy "tournament_decks_delete_admin"
+  on public.tournament_decks for delete
+  using ( lower(auth.jwt() ->> 'email') in ('tariqpatel91@gmail.com') );
+
 -- ── TEAMS + MEMBERSHIP ──────────────────────────────────────
 create table if not exists public.teams (
   id          uuid primary key default gen_random_uuid(),
