@@ -26,8 +26,35 @@ let myTeam=JSON.parse(localStorage.getItem('rl_team')||'null');
 let teamAnnouncements=JSON.parse(localStorage.getItem('rl_team_announcements')||'[]');
 let teamDecklists=JSON.parse(localStorage.getItem('rl_team_decklists')||'[]');
 let activeTeamTab='all';
-function setTeamCover(){const u=prompt('Cover photo URL:',myTeam&&myTeam.cover||'');if(u===null||!myTeam)return;myTeam.cover=u.trim();persistTeam();renderTeam();}
-function setTeamAvatar(){const u=prompt('Team profile picture URL:',myTeam&&myTeam.img||'');if(u===null||!myTeam)return;myTeam.img=u.trim();persistTeam();renderTeam();}
+// Image uploads for team cover + avatar. We use a hidden <input type="file">
+// element, read the chosen image as a data URL, and stash it on myTeam.
+// Data URLs persist fine in localStorage at small avatar/cover sizes.
+function _teamUploadImage(field,label){
+  if(!myTeam){toast('Create a team first');return;}
+  const inp=document.createElement('input');
+  inp.type='file';
+  inp.accept='image/*';
+  inp.style.display='none';
+  inp.onchange=()=>{
+    const f=inp.files&&inp.files[0];
+    if(!f){document.body.removeChild(inp);return;}
+    // Cap at ~3MB so localStorage doesn't blow up on huge photos. Users can
+    // resize before upload if needed.
+    if(f.size>3*1024*1024){toast('Image too large (max 3MB) — resize and try again');document.body.removeChild(inp);return;}
+    const r=new FileReader();
+    r.onload=e=>{
+      myTeam[field]=String(e.target.result||'');
+      persistTeam();renderTeam();
+    };
+    r.onerror=()=>{toast('Could not read file');};
+    r.readAsDataURL(f);
+    document.body.removeChild(inp);
+  };
+  document.body.appendChild(inp);
+  inp.click();
+}
+function setTeamCover(){_teamUploadImage('cover','Cover photo');}
+function setTeamAvatar(){_teamUploadImage('img','Team profile picture');}
 
 // ── Team discussion (forum) ──────────────────────────────
 // A thread = {id, title, author, ts, posts:[{id,author,text,ts}]}. The forum
@@ -4839,12 +4866,31 @@ const SCHEDULE_2026=[
 /* ── TEAM ───────────────────────────────────────── */
 function persistTeam(){localStorage.setItem('rl_team',JSON.stringify(myTeam));}
 function switchTeamTab(t){activeTeamTab=t;renderTeam();}
-function createTeam(){
-  const name=(document.getElementById('tm-name')||{}).value||'';
-  const img=(document.getElementById('tm-img')||{}).value||'';
-  if(!name.trim()){toast('Team name required');return;}
-  myTeam={name:name.trim(),img:img.trim(),members:[],created:Date.now()};
-  persistTeam();renderTeam();
+async function createTeam(){
+  const name=(document.getElementById('tm-name')||{}).value.trim()||'';
+  if(!name){toast('Team name required');return;}
+  // Enforce a globally-unique team name. The check runs against the
+  // Supabase `teams` table (case-insensitive). If the table is unreachable
+  // (no project / offline / not configured) we fall back to allowing the
+  // name — the local user can still proceed without the global check.
+  try{
+    if(_sb&&_sb.from){
+      const {data,error}=await _sb.from('teams').select('id,name').ilike('name',name).limit(1);
+      if(!error && data && data.length){
+        toast('That team name is already taken — pick another');
+        return;
+      }
+    }
+  }catch(e){/* offline / table missing — fall through */}
+  myTeam={name,img:'',members:[],created:Date.now()};
+  persistTeam();
+  // Best-effort cloud insert so the name claims its slot for future checks.
+  try{
+    if(_sb&&_sb.from&&currentUser){
+      await _sb.from('teams').insert([{name,owner_id:currentUser.id}]);
+    }
+  }catch(e){}
+  renderTeam();
 }
 function addTeamMember(){
   if(!myTeam)return;
@@ -4898,8 +4944,8 @@ function renderTeam(){
     <div style="max-width:480px;margin:2rem auto;">
       <div class="dc" style="padding:2rem;display:flex;flex-direction:column;gap:12px;">
         <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">Create a Team</div>
-        <input id="tm-name" type="text" placeholder="Team name" style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;">
-        <input id="tm-img" type="text" placeholder="Profile image URL (optional)" style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;">
+        <input id="tm-name" type="text" placeholder="Team name (must be unique)" style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;">
+        <div style="font-size:11px;color:var(--text-muted);line-height:1.4;">You can upload a profile picture and cover photo after the team is created.</div>
         <button class="btn btn-p" onclick="createTeam()" style="padding:10px;font-size:14px;">Create Team</button>
       </div>
     </div>`;
