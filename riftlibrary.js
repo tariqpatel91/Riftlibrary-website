@@ -582,6 +582,56 @@ function _setupHint(tableName){
     +`</div>`;
 }
 
+/* ── DECK-TAB SEARCH + HERO FILTER ─────────────────────────────
+   Public / Team / Tournament tabs each get a search box (matches deck name,
+   author/player, and hero) plus a Hero dropdown. Each render function fills in
+   the tab's state (data + accessors + card renderer), draws the toolbar and an
+   empty grid container, then calls _renderDeckGrid to populate it. Typing only
+   re-renders the grid div so the search box keeps focus. */
+const _deckTabState={
+  public:{q:'',hero:''},
+  tournament:{q:'',hero:''},
+  team:{q:'',hero:''}
+};
+function _uniqueHeroes(list,getHero){
+  return [...new Set(list.map(getHero).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b)));
+}
+function _deckSearchBar(tab){
+  const st=_deckTabState[tab];
+  const heroes=_uniqueHeroes(st.data||[],st.getHero);
+  const opts=['<option value="">All heroes</option>']
+    .concat(heroes.map(h=>`<option value="${_teamEsc(h)}"${st.hero===h?' selected':''}>${_teamEsc(h)}</option>`)).join('');
+  return `<div class="filters">
+    <div class="sw"><span class="si">⌕</span><input type="text" placeholder="Search by deck name, author, hero, etc." value="${_teamEsc(st.q||'')}" oninput="onDeckSearch('${tab}',this.value)"></div>
+    <select onchange="onDeckHero('${tab}',this.value)">${opts}</select>
+  </div>`;
+}
+function _filteredDeckList(tab){
+  const st=_deckTabState[tab];
+  const q=(st.q||'').trim().toLowerCase();
+  return (st.data||[]).filter(d=>{
+    if(st.hero && st.getHero(d)!==st.hero) return false;
+    if(q){
+      const hay=[st.getName(d),st.getHero(d),st.getAuthor(d)].filter(Boolean).join(' ').toLowerCase();
+      if(hay.indexOf(q)===-1) return false;
+    }
+    return true;
+  });
+}
+function _renderDeckGrid(tab){
+  const st=_deckTabState[tab];
+  const grid=document.getElementById(st.gridId);
+  if(!grid) return;
+  const list=_filteredDeckList(tab);
+  if(!list.length){
+    grid.innerHTML=`<div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">No decks match your search.</div>`;
+    return;
+  }
+  grid.innerHTML=list.map(st.card).join('');
+}
+function onDeckSearch(tab,val){_deckTabState[tab].q=val;_renderDeckGrid(tab);}
+function onDeckHero(tab,val){_deckTabState[tab].hero=val;_renderDeckGrid(tab);}
+
 async function renderPublicDecks(){
   const el=document.getElementById('public-decks-content');
   if(!el) return;
@@ -594,13 +644,13 @@ async function renderPublicDecks(){
         +`<div style="padding:3rem;text-align:center;"><h3 style="margin-bottom:8px;">No public decks yet</h3><p style="color:var(--text-muted);font-size:13px;">Be the first to publish a deck!</p>${_buildPublishBtn()}</div>`;
       return;
     }
-    let html=`<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Visible to everyone — anyone can browse and import these.</div>`
-      +`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">`
-      +`<span style="font-size:13px;color:var(--text-muted);">${data.length} public deck${data.length!==1?'s':''}</span>`
-      +_buildPublishBtn()
-      +`</div>`;
-    html+=`<div class="dg">`;
-    html+=data.map(d=>{
+    const st=_deckTabState.public;
+    st.data=data;
+    st.gridId='public-deck-grid';
+    st.getName=d=>d.name||'';
+    st.getHero=d=>d.legend||'';
+    st.getAuthor=d=>d.author||'';
+    st.card=d=>{
       const totalC=(d.cards||[]).reduce((a,c)=>a+c.cnt,0)||0;
       const dcImg=d.legend_img||'';
       const dcAvatar=dcImg
@@ -624,12 +674,19 @@ async function renderPublicDecks(){
           <span style="font-size:11px;color:var(--text-muted);">by ${d.author||'Anonymous'}</span>
         </div>
         <div class="da">
-          <button class="btn btn-sm btn-g" onclick="importPublicDeck('${d.id}')">Import</button>
+          <button class="btn btn-sm btn-g" onclick="importPublicDeck('${d.id}')">Add to my decks</button>
         </div>
       </div>`;
-    }).join('');
-    html+=`</div>`;
+    };
+    let html=`<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Visible to everyone — anyone can browse and import these.</div>`
+      +`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">`
+      +`<span style="font-size:13px;color:var(--text-muted);">${data.length} public deck${data.length!==1?'s':''}</span>`
+      +_buildPublishBtn()
+      +`</div>`;
+    html+=_deckSearchBar('public');
+    html+=`<div class="dg" id="public-deck-grid"></div>`;
     el.innerHTML=html;
+    _renderDeckGrid('public');
   }catch(e){
     if(_isMissingTableError(e)){
       el.innerHTML=`<div style="padding:2rem;text-align:center;"><h3 style="margin-bottom:6px;">Public decks aren't set up yet</h3></div>`+_setupHint('public_decks');
@@ -731,11 +788,13 @@ async function renderTournamentDecks(){
         +`<div style="padding:3rem;text-align:center;"><h3 style="margin-bottom:8px;">No tournament decks yet</h3><p style="color:var(--text-muted);font-size:13px;">${admin?'Add the first one!':'Check back soon for featured tournament decks.'}</p></div>`;
       return;
     }
-    let html=intro+`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">`
-      +`<span style="font-size:13px;color:var(--text-muted);">${data.length} tournament deck${data.length!==1?'s':''}</span>`
-      +adminBtn+`</div>`;
-    html+=`<div class="dg">`;
-    html+=data.map(d=>{
+    const st=_deckTabState.tournament;
+    st.data=data;
+    st.gridId='tournament-deck-grid';
+    st.getName=d=>d.name||'';
+    st.getHero=d=>d.legend||'';
+    st.getAuthor=d=>[d.player,d.event_name].filter(Boolean).join(' ');
+    st.card=d=>{
       const totalC=(d.cards||[]).reduce((a,c)=>a+(c.cnt||0),0)||d.card_count||0;
       const dcImg=d.legend_img||'';
       const dcAvatar=dcImg
@@ -764,13 +823,18 @@ async function renderTournamentDecks(){
         ${d.description?`<div style="font-size:12px;color:var(--text-muted);padding:4px 0;border-top:1px solid var(--border);margin-top:6px;">${_teamEsc(d.description).slice(0,120)}${d.description.length>120?'…':''}</div>`:''}
         <div class="df"><span><strong>${totalC||'?'}</strong> cards</span></div>
         <div class="da">
-          <button class="btn btn-sm btn-g" onclick="importTournamentDeck('${d.id}')">Import</button>
+          <button class="btn btn-sm btn-g" onclick="importTournamentDeck('${d.id}')">Add to my decks</button>
           ${admin?`<button class="btn btn-sm btn-d" onclick="deleteTournamentDeck('${d.id}')">Delete</button>`:''}
         </div>
       </div>`;
-    }).join('');
-    html+=`</div>`;
+    };
+    let html=intro+`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">`
+      +`<span style="font-size:13px;color:var(--text-muted);">${data.length} tournament deck${data.length!==1?'s':''}</span>`
+      +adminBtn+`</div>`;
+    html+=_deckSearchBar('tournament');
+    html+=`<div class="dg" id="tournament-deck-grid"></div>`;
     el.innerHTML=html;
+    _renderDeckGrid('tournament');
   }catch(e){
     if(_isMissingTableError(e)){
       el.innerHTML=`<div style="padding:2rem;text-align:center;"><h3 style="margin-bottom:6px;">Tournament decks aren't set up yet</h3></div>`+_setupHint('tournament_decks');
@@ -893,8 +957,13 @@ function renderTeamDecksTab(){
     html+=`<div style="padding:3rem;text-align:center;color:var(--text-muted);font-size:13px;">No team decks yet. Share one of your decks!</div>`;
     el.innerHTML=html; return;
   }
-  html+=`<div class="dg">`;
-  html+=sharedFromTeam.map(entry=>{
+  const st=_deckTabState.team;
+  st.data=sharedFromTeam;
+  st.gridId='team-deck-grid';
+  st.getName=e=>e.name||'';
+  st.getHero=e=>e.legend||'';
+  st.getAuthor=()=>'';
+  st.card=entry=>{
     const d=myDecks.find(x=>x.id===entry.deckId);
     const dcLegEntry=d?(d.cards||[]).find(c=>c.t==='Legend'):null;
     const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
@@ -920,9 +989,11 @@ function renderTeamDecksTab(){
         <button class="btn btn-sm btn-d" onclick="unshareTeamDecklist(${entry.id});renderTeamDecksTab()">Remove</button>
       </div>
     </div>`;
-  }).join('');
-  html+=`</div>`;
+  };
+  html+=_deckSearchBar('team');
+  html+=`<div class="dg" id="team-deck-grid"></div>`;
   el.innerHTML=html;
+  _renderDeckGrid('team');
 }
 
 function openShareToTeamModal(){
