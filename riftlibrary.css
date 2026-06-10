@@ -524,6 +524,15 @@ select option{background:#1e1e2a;}
 .sbg-cell{width:100%;height:30px;background:transparent;border:1px solid transparent;color:var(--text);font-family:inherit;font-size:12px;text-align:center;padding:0 6px;box-sizing:border-box;}
 .sbg-cell:focus{outline:none;background:var(--surface2);border-color:var(--accent);}
 .sbg-cell-pad{width:40px;background:var(--surface);}
+/* Sub-divided cell: 2 or 3 inputs side-by-side, each with a tiny G2/G3/etc label */
+.sbg-cell-split{display:grid;width:100%;height:32px;}
+.sbg-cell-split-2{grid-template-columns:1fr 1fr;}
+.sbg-cell-split-3{grid-template-columns:1fr 1fr 1fr;}
+.sbg-sub{position:relative;display:flex;align-items:stretch;border-right:1px dashed rgba(255,255,255,0.10);}
+.sbg-sub:last-child{border-right:none;}
+.sbg-sub-lbl{position:absolute;top:2px;left:4px;font-size:8px;font-weight:700;color:var(--text-muted);letter-spacing:0.06em;pointer-events:none;line-height:1;opacity:0.7;}
+.sbg-cell-sub{width:100%;height:100%;padding:8px 4px 0;text-align:center;}
+.sbg-cell-sub:focus{outline:none;background:var(--surface2);border-color:var(--accent);}
 .cards-view-bar{display:flex;gap:6px;margin-bottom:1.25rem;align-items:center;}
 .cvt-btn{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.15s;}
 .cvt-btn:hover:not(.on){background:var(--surface3);color:var(--text);}

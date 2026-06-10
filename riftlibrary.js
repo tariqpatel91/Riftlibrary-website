@@ -1673,10 +1673,28 @@ function buildSideboardGuide(d){
   const g=_sbgEnsure(d);
   const cols=g.matchups.length;
   const {mainRows,sbRows,bfRows,mainTotal,sbTotal,bfTotal}=_sbgRowLabels(d);
-  function cellKey(section,r,c){return `${section}|${r}|${c}`;}
-  function cellInput(section,r,c){
-    const v=g.cells[cellKey(section,r,c)]||'';
-    return `<input class="sbg-cell" type="text" maxlength="6" value="${_sbgEsc(v)}" oninput="sbgSetCell('${section}',${r},${c},this.value)">`;
+  // Each matchup cell is sub-divided so users can plan per-game decisions.
+  // Main + sideboard → 2 sub-cells (G2, G3). Battlefields → 3 sub-cells
+  // (G1, G2, G3 — battlefields are picked every game). The sub-index is
+  // appended to the cell key so old single-cell data is auto-migrated to
+  // the first sub-cell.
+  function subsFor(section){return section==='b'?['G1','G2','G3']:['G2','G3'];}
+  function cellKey(section,r,c,sub){return `${section}|${r}|${c}|${sub}`;}
+  function cellSubInput(section,r,c,sub,label){
+    const key=cellKey(section,r,c,sub);
+    // Fall back to the legacy un-subbed key on first read (one-time migration
+    // path so any data typed before the split shows up under G2 / G1).
+    let v=g.cells[key];
+    if(v===undefined&&sub===0){
+      const legacy=g.cells[`${section}|${r}|${c}`];
+      if(legacy!==undefined) v=legacy;
+    }
+    v=v||'';
+    return `<div class="sbg-sub"><span class="sbg-sub-lbl">${label}</span><input class="sbg-cell sbg-cell-sub" type="text" maxlength="6" value="${_sbgEsc(v)}" oninput="sbgSetCell('${section}',${r},${c},${sub},this.value)"></div>`;
+  }
+  function cellSplit(section,r,c){
+    const subs=subsFor(section);
+    return `<div class="sbg-cell-split sbg-cell-split-${subs.length}">${subs.map((lbl,si)=>cellSubInput(section,r,c,si,lbl)).join('')}</div>`;
   }
   function headerRow(){
     return `<tr class="sbg-hdr-row">
@@ -1692,12 +1710,10 @@ function buildSideboardGuide(d){
   function dataRow(section,r,row){
     const isChamp=row.role==='champion';
     const champBadge=isChamp?'<span class="sbg-champ-badge">★</span> ':'';
-    // Card count is rendered as a sibling span that flexes to the right edge
-    // of the label cell so every row's number lines up in one clean column.
     const cntBadge=row.cnt?`<span class="sbg-row-cnt">${row.cnt}</span>`:'<span class="sbg-row-cnt-spacer"></span>';
     return `<tr${isChamp?' class="sbg-champ-row"':''}>
       <td class="sbg-row-label"><div class="sbg-row-label-wrap"><span class="sbg-row-name">${champBadge}${_sbgEsc(row.name)}</span>${cntBadge}</div></td>
-      ${Array.from({length:cols},(_,c)=>`<td class="sbg-cell-td">${cellInput(section,r,c)}</td>`).join('')}
+      ${Array.from({length:cols},(_,c)=>`<td class="sbg-cell-td">${cellSplit(section,r,c)}</td>`).join('')}
       <td class="sbg-cell-td sbg-cell-pad"></td>
     </tr>`;
   }
@@ -1735,10 +1751,13 @@ function sbgEyeClick(idx){
   const name=(g.matchups[idx]||'').trim()||`Matchup ${idx+1}`;
   toast(`View "${name}" — coming soon`);
 }
-function sbgSetCell(section,row,col,val){
+function sbgSetCell(section,row,col,sub,val){
+  // Back-compat shim: pre-split callers passed (section,row,col,val) without
+  // sub — treat that as sub=0.
+  if(val===undefined){val=sub;sub=0;}
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const g=_sbgEnsure(d);
-  const k=`${section}|${row}|${col}`;
+  const k=`${section}|${row}|${col}|${sub}`;
   if(val==='') delete g.cells[k]; else g.cells[k]=String(val);
   persist();
 }
@@ -1760,14 +1779,18 @@ function sbgRemoveCol(idx){
   const g=_sbgEnsure(d);
   if(g.matchups.length<=1){toast('Keep at least one matchup column');return;}
   g.matchups.splice(idx,1);
-  // Shift cells: drop column idx, slide higher columns down by one.
+  // Shift cells: drop column idx, slide higher columns down by one. Keys
+  // are now `section|row|col|sub` (sub optional for legacy entries) — pass
+  // through whatever extra parts came after the column index.
   const fresh={};
   Object.keys(g.cells).forEach(k=>{
-    const [sec,r,c]=k.split('|');
-    const ci=parseInt(c,10);
+    const parts=k.split('|');
+    const sec=parts[0],r=parts[1];
+    const ci=parseInt(parts[2],10);
     if(ci===idx) return;
     const nc=ci>idx?ci-1:ci;
-    fresh[`${sec}|${r}|${nc}`]=g.cells[k];
+    const tail=parts.slice(3).join('|');
+    fresh[`${sec}|${r}|${nc}${tail?'|'+tail:''}`]=g.cells[k];
   });
   g.cells=fresh;
   persist();
