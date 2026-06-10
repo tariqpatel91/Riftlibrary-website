@@ -1655,17 +1655,24 @@ function _sbgRowLabels(d){
   const sbRows=[];
   (d.sideboard||[]).slice().sort((a,b)=>(a.n||'').localeCompare(b.n||''))
     .forEach(c=>sbRows.push({name:c.n,cnt:c.cnt}));
+  // Battlefields live in d.battlefields as a length-3 array; each slot is
+  // {id, n} or null. Show every filled slot.
+  const bfRows=[];
+  (d.battlefields||[]).filter(Boolean).forEach(bf=>{
+    if(bf&&bf.n) bfRows.push({name:bf.n,cnt:1});
+  });
   // Main deck total (counts all copies + the 1 champion). Matches the same
   // 40-card definition used elsewhere in the deck detail view.
   const mainTotal=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+(c.cnt||0),0)+(d.champion?1:0);
   const sbTotal=(d.sideboard||[]).reduce((a,c)=>a+(c.cnt||0),0);
-  return {mainRows,sbRows,mainTotal,sbTotal};
+  const bfTotal=bfRows.length;
+  return {mainRows,sbRows,bfRows,mainTotal,sbTotal,bfTotal};
 }
 function _sbgEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function buildSideboardGuide(d){
   const g=_sbgEnsure(d);
   const cols=g.matchups.length;
-  const {mainRows,sbRows,mainTotal,sbTotal}=_sbgRowLabels(d);
+  const {mainRows,sbRows,bfRows,mainTotal,sbTotal,bfTotal}=_sbgRowLabels(d);
   function cellKey(section,r,c){return `${section}|${r}|${c}`;}
   function cellInput(section,r,c){
     const v=g.cells[cellKey(section,r,c)]||'';
@@ -1676,18 +1683,20 @@ function buildSideboardGuide(d){
       <th class="sbg-row-label sbg-corner">Matchup →</th>
       ${g.matchups.map((t,i)=>`<th class="sbg-mu-cell"><div class="sbg-mu-wrap">
         <input class="sbg-mu-input" type="text" placeholder="Matchup ${i+1}" value="${_sbgEsc(t)}" oninput="sbgSetMatchup(${i},this.value)">
+        <button class="sbg-mu-eye" title="View matchup details" onclick="sbgEyeClick(${i})">👁</button>
         <button class="sbg-mu-del" title="Remove column" onclick="sbgRemoveCol(${i})">✕</button>
       </div></th>`).join('')}
       <th class="sbg-add-col"><button class="sbg-add-btn" onclick="sbgAddCol()" title="Add matchup column">+</button></th>
     </tr>`;
   }
   function dataRow(section,r,row){
-    const cntBadge=row.cnt?` <span class="sbg-row-cnt">${row.cnt}</span>`:'';
     const isChamp=row.role==='champion';
     const champBadge=isChamp?'<span class="sbg-champ-badge">★</span> ':'';
-    const lbl=`${champBadge}${_sbgEsc(row.name)}${cntBadge}`;
+    // Card count is rendered as a sibling span that flexes to the right edge
+    // of the label cell so every row's number lines up in one clean column.
+    const cntBadge=row.cnt?`<span class="sbg-row-cnt">${row.cnt}</span>`:'<span class="sbg-row-cnt-spacer"></span>';
     return `<tr${isChamp?' class="sbg-champ-row"':''}>
-      <td class="sbg-row-label">${lbl}</td>
+      <td class="sbg-row-label"><div class="sbg-row-label-wrap"><span class="sbg-row-name">${champBadge}${_sbgEsc(row.name)}</span>${cntBadge}</div></td>
       ${Array.from({length:cols},(_,c)=>`<td class="sbg-cell-td">${cellInput(section,r,c)}</td>`).join('')}
       <td class="sbg-cell-td sbg-cell-pad"></td>
     </tr>`;
@@ -1711,10 +1720,20 @@ function buildSideboardGuide(d){
           ${mainRows.length?mainRows.map((row,r)=>dataRow('m',r,row)).join(''):emptyRow('No cards in main deck yet.')}
           ${sectionHdr('SIDEBOARD',`${sbTotal}/8`)}
           ${sbRows.length?sbRows.map((row,r)=>dataRow('s',r,row)).join(''):emptyRow('No cards in sideboard yet.')}
+          ${sectionHdr('BATTLEFIELDS',`${bfTotal}/3`)}
+          ${bfRows.length?bfRows.map((row,r)=>dataRow('b',r,row)).join(''):emptyRow('No battlefields in deck yet.')}
         </tbody>
       </table>
     </div>
   </div>`;
+}
+function sbgEyeClick(idx){
+  // Placeholder — wired up here so the button is interactive; the user will
+  // attach real functionality (e.g. open a matchup notes modal) later.
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const g=_sbgEnsure(d);
+  const name=(g.matchups[idx]||'').trim()||`Matchup ${idx+1}`;
+  toast(`View "${name}" — coming soon`);
 }
 function sbgSetCell(section,row,col,val){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
