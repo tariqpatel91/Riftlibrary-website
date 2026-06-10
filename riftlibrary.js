@@ -119,21 +119,32 @@ function createMyEvent(){
   persistMyEvents();renderEvents();
 }
 function toggleMyEventProp(id,prop){
-  const e=myEvents.find(x=>x.id===id);if(!e)return;
+  // id arrives as either a number (local-only) or a UUID string (cloud) so
+  // we compare both ways instead of strict equality.
+  const e=myEvents.find(x=>String(x.id)===String(id));if(!e)return;
   e[prop]=!e[prop];persistMyEvents();renderEvents();
 }
 // Free-text notes (deck plans, packing reminders, anything). Saved on blur so
 // we don't churn localStorage / cloud on every keystroke, and don't re-render
 // — the textarea stays focused while the user keeps typing.
 function saveMyEventNotes(id,value){
-  const e=myEvents.find(x=>x.id===id);if(!e)return;
+  const e=myEvents.find(x=>String(x.id)===String(id));if(!e)return;
   if((e.notes||'')===value)return;
   e.notes=value;
   persistMyEvents();
   if(typeof saveEventsToCloud==='function') saveEventsToCloud();
 }
-function deleteMyEvent(id){
-  myEvents=myEvents.filter(x=>x.id!==id);persistMyEvents();renderEvents();
+async function deleteMyEvent(id){
+  const evt=myEvents.find(x=>String(x.id)===String(id));
+  myEvents=myEvents.filter(x=>String(x.id)!==String(id));
+  try{localStorage.setItem('rl_myEvents',JSON.stringify(myEvents));}catch(e){}
+  renderEvents();
+  // Also remove the row from Supabase so it doesn't come back on next load.
+  try{
+    if(evt&&evt.cloud_id&&typeof _sb!=='undefined'&&_sb.from){
+      await _sb.from('my_events').delete().eq('id',evt.cloud_id);
+    }
+  }catch(e){console.warn('Event cloud delete failed:',e);}
 }
 function addRQToMyEvents(idx){
   if(!currentUser){openAuthModal('login');toast('Please log in to save events.');return;}
@@ -5193,13 +5204,18 @@ function renderEvents(){
       </div>`;
   }
   function myEventsHTML(){
-    const checks=(e,prop,label)=>`<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:${e[prop]?'var(--calm)':'var(--text-muted)'};"><input type="checkbox" ${e[prop]?'checked':''} onchange="toggleMyEventProp(${e.id},'${prop}')" style="accent-color:var(--calm);"> ${label}</label>`;
+    // Event ids can be numbers (local-only) or UUID strings (cloud), so
+    // every interpolated id has to be quoted as a string literal to survive
+    // HTML rendering — otherwise UUIDs like b8775439-… get parsed as a
+    // subtraction expression and the click handler throws.
+    const idLit=e=>`'${String(e.id).replace(/'/g,"\\'")}'`;
+    const checks=(e,prop,label)=>`<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:${e[prop]?'var(--calm)':'var(--text-muted)'};"><input type="checkbox" ${e[prop]?'checked':''} onchange="toggleMyEventProp(${idLit(e)},'${prop}')" style="accent-color:var(--calm);"> ${label}</label>`;
     const myList=myEvents.length?myEvents.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(e=>{
       const ds=new Date(e.date).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
       const notes=(e.notes||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       return`<div class="dc" style="cursor:default;">
         <div class="dt"><div><div class="dn">${e.name}</div><div class="dl">${ds}${e.time?' · '+e.time:''}${e.location?' · '+e.location:''}</div></div>
-        <button class="result-del" onclick="deleteMyEvent(${e.id})" title="Remove event" style="flex-shrink:0;">×</button></div>
+        <button class="result-del" onclick="deleteMyEvent(${idLit(e)})" title="Remove event" style="flex-shrink:0;">×</button></div>
         <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;">
           ${checks(e,'paidEntry','Registered')}
           ${checks(e,'hotelBooked','Hotel booked')}
@@ -5211,7 +5227,7 @@ function renderEvents(){
             class="evt-notes"
             placeholder="Deck plans, travel reminders, anything…"
             rows="2"
-            onblur="saveMyEventNotes(${e.id},this.value)"
+            onblur="saveMyEventNotes(${idLit(e)},this.value)"
             style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-family:inherit;resize:vertical;min-height:38px;">${notes}</textarea>
         </div>
       </div>`;
