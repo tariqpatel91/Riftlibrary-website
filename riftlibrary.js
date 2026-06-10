@@ -1711,7 +1711,10 @@ function buildSideboardGuide(d){
     const isChamp=row.role==='champion';
     const champBadge=isChamp?'<span class="sbg-champ-badge">★</span> ':'';
     const cntBadge=row.cnt?`<span class="sbg-row-cnt">${row.cnt}</span>`:'<span class="sbg-row-cnt-spacer"></span>';
-    return `<tr${isChamp?' class="sbg-champ-row"':''}>
+    // Alternate row stripe so the eye can track across long horizontal rows.
+    const stripe=r%2===0?' sbg-row-even':' sbg-row-odd';
+    const cls=`${stripe}${isChamp?' sbg-champ-row':''}`.trim();
+    return `<tr class="${cls}">
       <td class="sbg-row-label"><div class="sbg-row-label-wrap"><span class="sbg-row-name">${champBadge}${_sbgEsc(row.name)}</span>${cntBadge}</div></td>
       ${Array.from({length:cols},(_,c)=>`<td class="sbg-cell-td">${cellSplit(section,r,c)}</td>`).join('')}
       <td class="sbg-cell-td sbg-cell-pad"></td>

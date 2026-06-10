@@ -540,6 +540,12 @@ select option{background:#1e1e2a;}
 .sbg-champ-badge{color:var(--accent);font-size:11px;margin-right:2px;}
 .sbg-empty-row{color:var(--text-muted);opacity:0.4;}
 .sbg-cell-td{padding:0;background:var(--surface);}
+/* Stronger vertical divider between matchup columns so the eye can tell
+   one matchup block from the next. Sub-cells inside still use the lighter
+   dashed border. */
+.sbg-table .sbg-cell-td{border-right:2px solid rgba(255,255,255,0.12);}
+.sbg-table .sbg-cell-td:last-child{border-right:none;}
+.sbg-table .sbg-mu-cell{border-right:2px solid rgba(255,255,255,0.18);}
 .sbg-cell{width:100%;height:30px;background:transparent;border:1px solid transparent;color:var(--text);font-family:inherit;font-size:12px;text-align:center;padding:0 6px;box-sizing:border-box;}
 .sbg-cell:focus{outline:none;background:var(--surface2);border-color:var(--accent);}
 .sbg-cell-pad{width:40px;background:var(--surface);}
@@ -547,11 +553,20 @@ select option{background:#1e1e2a;}
 .sbg-cell-split{display:grid;width:100%;height:32px;}
 .sbg-cell-split-2{grid-template-columns:1fr 1fr;}
 .sbg-cell-split-3{grid-template-columns:1fr 1fr 1fr;}
-.sbg-sub{position:relative;display:flex;align-items:stretch;border-right:1px dashed rgba(255,255,255,0.10);}
+.sbg-sub{position:relative;display:flex;align-items:stretch;border-right:1px dashed rgba(255,255,255,0.08);min-width:0;}
 .sbg-sub:last-child{border-right:none;}
-.sbg-sub-lbl{position:absolute;top:2px;left:4px;font-size:8px;font-weight:700;color:var(--text-muted);letter-spacing:0.06em;pointer-events:none;line-height:1;opacity:0.7;}
-.sbg-cell-sub{width:100%;height:100%;padding:8px 4px 0;text-align:center;}
+.sbg-sub-lbl{position:absolute;top:2px;left:4px;font-size:8px;font-weight:700;color:var(--text-muted);letter-spacing:0.06em;pointer-events:none;line-height:1;opacity:0.7;z-index:1;}
+.sbg-cell-sub{width:100%;height:100%;padding:9px 4px 1px;text-align:center;box-sizing:border-box;min-width:0;}
 .sbg-cell-sub:focus{outline:none;background:var(--surface2);border-color:var(--accent);}
+
+/* Zebra striping — alternate background on data rows. Champion row keeps
+   its own gold-tinted background; section rows are unaffected. */
+.sbg-row-even .sbg-cell-td,
+.sbg-row-even .sbg-row-label{background:var(--surface);}
+.sbg-row-odd .sbg-cell-td,
+.sbg-row-odd .sbg-row-label{background:var(--surface2);}
+.sbg-row-odd .sbg-sub-lbl,
+.sbg-row-even .sbg-sub-lbl{opacity:0.6;}
 .cards-view-bar{display:flex;gap:6px;margin-bottom:1.25rem;align-items:center;}
 .cvt-btn{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.15s;}
 .cvt-btn:hover:not(.on){background:var(--surface3);color:var(--text);}
