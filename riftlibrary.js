@@ -1306,6 +1306,10 @@ function renderDeckDetail(){
         <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="3" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="6" y="5" width="3" height="10" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="11" y="2" width="3" height="13" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
         Decklist Data
       </button>
+      <button class="dd-tab${activeDDTab==='sbguide'?' active':''}" onclick="switchDDTab('sbguide')">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M1.5 5.5h13M1.5 9.5h13M5.5 1.5v13M10 1.5v13" stroke="currentColor" stroke-width="1.2"/></svg>
+        Sideboard Guide
+      </button>
       <button class="dd-tab${activeDDTab==='results'?' active':''}" onclick="switchDDTab('results')">
         <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Results
@@ -1360,6 +1364,11 @@ function renderDeckDetail(){
     <!-- PANEL: STATS -->
     <div class="dd-panel${activeDDTab==='stats'?' active':''}" id="ddp-stats">
       ${buildStatsPanel(d)}
+    </div>
+
+    <!-- PANEL: SIDEBOARD GUIDE -->
+    <div class="dd-panel${activeDDTab==='sbguide'?' active':''}" id="ddp-sbguide">
+      ${buildSideboardGuide(d)}
     </div>
 
     <!-- PANEL: RESULTS -->
@@ -1618,6 +1627,123 @@ function calcHG(){
     '<div class="hg-prob"><div class="hg-prob-val">'+pct(pExact)+'</div><div class="hg-prob-lbl">Exactly '+k+'</div></div>'+
     '<div class="hg-prob"><div class="hg-prob-val">'+pct(pAtLeast)+'</div><div class="hg-prob-lbl">'+k+' or more</div></div>';
 }
+/* ── SIDEBOARD GUIDE ─────────────────────────────────────────
+   Matchup planning grid. Y-axis: 15 main-deck rows + 8 sideboard rows.
+   X-axis: user-defined matchup column titles. Each cell holds a small
+   string the user types — usually a number of copies to side in/out.
+   All state lives on d.sbGuide so it persists with the deck. */
+const SBG_MAIN_ROWS = 15;
+const SBG_SB_ROWS = 8;
+const SBG_DEFAULT_COLS = 6;
+function _sbgEnsure(d){
+  if(!d.sbGuide) d.sbGuide={matchups:Array(SBG_DEFAULT_COLS).fill(''),cells:{}};
+  if(!Array.isArray(d.sbGuide.matchups)) d.sbGuide.matchups=Array(SBG_DEFAULT_COLS).fill('');
+  if(!d.sbGuide.cells||typeof d.sbGuide.cells!=='object') d.sbGuide.cells={};
+  return d.sbGuide;
+}
+function _sbgRowLabels(d){
+  // Y-axis labels prepopulated from the deck (legend → champion → main → sideboard).
+  // Main-deck rows: list each unique card with its count, padded to 15.
+  // Sideboard rows: same idea, padded to 8.
+  const mainCards=(d.cards||[]).filter(c=>c.t!=='Legend')
+    .slice().sort((a,b)=>(a.n||'').localeCompare(b.n||''));
+  const mainRows=[];
+  mainCards.forEach(c=>mainRows.push({name:c.n,cnt:c.cnt}));
+  while(mainRows.length<SBG_MAIN_ROWS) mainRows.push({name:'',cnt:''});
+  const sbRows=[];
+  (d.sideboard||[]).slice().sort((a,b)=>(a.n||'').localeCompare(b.n||''))
+    .forEach(c=>sbRows.push({name:c.n,cnt:c.cnt}));
+  while(sbRows.length<SBG_SB_ROWS) sbRows.push({name:'',cnt:''});
+  return {mainRows:mainRows.slice(0,SBG_MAIN_ROWS),sbRows:sbRows.slice(0,SBG_SB_ROWS)};
+}
+function _sbgEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function buildSideboardGuide(d){
+  const g=_sbgEnsure(d);
+  const cols=g.matchups.length;
+  const {mainRows,sbRows}=_sbgRowLabels(d);
+  function cellKey(section,r,c){return `${section}|${r}|${c}`;}
+  function cellInput(section,r,c){
+    const v=g.cells[cellKey(section,r,c)]||'';
+    return `<input class="sbg-cell" type="text" maxlength="6" value="${_sbgEsc(v)}" oninput="sbgSetCell('${section}',${r},${c},this.value)">`;
+  }
+  function headerRow(){
+    return `<tr class="sbg-hdr-row">
+      <th class="sbg-row-label sbg-corner">Matchup →</th>
+      ${g.matchups.map((t,i)=>`<th class="sbg-mu-cell"><div class="sbg-mu-wrap">
+        <input class="sbg-mu-input" type="text" placeholder="Matchup ${i+1}" value="${_sbgEsc(t)}" oninput="sbgSetMatchup(${i},this.value)">
+        <button class="sbg-mu-del" title="Remove column" onclick="sbgRemoveCol(${i})">✕</button>
+      </div></th>`).join('')}
+      <th class="sbg-add-col"><button class="sbg-add-btn" onclick="sbgAddCol()" title="Add matchup column">+</button></th>
+    </tr>`;
+  }
+  function dataRow(section,r,row){
+    const lbl=row.name?`${_sbgEsc(row.name)}${row.cnt?` <span class="sbg-row-cnt">${row.cnt}</span>`:''}`:`<span class="sbg-empty-row">—</span>`;
+    return `<tr>
+      <td class="sbg-row-label">${lbl}</td>
+      ${Array.from({length:cols},(_,c)=>`<td class="sbg-cell-td">${cellInput(section,r,c)}</td>`).join('')}
+      <td class="sbg-cell-td sbg-cell-pad"></td>
+    </tr>`;
+  }
+  function sectionHdr(label,extra){
+    return `<tr class="sbg-section-row">
+      <td class="sbg-section-label">${label}${extra?` <span class="sbg-section-extra">${extra}</span>`:''}</td>
+      <td colspan="${cols+1}"></td>
+    </tr>`;
+  }
+  return `<div class="sbg-wrap">
+    <div class="sbg-help">Use this grid to plan your sideboard swaps for each matchup. Edit a column header to name the matchup, then type the number of copies to side <em>in</em> (positive) or <em>out</em> (negative) of each card.</div>
+    <div class="sbg-scroll">
+      <table class="sbg-table">
+        <thead>${headerRow()}</thead>
+        <tbody>
+          ${sectionHdr('MAIN DECK',`${mainRows.filter(r=>r.name).length}/${SBG_MAIN_ROWS}`)}
+          ${mainRows.map((row,r)=>dataRow('m',r,row)).join('')}
+          ${sectionHdr('SIDEBOARD',`${sbRows.filter(r=>r.name).length}/${SBG_SB_ROWS}`)}
+          ${sbRows.map((row,r)=>dataRow('s',r,row)).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+function sbgSetCell(section,row,col,val){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const g=_sbgEnsure(d);
+  const k=`${section}|${row}|${col}`;
+  if(val==='') delete g.cells[k]; else g.cells[k]=String(val);
+  persist();
+}
+function sbgSetMatchup(idx,val){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const g=_sbgEnsure(d);
+  g.matchups[idx]=String(val);
+  persist();
+}
+function sbgAddCol(){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const g=_sbgEnsure(d);
+  g.matchups.push('');
+  persist();
+  document.getElementById('ddp-sbguide').innerHTML=buildSideboardGuide(d);
+}
+function sbgRemoveCol(idx){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const g=_sbgEnsure(d);
+  if(g.matchups.length<=1){toast('Keep at least one matchup column');return;}
+  g.matchups.splice(idx,1);
+  // Shift cells: drop column idx, slide higher columns down by one.
+  const fresh={};
+  Object.keys(g.cells).forEach(k=>{
+    const [sec,r,c]=k.split('|');
+    const ci=parseInt(c,10);
+    if(ci===idx) return;
+    const nc=ci>idx?ci-1:ci;
+    fresh[`${sec}|${r}|${nc}`]=g.cells[k];
+  });
+  g.cells=fresh;
+  persist();
+  document.getElementById('ddp-sbguide').innerHTML=buildSideboardGuide(d);
+}
+
 function buildStatsPanel(d){
   const cards=d.cards||[];
   const total=cards.reduce((a,c)=>a+c.cnt,0);
