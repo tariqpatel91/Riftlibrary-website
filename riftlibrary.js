@@ -1966,17 +1966,39 @@ function _sbgRenderEyeModal(){
       ${tiles.join('')}
     </div>`;
   }
+  // Visual section renderer. For main: Unit gets its own subheader, then
+  // Spell + Gear are merged under "Spell/Gear". For sideboard: no type
+  // subheaders at all — one flat grid.
   function typeGroupedSection(label,tally,list,displaySection){
-    const groups=groupByType(list);
     let inner='';
-    groups.forEach(g=>{
-      const cnt=g.cards.reduce((a,c)=>a+(c.cnt||1),0);
-      inner+=`<div class="sbg-eye-type-grp">
-        <div class="sbg-eye-type-hdr">${g.type.toUpperCase()} <span class="sbg-eye-type-cnt">(${cnt})</span></div>
-        <div class="deck-type-auto-grid sbg-eye-visual-grid">${g.cards.map(c=>colStack(c,displaySection)).join('')}</div>
-      </div>`;
-    });
-    if(!groups.length) inner=`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:12px;opacity:0.6;">No cards in ${label.toLowerCase()} after this matchup's swaps.</div>`;
+    if(displaySection==='s'){
+      // Sideboard — single flat grid, no type subheaders.
+      if(list.length){
+        inner=`<div class="deck-type-auto-grid sbg-eye-visual-grid">${list.map(c=>colStack(c,displaySection)).join('')}</div>`;
+      }
+    } else {
+      // Main deck — Unit first, then a merged Spell/Gear bucket.
+      const groups=groupByType(list);
+      const merged=[];
+      let mergedCards=[];
+      groups.forEach(g=>{
+        if(g.type==='Unit'){merged.push({label:'UNIT',cards:g.cards});}
+        else if(g.type==='Spell'||g.type==='Gear'){mergedCards=mergedCards.concat(g.cards);}
+        else merged.push({label:g.type.toUpperCase(),cards:g.cards});
+      });
+      if(mergedCards.length){
+        mergedCards.sort(cmp);
+        merged.push({label:'SPELL/GEAR',cards:mergedCards});
+      }
+      merged.forEach(grp=>{
+        const cnt=grp.cards.reduce((a,c)=>a+(c.cnt||1),0);
+        inner+=`<div class="sbg-eye-type-grp">
+          <div class="sbg-eye-type-hdr">${grp.label} <span class="sbg-eye-type-cnt">(${cnt})</span></div>
+          <div class="deck-type-auto-grid sbg-eye-visual-grid">${grp.cards.map(c=>colStack(c,displaySection)).join('')}</div>
+        </div>`;
+      });
+    }
+    if(!inner) inner=`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:12px;opacity:0.6;">No cards in ${label.toLowerCase()} after this matchup's swaps.</div>`;
     const tallyHtml=tally!=null?`<span class="gallery-section-tally">${tally}</span>`:'';
     return `<div class="gallery-section"><div class="gallery-section-hdr">${label}${tallyHtml}</div>${inner}</div>`;
   }
@@ -1999,10 +2021,9 @@ function _sbgRenderEyeModal(){
     const anySelected=bfRows.some((_,i)=>!!g.cells[`b|${i}|${_sbgEye.col}|${bfSubIdx}`]);
     const isFaded=anySelected&&!isSelected;
     const safeName=_sbgEsc(bf.n).replace(/'/g,"\\'");
-    const xTag=isSelected?`<div class="sbg-eye-bf-x">✕</div>`:'';
     const cls=`gallery-card gallery-card-bf sbg-eye-bf-tile${isSelected?' sbg-eye-bf-selected':''}${isFaded?' sbg-eye-bf-faded':''}`;
     const inner=img?`<img src="${img}" alt="${_sbgEsc(bf.n)}" loading="lazy">`:`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${_sbgEsc(bf.n)}</div>`;
-    return `<div class="${cls}" title="${_sbgEsc(bf.n)} — click to ${isSelected?'unpick':'pick for this game'}" onclick="_sbgEyeBfClick('${safeName}')">${inner}${xTag}</div>`;
+    return `<div class="${cls}" title="${_sbgEsc(bf.n)} — click to ${isSelected?'unpick':'pick for this game'}" onclick="_sbgEyeBfClick('${safeName}')">${inner}</div>`;
   }
   let bodyHtml='';
   // Top read-only strip: Champion + Battlefields side by side. Battlefield
