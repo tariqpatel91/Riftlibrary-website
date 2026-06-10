@@ -4593,6 +4593,105 @@ function createBinder(){
   persistBinders();renderCollection();
 }
 
+/* ── Import a binder from pasted text ──────────────────
+ * Opens a modal where the user pastes a card list. Each line becomes a
+ * binder entry. Tolerates the same shapes the deck importer handles
+ * (counts, bullets, trailing set codes) plus foil notation like
+ * "(foil)", "[foil]", "(2 foil)", "*F" so foil copies are tagged.
+ */
+function openImportBinderModal(){
+  const old=document.getElementById('import-binder-modal');if(old)old.remove();
+  const m=document.createElement('div');
+  m.id='import-binder-modal';
+  m.innerHTML=`<div class="modal-backdrop" onclick="document.getElementById('import-binder-modal').remove()"></div>
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-header"><h2>Import Binder</h2><button class="modal-close" onclick="document.getElementById('import-binder-modal').remove()">✕</button></div>
+    <div style="display:flex;flex-direction:column;gap:12px;padding:16px;">
+      <div>
+        <label class="form-label">Binder name</label>
+        <input id="import-binder-name" class="form-input" type="text" placeholder="Imported Binder" value="Imported Binder">
+      </div>
+      <div>
+        <label class="form-label">Card list</label>
+        <textarea id="import-binder-text" class="form-input" rows="10" placeholder="3 Diana - Scorn of the Moon&#10;1 Ahri - Nine-Tailed Fox (foil)&#10;2 Annie - Dark Child (1 foil)&#10;Jinx x4"></textarea>
+        <div style="font-size:12px;color:var(--muted,#888);margin-top:6px;">One card per line. Add <b>(foil)</b> or <b>(2 foil)</b> to tag foil copies.</div>
+      </div>
+      <button class="btn btn-p" style="width:100%;" onclick="importBinderFromText()">Import Binder</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  setTimeout(()=>{const t=document.getElementById('import-binder-text');if(t)t.focus();},50);
+}
+
+function importBinderFromText(){
+  const nameInput=(document.getElementById('import-binder-name')||{}).value||'';
+  const raw=(document.getElementById('import-binder-text')||{}).value||'';
+  if(!raw.trim()){toast('Paste a card list first');return;}
+  const binderName=nameInput.trim()||'Imported Binder';
+
+  const _norm=s=>String(s||'').toLowerCase()
+    .replace(/[‘’‚‛′`´]/g,"'")
+    .replace(/[–—]/g,'-').replace(/\s+/g,' ').trim();
+  const _strip=s=>_norm(s).replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
+  const _find=name=>CARDS.find(c=>c.name===name)
+    ||CARDS.find(c=>c.name.toLowerCase()===name.toLowerCase())
+    ||CARDS.find(c=>_norm(c.name)===_norm(name))
+    ||CARDS.find(c=>_strip(c.name)===_strip(name));
+  const _stripCode=n=>{
+    n=String(n||'').trim();
+    n=n.replace(/\s*\|\s*[A-Za-z]{2,6}[-\s]?\d{1,4}[A-Za-z]?\s*$/,'');
+    n=n.replace(/\s*\([A-Za-z]{2,6}\)\s*\d{1,4}[A-Za-z]?\s*$/,'');
+    n=n.replace(/\s*[\(\[][A-Za-z]{2,6}[-\s]?\d{1,4}[A-Za-z]?[\)\]]\s*$/,'');
+    n=n.replace(/\s+[A-Z]{2,6}-\d{1,4}[A-Za-z]?\s*$/,'');
+    return n.trim();
+  };
+
+  const entries={};let matched=0;const unmatched=[];
+  raw.split('\n').map(l=>l.trim()).filter(Boolean).forEach(line=>{
+    let l=line.replace(/^[•‣◦⁃∙·*\-–—]\s+/,'').trim();
+    if(!l)return;
+    // Extract foil notation: "(foil)", "[foil]", "(2 foil)", " - foil", "*F"
+    let foilReq=0; // 0=none, -1=all, N=count
+    let fm;
+    if((fm=l.match(/[\(\[]\s*(\d+)\s*foils?\s*[\)\]]/i))){foilReq=parseInt(fm[1]);l=l.replace(fm[0],'').trim();}
+    else if((fm=l.match(/[\(\[]\s*foils?\s*[\)\]]/i))){foilReq=-1;l=l.replace(fm[0],'').trim();}
+    else if(/\s*[-–—]?\s*foil\s*$/i.test(l)){foilReq=-1;l=l.replace(/\s*[-–—]?\s*foil\s*$/i,'').trim();}
+    else if((fm=l.match(/\s\*\s*F\s*$/i))){foilReq=-1;l=l.replace(fm[0],'').trim();}
+    l=l.trim();if(!l)return;
+    // Parse count + name
+    let cnt=null,nm=null,m;
+    if((m=l.match(/^(\d+)\s*[x×]?\s+(.+)$/i))){cnt=parseInt(m[1]);nm=m[2];}
+    else if((m=l.match(/^(.+?)\s*[x×]\s*(\d+)$/i))){cnt=parseInt(m[2]);nm=m[1];}
+    else if(l.indexOf(':')===-1&&l.length<=60){cnt=1;nm=l;}
+    if(!nm)return;
+    nm=_stripCode(nm.trim());if(!nm)return;
+    const card=_find(nm);
+    if(!card){unmatched.push(nm);return;}
+    cnt=cnt||1;
+    const foilCnt=foilReq===-1?cnt:Math.min(foilReq,cnt);
+    if(!entries[card.id])entries[card.id]={id:card.id,cnt:0,foil:0};
+    entries[card.id].cnt+=cnt;
+    entries[card.id].foil+=foilCnt;
+    matched++;
+  });
+
+  const cardList=Object.values(entries).map(e=>{
+    const o={id:e.id,cnt:e.cnt};
+    if(e.foil>0)o.foil=Math.min(e.foil,e.cnt);
+    return o;
+  });
+  if(!cardList.length){toast('No cards matched. Check the list and try again.');return;}
+
+  const newId=Date.now();
+  rlBinders.push({id:newId,name:binderName,cards:cardList});
+  persistBinders();
+  CF2.binder=newId;CF2.binderMode='view';
+  const modal=document.getElementById('import-binder-modal');if(modal)modal.remove();
+  renderCollection();
+  toast('Imported '+matched+' card'+(matched===1?'':'s')+(unmatched.length?' — '+unmatched.length+' unmatched':''));
+  if(unmatched.length) console.warn('Unmatched binder import lines:',unmatched);
+}
+
 function renameBinder(id){
   const b=rlBinders.find(x=>x.id===id);if(!b)return;
   const name=prompt('Rename binder:',b.name);
@@ -4661,7 +4760,19 @@ function removeCardFromBinder(cardId,binderId){
   const entry=_binderHas(b,cardId);
   if(!entry)return;
   entry.cnt-=1;
+  if(entry.foil&&entry.foil>entry.cnt) entry.foil=entry.cnt; // foils can't exceed copies
   if(entry.cnt<=0) b.cards=b.cards.filter(e=>e.id!==cardId);
+  persistBinders();renderCollection();
+}
+
+// Cycle the number of foil copies for a card in a binder: 0 → 1 → … → cnt → 0.
+function toggleBinderFoil(cardId,binderId){
+  const b=rlBinders.find(x=>x.id===binderId);if(!b)return;
+  const entry=_binderHas(b,cardId);
+  if(!entry)return;
+  const cur=entry.foil||0;
+  entry.foil=(cur+1)>entry.cnt?0:cur+1;
+  if(!entry.foil) delete entry.foil;
   persistBinders();renderCollection();
 }
 
@@ -4833,10 +4944,11 @@ function _renderBinderSlot(binder,isEdit){
   (binder.cards||[]).forEach(entry=>{
     const c=CARDS.find(x=>x.id===entry.id);
     if(!c)return;
-    cards.push({card:c,cnt:entry.cnt});
+    cards.push({card:c,cnt:entry.cnt,foil:entry.foil||0});
   });
   cards.sort((a,b)=>a.card.name.localeCompare(b.card.name));
   const isStatic=!!binder._static;
+  const allowFoil=!isStatic; // foil tagging only on the user's own real binders
   const dropAttrs=isEdit?` ondragover="binderSlotDragOver(event)" ondragleave="binderSlotDragLeave(event)" ondrop="binderSlotDrop(event,${binder.id})"`:'';
   let inner='';
   if(!total){
@@ -4850,14 +4962,18 @@ function _renderBinderSlot(binder,isEdit){
     // Extras is auto-derived from collOwned — no manual removal. Wishlist
     // and non-static binders allow click-to-remove.
     const clickRemoves=(isStatic&&binder._kind!=='extras')||isEdit;
-    const cardHtml=cards.map(({card:c,cnt})=>{
+    const cardHtml=cards.map(({card:c,cnt,foil})=>{
       const si=c.id.replace(/'/g,"\\'");
       const bf=c.type==='Battlefield';
       const rmFn=binder._kind==='wishlist'?`toggleCollWanted('${si}')`:`removeCardFromBinder('${si}',${binder.id})`;
       const titleSuffix=clickRemoves?' — click to remove one':'';
-      return `<div class="cbs-card${bf?' cbs-card-bf':''}" title="${c.name}${titleSuffix}" onclick="${clickRemoves?rmFn:`openCardModal('${si}')`}">
+      const foilLabel=foil>0&&cnt>1&&foil<cnt?`✦<span class="cbs-foil-n">${foil}</span>`:'✦';
+      const foilTitle=foil>0?`${foil} of ${cnt} marked foil — click to cycle`:'Mark as foil';
+      const foilBtn=allowFoil?`<button class="cbs-foil${foil>0?' on':''}" onclick="event.stopPropagation();toggleBinderFoil('${si}',${binder.id})" title="${foilTitle}">${foilLabel}</button>`:'';
+      return `<div class="cbs-card${bf?' cbs-card-bf':''}${foil>0?' cbs-card-foil':''}" title="${c.name}${titleSuffix}" onclick="${clickRemoves?rmFn:`openCardModal('${si}')`}">
         ${c.imageUrl?`<img src="${c.imageUrl}" alt="${c.name}" loading="lazy">`:`<div class="cbs-no-img">${c.name}</div>`}
         <button class="cbs-zoom" onclick="event.stopPropagation();openCardModal('${si}')" title="Zoom card details">🔍</button>
+        ${foilBtn}
         ${cnt>1?`<div class="cbs-cnt">×${cnt}</div>`:''}
       </div>`;
     }).join('');
@@ -4992,7 +5108,10 @@ function renderCollection(){
   let sidebarHtml=`<div class="coll-binder-sidebar">
     <div class="cbs-header">
       <span>Binders</span>
-      <button class="cbs-new-btn" onclick="createBinder()" title="New binder">+</button>
+      <div class="cbs-header-btns">
+        <button class="cbs-new-btn" onclick="openImportBinderModal()" title="Import binder from text">⤓</button>
+        <button class="cbs-new-btn" onclick="createBinder()" title="New binder">+</button>
+      </div>
     </div>
     <button class="cbs-item${(!CF2.binder&&CF2.show!=='wanted')?' active':''}" onclick="setActiveBinder('')">
       <span class="cbs-label">All Cards</span>

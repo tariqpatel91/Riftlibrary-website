@@ -1104,6 +1104,16 @@ select option{background:#1e1e2a;}
 .coll-binder-slot .cbs-card:hover .cbs-zoom{opacity:1;}
 .coll-binder-slot .cbs-zoom:hover{background:rgba(200,168,75,0.3);color:var(--accent);transform:scale(1.1);}
 
+/* Foil tag button + tagged-card glow */
+.cbs-header-btns{display:flex;gap:6px;align-items:center;}
+.coll-binder-slot .cbs-foil{position:absolute;bottom:5px;left:5px;z-index:3;min-width:30px;height:30px;border-radius:6px;border:1.5px solid rgba(120,200,255,0.45);background:rgba(0,0,0,0.7);color:#9fd6ff;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:1px;padding:0 6px;opacity:0;transition:all 0.15s;}
+.coll-binder-slot .cbs-card:hover .cbs-foil{opacity:1;}
+.coll-binder-slot .cbs-foil:hover{background:rgba(120,200,255,0.25);transform:scale(1.08);}
+.coll-binder-slot .cbs-foil.on{opacity:1;background:linear-gradient(135deg,#6ad0ff,#b88aff,#ff9ad6);color:#0a0a14;border-color:transparent;box-shadow:0 0 8px rgba(150,180,255,0.6);}
+.coll-binder-slot .cbs-foil-n{font-size:11px;}
+.coll-binder-slot .cbs-card-foil{border-color:#8ab8ff;box-shadow:0 0 12px rgba(140,184,255,0.55);}
+.coll-binder-slot .cbs-card-foil:hover{box-shadow:0 0 16px rgba(140,184,255,0.8);}
+
 /* ── PUBLIC SHARED BINDER VIEW ──────────────────── */
 .pub-search-wrap{position:relative;margin-bottom:1.25rem;}
 .pub-search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:15px;opacity:0.6;pointer-events:none;}
