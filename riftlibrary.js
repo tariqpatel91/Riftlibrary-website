@@ -1931,17 +1931,19 @@ function _sbgRenderEyeModal(){
     const img=full?full.imageUrl:'';
     const total=entry.cnt||1;
     const title=displaySection==='m'?`${entry.n} — click to side out · right-click to undo`:`${entry.n} — click to side in · right-click to undo`;
+    // Each individual stacked tile carries its own OUT/IN tag and accent
+    // outline when this group represents copies moved from the other zone.
+    const movedDir=displaySection==='s'?'OUT':'IN';
+    const tileMovedTag=entry.moved?`<div class="sbg-eye-moved-tag sbg-eye-moved-${movedDir.toLowerCase()}">${movedDir}</div>`:'';
+    const tileExtraCls=entry.moved?' sbg-eye-moved-tile':'';
     const tiles=[];
     for(let i=0;i<total;i++){
-      const tile=img
-        ?`<div class="deck-card-item"><img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy"></div>`
-        :`<div class="deck-card-item"><div class="deck-card-no-img"><div class="dcni-name">${_sbgEsc(entry.n)}</div></div></div>`;
-      tiles.push(tile);
+      const inner=img
+        ?`<img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy">`
+        :`<div class="deck-card-no-img"><div class="dcni-name">${_sbgEsc(entry.n)}</div></div>`;
+      tiles.push(`<div class="deck-card-item${tileExtraCls}">${inner}${tileMovedTag}</div>`);
     }
-    const movedDir=displaySection==='s'?'OUT':'IN';
-    const movedTag=entry.moved?`<div class="sbg-eye-moved-tag sbg-eye-moved-${movedDir.toLowerCase()}">${movedDir}</div>`:'';
     return `<div class="deck-col-stack sbg-eye-col-stack${entry.moved?' sbg-eye-moved':''}" title="${_sbgEsc(title)}" ${_clickAttrs(entry,displaySection)}>
-      ${movedTag}
       ${tiles.join('')}
     </div>`;
   }
