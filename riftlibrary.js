@@ -639,17 +639,19 @@ async function renderPublicDecks(){
   try{
     const {data,error}=await _sb.from('public_decks').select('*').order('created_at',{ascending:false}).limit(50);
     if(error) throw error;
-    if(!data||!data.length){
-      el.innerHTML=`<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Visible to everyone — anyone can browse and import these.</div>`
-        +`<div style="padding:3rem;text-align:center;"><h3 style="margin-bottom:8px;">No public decks yet</h3><p style="color:var(--text-muted);font-size:13px;">Be the first to publish a deck!</p>${_buildPublishBtn()}</div>`;
-      return;
-    }
     const st=_deckTabState.public;
-    st.data=data;
+    st.data=data||[];
     st.gridId='public-deck-grid';
     st.getName=d=>d.name||'';
     st.getHero=d=>d.legend||'';
     st.getAuthor=d=>d.author||'';
+    if(!data||!data.length){
+      el.innerHTML=`<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Visible to everyone — anyone can browse and import these.</div>`
+        +`<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:1rem;">${_buildPublishBtn()}</div>`
+        +_deckSearchBar('public')
+        +`<div style="padding:3rem;text-align:center;"><h3 style="margin-bottom:8px;">No public decks yet</h3><p style="color:var(--text-muted);font-size:13px;">Be the first to publish a deck!</p></div>`;
+      return;
+    }
     st.card=d=>{
       const totalC=(d.cards||[]).reduce((a,c)=>a+c.cnt,0)||0;
       const dcImg=d.legend_img||'';
@@ -783,17 +785,20 @@ async function renderTournamentDecks(){
   try{
     const {data,error}=await _sb.from('tournament_decks').select('*').order('event_date',{ascending:false,nullsFirst:false}).limit(100);
     if(error) throw error;
-    if(!data||!data.length){
-      el.innerHTML=intro+`<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:1rem;">${adminBtn}</div>`
-        +`<div style="padding:3rem;text-align:center;"><h3 style="margin-bottom:8px;">No tournament decks yet</h3><p style="color:var(--text-muted);font-size:13px;">${admin?'Add the first one!':'Check back soon for featured tournament decks.'}</p></div>`;
-      return;
-    }
     const st=_deckTabState.tournament;
-    st.data=data;
+    st.data=data||[];
     st.gridId='tournament-deck-grid';
     st.getName=d=>d.name||'';
     st.getHero=d=>d.legend||'';
-    st.getAuthor=d=>[d.player,d.event_name].filter(Boolean).join(' ');
+    // Tournament-specific searchable fields: player + event name + placement,
+    // so e.g. "Worlds", "Top 8", "1st", or a player name all match.
+    st.getAuthor=d=>[d.player,d.event_name,d.placement].filter(Boolean).join(' ');
+    if(!data||!data.length){
+      el.innerHTML=intro+`<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:1rem;">${adminBtn}</div>`
+        +_deckSearchBar('tournament')
+        +`<div style="padding:3rem;text-align:center;"><h3 style="margin-bottom:8px;">No tournament decks yet</h3><p style="color:var(--text-muted);font-size:13px;">${admin?'Add the first one!':'Check back soon for featured tournament decks.'}</p></div>`;
+      return;
+    }
     st.card=d=>{
       const totalC=(d.cards||[]).reduce((a,c)=>a+(c.cnt||0),0)||d.card_count||0;
       const dcImg=d.legend_img||'';
