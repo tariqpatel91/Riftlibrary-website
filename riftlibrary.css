@@ -591,11 +591,16 @@ input.sbg-cell-sub:focus{outline:none;background:rgba(255,255,255,0.05)!importan
    swap badge overlay and a swap-out fade effect. */
 .sbg-eye-body{overflow-y:auto;padding:0 18px 18px;flex:1;}
 .gallery-card.sbg-eye-swap-card{cursor:pointer;}
-.sbg-eye-swap{position:absolute;top:4px;left:4px;font-family:'Inter',system-ui,sans-serif;font-size:13px;font-weight:800;padding:3px 8px;border-radius:6px;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,0.5);z-index:2;}
-.sbg-eye-swap-out{background:rgba(255,107,74,0.92);color:#fff;}
-.sbg-eye-swap-in{background:rgba(112,194,124,0.92);color:#0a1f10;}
-.gallery-card.sbg-eye-card-gone{filter:grayscale(1) brightness(0.55);}
-.gallery-card.sbg-eye-card-gone:hover{transform:none;box-shadow:none;}
+/* Small ribbon shown on a card that's currently visible in the OTHER zone
+   relative to where it originally lives in the deck.
+     IN  = card moved from SB → main (green)
+     OUT = card moved from main → SB (orange) */
+.sbg-eye-moved-tag{position:absolute;top:4px;left:4px;font-family:'Inter',system-ui,sans-serif;font-size:10px;font-weight:800;letter-spacing:0.08em;padding:2px 6px;border-radius:5px;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,0.55);z-index:2;}
+.sbg-eye-moved-in{background:rgba(112,194,124,0.92);color:#0a1f10;}
+.sbg-eye-moved-out{background:rgba(255,107,74,0.92);color:#fff;}
+/* Subtle accent ring around the moved cards. */
+.gallery-card.sbg-eye-moved{outline:2px solid rgba(232,184,85,0.55);outline-offset:-2px;}
+.sbg-eye-col-stack.sbg-eye-moved .deck-card-item:last-child{box-shadow:0 0 0 2px rgba(232,184,85,0.6);}
 /* Champion strip: a slim left-aligned section so the modal doesn't waste a
    full row on one card. */
 .sbg-eye-champ-row{max-width:200px;margin-bottom:6px;}

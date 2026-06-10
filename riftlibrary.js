@@ -1830,6 +1830,31 @@ function _sbgRenderEyeModal(){
   const champion=d.champion?[{...d.champion,cnt:1}]:[];
   const mainDeck=(d.cards||[]).filter(c=>c.t!=='Legend').slice().sort(cmp);
   const sb=(d.sideboard||[]).slice().sort(cmp);
+  // Build the "effective" deck state: each main card's count is reduced by
+  // its side-out delta; the missing copies move to the SB display. Each SB
+  // card's count is reduced by its side-in delta; the missing copies move
+  // to the main display. Cards in either section carry their origin so
+  // click handlers know which row's delta to adjust.
+  function buildEffective(){
+    const effMain=[],effSb=[];
+    mainDeck.forEach(c=>{
+      const delta=_sbgEyeCellValue('m',c.n); // <=0
+      const remain=(c.cnt||1)+delta;
+      const moved=-delta;
+      if(remain>0) effMain.push({...c,cnt:remain,origin:'m',moved:false});
+      if(moved>0) effSb.push({...c,cnt:moved,origin:'m',moved:true});
+    });
+    sb.forEach(c=>{
+      const delta=_sbgEyeCellValue('s',c.n); // >=0
+      const remain=(c.cnt||1)-delta;
+      const moved=delta;
+      if(remain>0) effSb.push({...c,cnt:remain,origin:'s',moved:false});
+      if(moved>0) effMain.push({...c,cnt:moved,origin:'s',moved:true});
+    });
+    effMain.sort(cmp);effSb.sort(cmp);
+    return {effMain,effSb};
+  }
+  const {effMain,effSb}=buildEffective();
   // Static (read-only) tile — only used for Champion in this modal.
   function gcards(entries){
     return entries.map(entry=>{
@@ -1842,10 +1867,26 @@ function _sbgRenderEyeModal(){
       return `<div class="gallery-card" title="${_sbgEsc(entry.n)}">${imgInner}${cntBadge}</div>`;
     }).join('');
   }
-  // Interactive tile for main + sideboard cards. ONE tile per unique card
-  // with stack badge and swap badge. Click → side out (main) / in (SB);
-  // right-click → undo.
-  function gcardsSwap(entries,section){
+  // Click direction for an "effective" entry:
+  //   Entry's `origin` is which row the cell delta lives on.
+  //   `displaySection` is which side of the modal the card is currently on.
+  //   Clicking always moves one copy from the current side to the other side.
+  //   Origin 'm' uses negative-delta convention; origin 's' uses positive.
+  //   So the math:
+  //     display 'm', origin 'm' → delta -= 1 (side it out)        → dir -1 for 'm' row
+  //     display 's', origin 'm' → delta += 1 (return to main)     → dir +1 for 'm' row
+  //     display 's', origin 's' → delta += 1 (side it in)         → dir +1 for 's' row
+  //     display 'm', origin 's' → delta -= 1 (return to SB)       → dir -1 for 's' row
+  function _clickAttrs(entry,displaySection){
+    const safeName=_sbgEsc(entry.n).replace(/'/g,"\\'");
+    const o=entry.origin;
+    let dir,rowSection=o;
+    if(o==='m') dir=(displaySection==='m')?-1:1;
+    else        dir=(displaySection==='s')?1:-1;
+    return `onclick="_sbgEyeAdjust('${rowSection}','${safeName}',${dir})" oncontextmenu="event.preventDefault();_sbgEyeAdjust('${rowSection}','${safeName}',${-dir})"`;
+  }
+  // Interactive gallery tile — ONE tile per unique card with a stack badge.
+  function gcardsSwap(entries,displaySection){
     return entries.map(entry=>{
       const full=CARDS.find(c=>c.id===entry.id);
       const img=full?full.imageUrl:'';
@@ -1853,19 +1894,12 @@ function _sbgRenderEyeModal(){
         ?`<img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy">`
         :`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${_sbgEsc(entry.n)}</div>`;
       const total=entry.cnt||1;
-      const delta=_sbgEyeCellValue(section,entry.n);
-      const remaining=section==='m'?(total+delta):(total-delta);
       const stackBadge=total>1?`<div class="gallery-card-cnt">×${total}</div>`:'';
-      const badgeText=section==='m'?(delta?String(delta):''):(delta?`+${delta}`:'');
-      const badgeCls=section==='m'?'sbg-eye-swap sbg-eye-swap-out':'sbg-eye-swap sbg-eye-swap-in';
-      const swapBadge=badgeText?`<div class="${badgeCls}">${badgeText}</div>`:'';
-      const fadedCls=remaining<=0?' sbg-eye-card-gone':'';
-      const safeName=_sbgEsc(entry.n).replace(/'/g,"\\'");
-      const click=section==='m'
-        ?`onclick="_sbgEyeAdjust('m','${safeName}',-1)" oncontextmenu="event.preventDefault();_sbgEyeAdjust('m','${safeName}',1)"`
-        :`onclick="_sbgEyeAdjust('s','${safeName}',1)" oncontextmenu="event.preventDefault();_sbgEyeAdjust('s','${safeName}',-1)"`;
-      const title=section==='m'?`${entry.n} — click to side out · right-click to undo`:`${entry.n} — click to side in · right-click to undo`;
-      return `<div class="gallery-card sbg-eye-swap-card${fadedCls}" title="${_sbgEsc(title)}" ${click}>${imgInner}${stackBadge}${swapBadge}</div>`;
+      // Subtle indicator that this stack came from the other zone.
+      const movedDir=displaySection==='s'?'OUT':'IN';
+      const movedBadge=entry.moved?`<div class="sbg-eye-moved-tag sbg-eye-moved-${movedDir.toLowerCase()}">${movedDir}</div>`:'';
+      const title=displaySection==='m'?`${entry.n} — click to side out · right-click to undo`:`${entry.n} — click to side in · right-click to undo`;
+      return `<div class="gallery-card sbg-eye-swap-card${entry.moved?' sbg-eye-moved':''}" title="${_sbgEsc(title)}" ${_clickAttrs(entry,displaySection)}>${imgInner}${stackBadge}${movedBadge}</div>`;
     }).join('');
   }
   function section(label,tally,html,extraClass){
@@ -1883,67 +1917,58 @@ function _sbgRenderEyeModal(){
   // (one .deck-card-item per copy) so they overlap like a fan. This mirrors
   // the decklist Visual layout exactly. Click handler / swap badge live on
   // the .deck-col-stack wrapper so all copies act as one swap target.
-  function colStack(entry,section){
+  function colStack(entry,displaySection){
     const full=CARDS.find(c=>c.id===entry.id);
     const img=full?full.imageUrl:'';
     const total=entry.cnt||1;
-    const delta=_sbgEyeCellValue(section,entry.n);
-    const remaining=section==='m'?(total+delta):(total-delta);
-    const badgeText=section==='m'?(delta?String(delta):''):(delta?`+${delta}`:'');
-    const badgeCls=section==='m'?'sbg-eye-swap sbg-eye-swap-out':'sbg-eye-swap sbg-eye-swap-in';
-    const swapBadge=badgeText?`<div class="${badgeCls}">${badgeText}</div>`:'';
-    const safeName=_sbgEsc(entry.n).replace(/'/g,"\\'");
-    const click=section==='m'
-      ?`onclick="_sbgEyeAdjust('m','${safeName}',-1)" oncontextmenu="event.preventDefault();_sbgEyeAdjust('m','${safeName}',1)"`
-      :`onclick="_sbgEyeAdjust('s','${safeName}',1)" oncontextmenu="event.preventDefault();_sbgEyeAdjust('s','${safeName}',-1)"`;
-    const title=section==='m'?`${entry.n} — click to side out · right-click to undo`:`${entry.n} — click to side in · right-click to undo`;
+    const title=displaySection==='m'?`${entry.n} — click to side out · right-click to undo`:`${entry.n} — click to side in · right-click to undo`;
     const tiles=[];
     for(let i=0;i<total;i++){
-      // Faded once the i-th copy from the bottom has been "sided out". For
-      // main: top tiles fade first as you side them out. For SB: bottom tiles
-      // fade as they're sided in.
-      let isGone=false;
-      if(section==='m')   isGone=i>=remaining;       // sided-out copies fade
-      else if(section==='s') isGone=i>=remaining;    // sided-in copies leave the SB
       const tile=img
-        ?`<div class="deck-card-item${isGone?' sbg-eye-card-gone':''}"><img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy"></div>`
-        :`<div class="deck-card-item${isGone?' sbg-eye-card-gone':''}"><div class="deck-card-no-img"><div class="dcni-name">${_sbgEsc(entry.n)}</div></div></div>`;
+        ?`<div class="deck-card-item"><img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy"></div>`
+        :`<div class="deck-card-item"><div class="deck-card-no-img"><div class="dcni-name">${_sbgEsc(entry.n)}</div></div></div>`;
       tiles.push(tile);
     }
-    return `<div class="deck-col-stack sbg-eye-col-stack" title="${_sbgEsc(title)}" ${click}>
-      ${swapBadge}
+    const movedDir=displaySection==='s'?'OUT':'IN';
+    const movedTag=entry.moved?`<div class="sbg-eye-moved-tag sbg-eye-moved-${movedDir.toLowerCase()}">${movedDir}</div>`:'';
+    return `<div class="deck-col-stack sbg-eye-col-stack${entry.moved?' sbg-eye-moved':''}" title="${_sbgEsc(title)}" ${_clickAttrs(entry,displaySection)}>
+      ${movedTag}
       ${tiles.join('')}
     </div>`;
   }
-  function typeGroupedSection(label,tally,list,sectionKey){
+  function typeGroupedSection(label,tally,list,displaySection){
     const groups=groupByType(list);
     let inner='';
     groups.forEach(g=>{
       const cnt=g.cards.reduce((a,c)=>a+(c.cnt||1),0);
       inner+=`<div class="sbg-eye-type-grp">
         <div class="sbg-eye-type-hdr">${g.type.toUpperCase()} <span class="sbg-eye-type-cnt">(${cnt})</span></div>
-        <div class="deck-type-auto-grid sbg-eye-visual-grid">${g.cards.map(c=>colStack(c,sectionKey)).join('')}</div>
+        <div class="deck-type-auto-grid sbg-eye-visual-grid">${g.cards.map(c=>colStack(c,displaySection)).join('')}</div>
       </div>`;
     });
-    if(!groups.length) inner=`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:12px;opacity:0.6;">No cards in ${label.toLowerCase()}.</div>`;
+    if(!groups.length) inner=`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:12px;opacity:0.6;">No cards in ${label.toLowerCase()} after this matchup's swaps.</div>`;
     const tallyHtml=tally!=null?`<span class="gallery-section-tally">${tally}</span>`:'';
     return `<div class="gallery-section"><div class="gallery-section-hdr">${label}${tallyHtml}</div>${inner}</div>`;
   }
   const champCnt=champion.length;
-  const mainCnt=mainDeck.reduce((a,c)=>a+(c.cnt||1),0)+(d.champion?1:0);
-  const sbCnt=sb.reduce((a,c)=>a+(c.cnt||1),0);
+  // Effective totals — reflect copies after the planned swaps are applied,
+  // so the "X/40" tally moves with the user's clicks. Sideboard tally also
+  // moves and can exceed 8 (per spec: ignore the 8-card cap in this view).
+  const mainCnt=effMain.reduce((a,c)=>a+(c.cnt||1),0)+(d.champion?1:0);
+  const sbCnt=effSb.reduce((a,c)=>a+(c.cnt||1),0);
   let bodyHtml='';
   // Champion header strip (read-only — sideboarding doesn't touch champion)
   bodyHtml+=`<div class="sbg-eye-champ-row">`+section('Champion',`${champCnt}/1`,gcards(champion),'gallery-section-compact sbg-eye-champ-section')+`</div>`;
   if(_sbgEye.view==='visual'){
-    bodyHtml+=typeGroupedSection('Main Deck',`${mainCnt}/40`,mainDeck,'m');
-    bodyHtml+=typeGroupedSection('Sideboard',`${sbCnt}/8`,sb,'s');
+    bodyHtml+=typeGroupedSection('Main Deck',`${mainCnt}/40`,effMain,'m');
+    bodyHtml+=typeGroupedSection('Sideboard',`${sbCnt}/8`,effSb,'s');
   } else {
-    bodyHtml+=section('Main Deck',`${mainCnt}/40`,gcardsSwap(mainDeck,'m'));
-    bodyHtml+=section('Sideboard',`${sbCnt}/8`,gcardsSwap(sb,'s'));
+    bodyHtml+=section('Main Deck',`${mainCnt}/40`,gcardsSwap(effMain,'m'));
+    bodyHtml+=section('Sideboard',`${sbCnt}/8`,gcardsSwap(effSb,'s'));
   }
   const galleryBody=`<div class="gallery-all-sections${_sbgEye.view==='visual'?' sbg-eye-mode-visual':''}">${bodyHtml}</div>`;
-  // Running totals for header
+  // Running totals for header — total copies that have been moved out of
+  // each original zone for this matchup/sub combination.
   let totalOut=0,totalIn=0;
   mainDeck.forEach(c=>{const v=_sbgEyeCellValue('m',c.n);if(v<0)totalOut+=-v;});
   sb.forEach(c=>{const v=_sbgEyeCellValue('s',c.n);if(v>0)totalIn+=v;});
