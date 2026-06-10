@@ -533,6 +533,7 @@ function goto(p,el){
   if(p==='events')renderEvents();
   if(p==='collection'){CF2.binder='';CF2.show=(CF2.collMode==='view'?'owned':'all');CF2.q='';CF2.binderMode='view';renderCollection();}
   if(p==='team')renderTeam();
+  if(p==='profile')renderProfilePage();
   if(p==='play'&&typeof populateDeckSelectors==='function')populateDeckSelectors();
   if(p==='articles')renderArticles();
 }
@@ -654,10 +655,7 @@ function openPublishDeckModal(){
     <div style="display:flex;flex-direction:column;gap:12px;padding:16px;">
       <label style="font-size:13px;font-weight:600;">Select deck</label>
       <select id="pub-deck-sel" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">${opts}</select>
-      <label style="font-size:13px;font-weight:600;">Author name (optional)</label>
-      <input id="pub-author" type="text" placeholder="Your name or handle" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">
-      <label style="font-size:13px;font-weight:600;">Description (optional)</label>
-      <textarea id="pub-desc" rows="3" placeholder="Describe your deck strategy…" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);resize:vertical;"></textarea>
+      <div style="font-size:12px;color:var(--text-muted);">Published as <b>${String(profileDisplayName()).replace(/</g,'&lt;')}</b></div>
       <button class="btn btn-p" onclick="submitPublicDeck()">Publish</button>
     </div>
   </div>`;
@@ -667,11 +665,8 @@ function openPublishDeckModal(){
 async function submitPublicDeck(){
   if(!currentUser){toast('Log in to publish a deck');openAuthModal('login');return;}
   const deckId=document.getElementById('pub-deck-sel').value;
-  const author=(document.getElementById('pub-author').value||'').trim()
-    ||(currentUser.user_metadata&&(currentUser.user_metadata.username||currentUser.user_metadata.full_name))
-    ||(currentUser.email||'').split('@')[0]
-    ||'Anonymous';
-  const description=(document.getElementById('pub-desc').value||'').trim();
+  const author=profileDisplayName();
+  const description='';
   const d=myDecks.find(x=>String(x.id)===String(deckId));
   if(!d){toast('Deck not found');return;}
   const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
@@ -981,11 +976,9 @@ async function publishDeckToPublic(deckId){
     renderDecks();
     return;
   }
-  if(!confirm(`Publish "${d.name}" to Public Decks? Anyone will be able to view and import it.`))return;
-  const defaultAuthor=(currentUser.user_metadata&&(currentUser.user_metadata.username||currentUser.user_metadata.full_name))
-    ||(currentUser.email||'').split('@')[0]||'Anonymous';
-  const author=(prompt('Publish under what author name?',defaultAuthor)||'').trim()||defaultAuthor;
-  const description=(prompt('Short description (optional):','')||'').trim();
+  if(!confirm(`Publish "${d.name}" to Public Decks as ${profileDisplayName()}? Anyone will be able to view and import it.`))return;
+  const author=profileDisplayName();
+  const description='';
   const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
   const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
   const payload={
@@ -4600,33 +4593,39 @@ function createBinder(){
  * "(foil)", "[foil]", "(2 foil)", "*F" so foil copies are tagged.
  */
 function openImportBinderModal(){
-  const old=document.getElementById('import-binder-modal');if(old)old.remove();
-  const m=document.createElement('div');
-  m.id='import-binder-modal';
-  m.innerHTML=`<div class="modal-backdrop" onclick="document.getElementById('import-binder-modal').remove()"></div>
-  <div class="modal-box" style="max-width:480px;">
-    <div class="modal-header"><h2>Import Binder</h2><button class="modal-close" onclick="document.getElementById('import-binder-modal').remove()">✕</button></div>
-    <div style="display:flex;flex-direction:column;gap:12px;padding:16px;">
-      <div>
-        <label class="form-label">Binder name</label>
-        <input id="import-binder-name" class="form-input" type="text" placeholder="Imported Binder" value="Imported Binder">
-      </div>
-      <div>
-        <label class="form-label">Card list</label>
-        <textarea id="import-binder-text" class="form-input" rows="10" placeholder="3 Diana - Scorn of the Moon&#10;1 Ahri - Nine-Tailed Fox (foil)&#10;2 Annie - Dark Child (1 foil)&#10;Jinx x4"></textarea>
-        <div style="font-size:12px;color:var(--muted,#888);margin-top:6px;">One card per line. Add <b>(foil)</b> or <b>(2 foil)</b> to tag foil copies.</div>
-      </div>
-      <button class="btn btn-p" style="width:100%;" onclick="importBinderFromText()">Import Binder</button>
-    </div>
-  </div>`;
-  document.body.appendChild(m);
+  const modal=document.getElementById('import-binder-modal');
+  if(!modal) return;
+  document.getElementById('import-binder-name').value='';
+  document.getElementById('import-binder-text').value='';
+  document.getElementById('import-binder-file').value='';
+  const fb=document.getElementById('import-binder-feedback');
+  if(fb){fb.textContent='';fb.style.color='var(--text-muted)';}
+  modal.style.display='flex';
   setTimeout(()=>{const t=document.getElementById('import-binder-text');if(t)t.focus();},50);
+}
+
+function closeImportBinderModal(){
+  const modal=document.getElementById('import-binder-modal');
+  if(modal) modal.style.display='none';
+}
+
+function loadImportBinderFile(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    document.getElementById('import-binder-text').value=e.target.result;
+    if(!document.getElementById('import-binder-name').value.trim())
+      document.getElementById('import-binder-name').value=file.name.replace(/\.txt$/i,'');
+  };
+  reader.readAsText(file);
 }
 
 function importBinderFromText(){
   const nameInput=(document.getElementById('import-binder-name')||{}).value||'';
   const raw=(document.getElementById('import-binder-text')||{}).value||'';
-  if(!raw.trim()){toast('Paste a card list first');return;}
+  const fb=document.getElementById('import-binder-feedback');
+  const _fb=(t,err)=>{if(fb){fb.textContent=t;fb.style.color=err?'var(--fury)':'var(--text-muted)';}};
+  if(!raw.trim()){_fb('Paste a card list or upload a file first.',true);return;}
   const binderName=nameInput.trim()||'Imported Binder';
 
   const _norm=s=>String(s||'').toLowerCase()
@@ -4680,13 +4679,13 @@ function importBinderFromText(){
     if(e.foil>0)o.foil=Math.min(e.foil,e.cnt);
     return o;
   });
-  if(!cardList.length){toast('No cards matched. Check the list and try again.');return;}
+  if(!cardList.length){_fb('No cards matched. Check the list and try again.',true);return;}
 
   const newId=Date.now();
   rlBinders.push({id:newId,name:binderName,cards:cardList});
   persistBinders();
   CF2.binder=newId;CF2.binderMode='view';
-  const modal=document.getElementById('import-binder-modal');if(modal)modal.remove();
+  closeImportBinderModal();
   renderCollection();
   toast('Imported '+matched+' card'+(matched===1?'':'s')+(unmatched.length?' — '+unmatched.length+' unmatched':''));
   if(unmatched.length) console.warn('Unmatched binder import lines:',unmatched);
@@ -5623,6 +5622,7 @@ async function initAuth() {
   if (session) {
     currentUser = session.user;
     renderAuthNav(currentUser);
+    loadOrCreateProfile();
     syncCloudDecks();
   } else {
     renderAuthNav(null);
@@ -5631,8 +5631,69 @@ async function initAuth() {
     const wasLoggedIn = !!currentUser;
     currentUser = session ? session.user : null;
     renderAuthNav(currentUser);
+    if (currentUser) loadOrCreateProfile(); else myProfile = null;
     if (currentUser && !wasLoggedIn) syncCloudDecks();
   });
+}
+
+/* ── PROFILES (display name + unique site id number) ───────────
+ * Each user has a row in the `profiles` table carrying a globally-unique
+ * display name and an auto-assigned numeric user_number. The display name
+ * defaults to whatever name they signed in with (Google / X / Discord /
+ * email) and can be changed at most once every 3 months (enforced in the DB).
+ * myProfile mirrors the current user's row for the rest of the app. */
+let myProfile = null;
+let _profileTableMissing = false;
+
+// Best-guess display name from the OAuth / signup metadata.
+function _defaultDisplayName(){
+  const meta=(currentUser&&currentUser.user_metadata)||{};
+  const cand=meta.user_name||meta.preferred_username||meta.username
+    ||meta.full_name||meta.name||meta.nickname
+    ||((currentUser&&currentUser.email)?currentUser.email.split('@')[0]:'')
+    ||'Player';
+  return String(cand).trim().slice(0,30)||'Player';
+}
+
+// The name to show everywhere (deck author, nav pill, etc.).
+function profileDisplayName(){
+  if(myProfile&&myProfile.display_name) return myProfile.display_name;
+  return _defaultDisplayName();
+}
+
+async function loadOrCreateProfile(){
+  if(!currentUser){myProfile=null;return;}
+  try{
+    const {data,error}=await _sb.from('profiles').select('*').eq('id',currentUser.id).maybeSingle();
+    if(error){
+      if(_isMissingTableError(error)){myProfile=null;_profileTableMissing=true;refreshProfilePageIfOpen();return;} // table not set up yet
+      throw error;
+    }
+    _profileTableMissing=false;
+    if(data){myProfile=data;renderAuthNav(currentUser);refreshProfilePageIfOpen();return;}
+    // No row yet — create one with the OAuth default name (collision-safe).
+    myProfile=await _createProfileWithUniqueName(_defaultDisplayName());
+    if(myProfile){renderAuthNav(currentUser);refreshProfilePageIfOpen();}
+  }catch(e){console.warn('[profile] load failed',e);myProfile=null;}
+}
+
+// Insert a profile, retrying with a numeric suffix if the chosen display name
+// is already taken (unique-violation code 23505).
+async function _createProfileWithUniqueName(base){
+  base=(String(base||'Player').trim()||'Player').slice(0,30);
+  for(let attempt=0;attempt<6;attempt++){
+    const name=attempt===0?base:`${base.slice(0,24)}${Math.floor(1000+Math.random()*9000)}`;
+    const {data,error}=await _sb.from('profiles')
+      .insert([{id:currentUser.id,display_name:name}]).select().single();
+    if(!error) return data;
+    if(error.code!=='23505') {console.warn('[profile] create failed',error);return null;}
+  }
+  return null;
+}
+
+function refreshProfilePageIfOpen(){
+  const pg=document.getElementById('page-profile');
+  if(pg&&pg.classList.contains('active')) renderProfilePage();
 }
 
 function renderAuthNav(user) {
@@ -5654,7 +5715,7 @@ function renderAuthNav(user) {
     area.appendChild(signupBtn);
   } else {
     var meta = user.user_metadata || {};
-    var name = meta.username || meta.full_name || user.email.split('@')[0];
+    var name = (myProfile && myProfile.display_name) || meta.username || meta.full_name || user.email.split('@')[0];
     var initials = name.slice(0,2).toUpperCase();
     var wrap = document.createElement('div');
     wrap.className = 'auth-drop-wrap';
@@ -5687,8 +5748,8 @@ function renderAuthNav(user) {
     b1.textContent = 'My Decks';
     b1.onclick = function(){ goto('decks', null); closeUserDrop(); };
     var bProfile = document.createElement('button');
-    bProfile.textContent = '⚙ Profile Settings';
-    bProfile.onclick = function(){ openProfileModal(); closeUserDrop(); };
+    bProfile.textContent = '👤 My Profile';
+    bProfile.onclick = function(){ goto('profile', null); closeUserDrop(); };
     var b2 = document.createElement('button');
     b2.textContent = '☁ Sync decks';
     b2.onclick = function(){ syncCloudDecks(); closeUserDrop(); };
@@ -5803,6 +5864,7 @@ async function submitLogin() {
     if (error) throw error;
     currentUser = data.user;
     renderAuthNav(data.user);
+    loadOrCreateProfile();
     closeAuthModal();
     toast('Welcome back!');
     syncCloudDecks();
@@ -5851,58 +5913,113 @@ async function oauthLogin(provider) {
   }
 }
 
-function openProfileModal(){
-  if(!currentUser){toast('Please log in first');return;}
-  const meta=currentUser.user_metadata||{};
-  const m=document.createElement('div');
-  m.id='profile-modal';
-  m.className='auth-modal-backdrop open';
-  m.innerHTML=`<div class="auth-modal-box" style="max-width:460px;">
-    <div class="auth-modal-header">
-      <h2 style="font-family:'Syne',sans-serif;font-size:18px;margin:0;">Profile Settings</h2>
-      <button class="auth-close" onclick="closeProfileModal()">✕</button>
-    </div>
-    <div id="profile-msg" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;margin:0 0 10px;"></div>
-    <div style="display:flex;flex-direction:column;gap:14px;padding:4px 2px 10px;">
-      <div>
-        <label class="pf-lbl">Username</label>
-        <input id="pf-username" type="text" class="pf-input" value="${(meta.username||'').replace(/"/g,'&quot;')}" placeholder="username">
-      </div>
-      <div>
-        <label class="pf-lbl">Display name</label>
-        <input id="pf-displayname" type="text" class="pf-input" value="${(meta.full_name||'').replace(/"/g,'&quot;')}" placeholder="Display name (optional)">
-      </div>
-      <div>
-        <label class="pf-lbl">Avatar URL</label>
-        <input id="pf-avatar" type="text" class="pf-input" value="${(meta.avatar_url||'').replace(/"/g,'&quot;')}" placeholder="https://…">
-      </div>
-      <div>
-        <label class="pf-lbl">Bio</label>
-        <textarea id="pf-bio" class="pf-input" rows="2" placeholder="Tell people about yourself">${(meta.bio||'').replace(/</g,'&lt;')}</textarea>
-      </div>
-      <button class="btn btn-p" style="padding:10px;font-size:13px;" onclick="saveProfileSettings()">Save Profile</button>
-      <hr style="border:none;border-top:1px solid var(--border);margin:4px 0;">
-      <div>
-        <label class="pf-lbl">Email</label>
-        <input id="pf-email" type="email" class="pf-input" value="${(currentUser.email||'').replace(/"/g,'&quot;')}">
-        <button class="btn btn-g" style="padding:8px;font-size:12px;margin-top:8px;width:100%;" onclick="updateProfileEmail()">Update Email</button>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">You'll receive a confirmation link at the new address.</div>
-      </div>
-      <hr style="border:none;border-top:1px solid var(--border);margin:4px 0;">
-      <div>
-        <label class="pf-lbl">New Password</label>
-        <input id="pf-password" type="password" class="pf-input" placeholder="At least 8 characters">
-        <input id="pf-password-confirm" type="password" class="pf-input" placeholder="Confirm new password" style="margin-top:8px;">
-        <button class="btn btn-g" style="padding:8px;font-size:12px;margin-top:8px;width:100%;" onclick="updateProfilePassword()">Change Password</button>
-      </div>
-    </div>
-  </div>`;
-  document.body.appendChild(m);
+// Date the user is next allowed to change their display name (3 months after
+// the last change), or null if they've never changed it.
+function _nextNameChangeDate(){
+  if(!myProfile||!myProfile.display_name_changed_at) return null;
+  const d=new Date(myProfile.display_name_changed_at);
+  if(isNaN(d.getTime())) return null;
+  const n=new Date(d); n.setMonth(n.getMonth()+3);
+  return n;
+}
+function _canChangeDisplayName(){
+  const n=_nextNameChangeDate();
+  return !n || Date.now()>=n.getTime();
 }
 
-function closeProfileModal(){
-  const m=document.getElementById('profile-modal');
-  if(m) m.remove();
+function renderProfilePage(){
+  const el=document.getElementById('profile-content');
+  if(!el) return;
+  if(!currentUser){
+    el.innerHTML=`<div style="max-width:560px;margin:2rem auto;padding:20px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;text-align:center;">
+      <div style="font-size:14px;color:var(--text-muted);margin-bottom:14px;">Log in to view and edit your profile.</div>
+      <button class="btn btn-p" onclick="openAuthModal('login')">Log in</button>
+    </div>`;
+    return;
+  }
+  if(!myProfile){
+    if(_profileTableMissing){ el.innerHTML=_setupHint('profiles'); return; }
+    el.innerHTML=`<div style="max-width:560px;margin:2rem auto;padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">Setting up your profile…</div>`;
+    loadOrCreateProfile().then(()=>{ if(myProfile||_profileTableMissing) renderProfilePage(); });
+    return;
+  }
+  const meta=currentUser.user_metadata||{};
+  const esc=s=>String(s||'').replace(/"/g,'&quot;');
+  const dn=myProfile.display_name||'';
+  const num=myProfile.user_number!=null?myProfile.user_number:'—';
+  const canChange=_canChangeDisplayName();
+  const nextDate=_nextNameChangeDate();
+  const cooldownMsg=canChange
+    ? `2–30 characters, unique across the site. Heads up: you can only change it once every 3 months.`
+    : `You can change your display name again on <b>${nextDate?nextDate.toLocaleDateString():'—'}</b>.`;
+  const avatarBlock=meta.avatar_url
+    ? `<img src="${esc(meta.avatar_url)}" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:1px solid var(--border);">`
+    : `<div style="width:56px;height:56px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;">${esc(dn.slice(0,2).toUpperCase())}</div>`;
+  el.innerHTML=`<div style="max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:18px;">
+    <div id="profile-msg" style="display:none;padding:9px 13px;border-radius:8px;font-size:12px;"></div>
+
+    <div class="pf-card">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+        ${avatarBlock}
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;line-height:1.1;">${esc(dn)}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">User #${num} · ${esc(currentUser.email||'')}</div>
+        </div>
+      </div>
+      <label class="pf-lbl">Display name</label>
+      <input id="pf-displayname" type="text" class="pf-input" value="${esc(dn)}" maxlength="30" ${canChange?'':'disabled'} placeholder="Your display name">
+      <div style="font-size:11px;color:var(--text-muted);margin:6px 0 12px;line-height:1.5;">${cooldownMsg}</div>
+      <button class="btn btn-p" style="padding:9px 16px;font-size:13px;" ${canChange?'':'disabled'} onclick="changeDisplayName()">Save name</button>
+    </div>
+
+    <div class="pf-card">
+      <label class="pf-lbl">Avatar URL</label>
+      <input id="pf-avatar" type="text" class="pf-input" value="${esc(meta.avatar_url||'')}" placeholder="https://…">
+      <button class="btn btn-g" style="padding:8px 14px;font-size:12px;margin-top:10px;" onclick="saveProfileExtras()">Save avatar</button>
+    </div>
+
+    <div class="pf-card">
+      <label class="pf-lbl">Email</label>
+      <input id="pf-email" type="email" class="pf-input" value="${esc(currentUser.email||'')}">
+      <div style="font-size:11px;color:var(--text-muted);margin:5px 0 10px;">You'll receive a confirmation link at the new address.</div>
+      <button class="btn btn-g" style="padding:8px 14px;font-size:12px;" onclick="updateProfileEmail()">Update email</button>
+    </div>
+
+    <div class="pf-card">
+      <label class="pf-lbl">New password</label>
+      <input id="pf-password" type="password" class="pf-input" placeholder="At least 8 characters">
+      <input id="pf-password-confirm" type="password" class="pf-input" placeholder="Confirm new password" style="margin-top:8px;">
+      <button class="btn btn-g" style="padding:8px 14px;font-size:12px;margin-top:10px;" onclick="updateProfilePassword()">Change password</button>
+    </div>
+  </div>`;
+}
+
+// Change the globally-unique display name. Validates locally, then writes to
+// the profiles table; the DB enforces uniqueness and the 3-month cooldown.
+async function changeDisplayName(){
+  if(!currentUser||!myProfile) return;
+  const input=document.getElementById('pf-displayname');
+  if(!input) return;
+  const name=input.value.trim();
+  if(name===myProfile.display_name){_pfMsg('That is already your display name','err');return;}
+  if(!/^[\w .'\-]{2,30}$/u.test(name)){_pfMsg('Display name: 2–30 characters (letters, numbers, spaces, . _ - \')','err');return;}
+  if(!_canChangeDisplayName()){
+    const n=_nextNameChangeDate();
+    _pfMsg('You can change your name again on '+(n?n.toLocaleDateString():'—'),'err');return;
+  }
+  try{
+    const {data,error}=await _sb.from('profiles')
+      .update({display_name:name}).eq('id',currentUser.id).select().single();
+    if(error){
+      if(error.code==='23505'){_pfMsg('That display name is already taken — try another','err');return;}
+      if(String(error.message||'').includes('display_name_cooldown')){_pfMsg('You can only change your display name once every 3 months','err');return;}
+      throw error;
+    }
+    myProfile=data;
+    _pfMsg('Display name updated!','ok');
+    renderAuthNav(currentUser);
+    renderProfilePage();
+  }catch(e){_pfMsg(e.message||'Could not update display name','err');}
 }
 
 function _pfMsg(text,kind){
@@ -5914,20 +6031,16 @@ function _pfMsg(text,kind){
   else{el.style.background='rgba(239,68,68,0.12)';el.style.color='#f87171';el.style.border='1px solid #ef4444';}
 }
 
-async function saveProfileSettings(){
-  const username=document.getElementById('pf-username').value.trim();
-  const full_name=document.getElementById('pf-displayname').value.trim();
-  const avatar_url=document.getElementById('pf-avatar').value.trim();
-  const bio=document.getElementById('pf-bio').value.trim();
-  if(!username){_pfMsg('Username is required','err');return;}
-  if(!/^[A-Za-z0-9_.\-]{2,30}$/.test(username)){_pfMsg('Username: 2-30 chars, letters/numbers/_.- only','err');return;}
+async function saveProfileExtras(){
+  const avatar_url=(document.getElementById('pf-avatar').value||'').trim();
   try{
-    const {data,error}=await _sb.auth.updateUser({data:{username,full_name,avatar_url,bio}});
+    const {data,error}=await _sb.auth.updateUser({data:{avatar_url}});
     if(error) throw error;
     currentUser=data.user;
     renderAuthNav(currentUser);
-    _pfMsg('Profile saved!','ok');
-  }catch(e){_pfMsg(e.message||'Could not save profile','err');}
+    _pfMsg('Avatar saved!','ok');
+    renderProfilePage();
+  }catch(e){_pfMsg(e.message||'Could not save avatar','err');}
 }
 
 async function updateProfileEmail(){

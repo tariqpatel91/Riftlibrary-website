@@ -15,6 +15,63 @@
 --
 -- Re-running is safe — every statement is idempotent.
 
+-- ── PROFILES ────────────────────────────────────────────────
+-- One row per user. Every profile gets a unique, auto-assigned numeric
+-- user_number (a stable site-wide id) and a globally-unique display_name
+-- (compared case-insensitively). The display name defaults to whatever name
+-- the user signed in with (Google / X / Discord / email) and can be changed
+-- at most once every 3 months — enforced by the trigger below so it can't be
+-- bypassed from the client.
+create table if not exists public.profiles (
+  id                       uuid primary key references auth.users(id) on delete cascade,
+  user_number              bigint generated always as identity,
+  display_name             text not null,
+  display_name_changed_at  timestamptz default now(),
+  created_at               timestamptz default now()
+);
+
+-- Unique numeric id + case-insensitive unique display name
+create unique index if not exists profiles_user_number_key
+  on public.profiles(user_number);
+create unique index if not exists profiles_display_name_lower_key
+  on public.profiles(lower(display_name));
+
+alter table public.profiles enable row level security;
+
+-- Anyone can read profiles (so deck authors / names show for everyone).
+drop policy if exists "profiles_select_anyone" on public.profiles;
+create policy "profiles_select_anyone"
+  on public.profiles for select using (true);
+
+drop policy if exists "profiles_insert_own" on public.profiles;
+create policy "profiles_insert_own"
+  on public.profiles for insert with check (auth.uid() = id);
+
+drop policy if exists "profiles_update_own" on public.profiles;
+create policy "profiles_update_own"
+  on public.profiles for update using (auth.uid() = id);
+
+-- Enforce the "change display name once every 3 months" rule. Runs before any
+-- update; only fires when the display_name actually changes.
+create or replace function public.enforce_display_name_cooldown()
+returns trigger language plpgsql as $$
+begin
+  if new.display_name is distinct from old.display_name then
+    if old.display_name_changed_at is not null
+       and old.display_name_changed_at > now() - interval '3 months' then
+      raise exception 'display_name_cooldown: you can only change your display name once every 3 months';
+    end if;
+    new.display_name_changed_at := now();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_display_name_cooldown on public.profiles;
+create trigger trg_display_name_cooldown
+  before update on public.profiles
+  for each row execute function public.enforce_display_name_cooldown();
+
 -- ── PUBLIC DECKS ────────────────────────────────────────────
 create table if not exists public.public_decks (
   id              uuid primary key default gen_random_uuid(),

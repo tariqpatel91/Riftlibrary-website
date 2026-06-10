@@ -822,6 +822,8 @@ select option{background:#1e1e2a;}
 .pf-lbl{display:block;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px;}
 .pf-input{width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;font-family:'Inter',system-ui,sans-serif;box-sizing:border-box;resize:vertical;}
 .pf-input:focus{outline:none;border-color:var(--accent);}
+.pf-input:disabled{opacity:0.55;cursor:not-allowed;}
+.pf-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:18px 20px;}
 .auth-tabs{display:flex;background:var(--bg);border-radius:9px;padding:3px;margin-bottom:1.5rem;gap:2px;}
 .auth-tab{flex:1;padding:7px;font-size:13px;font-family:'Inter',system-ui,sans-serif;border:none;background:transparent;color:var(--text-muted);cursor:pointer;border-radius:7px;transition:all 0.15s;}
 .auth-tab.active{background:var(--surface2);color:var(--text);}
