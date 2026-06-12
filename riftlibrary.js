@@ -5102,21 +5102,41 @@ function renderTeam(){
       if(!teamThreads.length){
         html+=`<div class="team-empty">No discussions yet. Start a topic above!</div>`;
       }else{
+        // Classic phpBB-style two-column table: forum description on the
+        // left, last-post snippet on the right. One row per thread.
+        const isToday=(ts)=>{const d=new Date(ts),n=new Date();return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate();};
+        const fmtDate=(ts)=>{const d=new Date(ts);return isToday(ts)?'Today':(String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'-'+d.getFullYear());};
+        const fmtTime=(ts)=>new Date(ts).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+        const snip=(s,n)=>{if(!s)return '';s=s.replace(/\s+/g,' ').trim();return s.length>n?s.slice(0,n-1)+'…':s;};
+        html+=`<div class="forum-table">
+          <div class="forum-thead">
+            <div class="forum-th forum-th-main">Forum</div>
+            <div class="forum-th forum-th-last">Last Post</div>
+          </div>
+          <div class="forum-tbody">`;
         teamThreads.forEach(t=>{
           const posts=t.posts||[];
-          const replies=posts.length;
           const last=posts[posts.length-1];
-          const dt=new Date((last&&last.ts)||t.ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-          const info=last?`Last reply by ${_teamEsc(last.author||'Member')}`:`Started by ${_teamEsc(t.author||'Member')}`;
-          html+=`<div class="forum-row" onclick="openTeamThread(${t.id})">
-            <div class="forum-row-main">
-              <div class="forum-row-title">${_teamEsc(t.title)}</div>
-              <div class="forum-row-meta">${info} · ${dt}</div>
+          const desc=snip((posts[0]&&posts[0].text)||'(no description)',110);
+          const lastSnip=last?snip(last.text,28):snip(t.title,28);
+          const lastAuthor=_teamEsc((last&&last.author)||t.author||'Member');
+          const lastTs=(last&&last.ts)||t.ts;
+          html+=`<div class="forum-trow" onclick="openTeamThread(${t.id})">
+            <div class="forum-td-icon" aria-hidden="true">📄</div>
+            <div class="forum-td-main">
+              <a class="forum-td-title" onclick="event.stopPropagation();openTeamThread(${t.id})">${_teamEsc(t.title)}</a>
+              <div class="forum-td-desc">${desc}</div>
             </div>
-            <div class="forum-row-count"><span class="forum-row-num">${replies}</span><span class="forum-row-lbl">repl${replies===1?'y':'ies'}</span></div>
-            <button class="team-post-del" onclick="event.stopPropagation();deleteTeamThread(${t.id})" title="Delete topic">×</button>
+            <div class="forum-td-last">
+              <a class="forum-td-last-title" onclick="event.stopPropagation();openTeamThread(${t.id})" title="Jump to thread">${lastSnip}</a>
+              <div class="forum-td-last-by">by <a class="forum-td-last-user" onclick="event.stopPropagation()">${lastAuthor}</a></div>
+              <div class="forum-td-last-date">${fmtDate(lastTs)} <span class="forum-td-last-time">${fmtTime(lastTs)}</span></div>
+              <button class="forum-td-jump" onclick="event.stopPropagation();openTeamThread(${t.id})" title="Go to thread">›</button>
+            </div>
+            <button class="team-post-del forum-td-del" onclick="event.stopPropagation();deleteTeamThread(${t.id})" title="Delete topic">×</button>
           </div>`;
         });
+        html+=`</div></div>`;
       }
       html+=`</div>`;
     }
