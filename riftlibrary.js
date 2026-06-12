@@ -5892,7 +5892,7 @@ function renderCollection(){
     <div class="cbs-header">
       <span>Binders</span>
       <div class="cbs-header-btns">
-        <button class="cbs-new-btn" onclick="openImportBinderModal()" title="Import binder from text">⤓</button>
+        <button class="cbs-new-btn" onclick="openImportBinderModal()" title="Import binder from text">↑</button>
         <button class="cbs-new-btn" onclick="createBinder()" title="New binder">+</button>
       </div>
     </div>
