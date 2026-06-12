@@ -931,6 +931,10 @@ input.sbg-cell-sub:focus{outline:none;background:rgba(255,255,255,0.05)!importan
 .evt-tab.on{background:var(--accent);color:#fff;border-color:var(--accent);}
 .evt-tab:hover:not(.on){background:var(--surface3);color:var(--text);}
 .evt-tab-badge{background:rgba(255,255,255,0.25);border-radius:10px;padding:1px 6px;font-size:11px;font-weight:700;}
+/* "Show past / Hide past" pill embedded in the schedule title row. */
+.sched-past-toggle{padding:4px 12px;border-radius:14px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s;letter-spacing:0.02em;font-family:inherit;}
+.sched-past-toggle:hover{background:var(--surface3);color:var(--text);border-color:var(--accent);}
+.sched-past-toggle.on{background:var(--accent-dim);color:var(--accent);border-color:var(--accent);}
 .result-form{background:var(--surface2);border-radius:10px;padding:1rem;margin-bottom:1.25rem;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;}
 .result-form label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;display:block;margin-bottom:4px;}
 .result-form input,.result-form select{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;font-family:'Inter',system-ui,sans-serif;color:var(--text);outline:none;}

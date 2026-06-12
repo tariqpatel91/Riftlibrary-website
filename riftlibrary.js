@@ -109,6 +109,38 @@ function deleteThreadReply(threadId,postId){
 }
 function persistMyEvents(){localStorage.setItem('rl_myEvents',JSON.stringify(myEvents));saveEventsToCloud();}
 function switchEvtTab(t){activeEvtTab=t;renderEvents();}
+// Session-only toggle: when false (default) the Schedule and RQ lists hide
+// events whose end date is in the past. Resets to upcoming-only on reload.
+let showPastSchedule=false;
+function toggleSchedPast(){showPastSchedule=!showPastSchedule;renderEvents();}
+// Best-effort parser for SCHEDULE_2026 date strings. Returns the event's
+// LAST day so single-day, range, and cross-month entries all sort correctly.
+// Falls back to end-of-month for fuzzy values like "TBD" or "Mid-May" so
+// they don't expire prematurely.
+function _schedEventEnd(monthLabel,dates){
+  const MAP={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11,
+             January:0,February:1,March:2,April:3,June:5,July:6,August:7,September:8,October:9,November:10,December:11};
+  const parts=String(monthLabel).split(' ');
+  const parentIdx=MAP[parts[0]];
+  const year=parseInt(parts[1],10)||(new Date()).getFullYear();
+  if(parentIdx===undefined) return new Date(year,11,31);
+  const s=String(dates||'');
+  // "May 29–Jun 1" / "Jul 30–Aug 2" — explicit end-month after the dash
+  const cross=s.match(/[–—-]\s*([A-Za-z]{3,9})\s*(\d+)/);
+  if(cross&&MAP[cross[1]]!==undefined) return new Date(year,MAP[cross[1]],parseInt(cross[2],10));
+  // "May 1–7" — same-month range, take the second number
+  const same=s.match(/(\d+)\s*[–—-]\s*(\d+)/);
+  if(same) return new Date(year,parentIdx,parseInt(same[2],10));
+  // "May 8" or "8" — single day
+  const single=s.match(/(\d+)/);
+  if(single) return new Date(year,parentIdx,parseInt(single[1],10));
+  // Heuristics for "Early/Mid/Late <Month>"
+  if(/^Early/i.test(s)) return new Date(year,parentIdx,10);
+  if(/^Mid/i.test(s))   return new Date(year,parentIdx,20);
+  if(/^Late/i.test(s))  return new Date(year,parentIdx,28);
+  // TBD or unknown — never auto-hide; use the last day of the parent month.
+  return new Date(year,parentIdx+1,0);
+}
 function createMyEvent(){
   const name=(document.getElementById('mevt-name')||{}).value||'';
   const date=(document.getElementById('mevt-date')||{}).value||'';
@@ -5160,8 +5192,9 @@ function renderEvents(){
   };
   function typeBadge(t){const s=typeStyle[t]||typeStyle.special;return`<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${s.bg};color:${s.color};white-space:nowrap;">${s.label}</span>`;}
   function allEventsHTML(){
-    const rqHTML=RQ_EVENTS.map((rq,idx)=>{
-      const isPast=new Date(rq.sortDate)<today;
+    const rqVisible=RQ_EVENTS.map((rq,idx)=>({rq,idx,isPast:new Date(rq.sortDate)<today}))
+      .filter(x=>showPastSchedule||!x.isPast);
+    const rqHTML=rqVisible.map(({rq,idx,isPast})=>{
       const alreadyAdded=myEvents.some(e=>e.name===rq.city+' Regional Qualifier');
       return`<div style="background:var(--surface2);border:1px solid ${isPast?'var(--border)':'rgba(200,168,75,0.3)'};border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden;">
         ${!isPast?`<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);"></div>`:''}
@@ -5177,6 +5210,7 @@ function renderEvents(){
         </button>
       </div>`;
     }).join('');
+    const rqEmpty=!rqVisible.length?`<div style="padding:1rem;text-align:center;color:var(--text-muted);font-size:13px;background:var(--surface2);border:1px dashed var(--border);border-radius:10px;">No upcoming Regional Qualifiers. Click <em>Show past</em> in the schedule header to see earlier RQs.</div>`:'';
     function schedFlag(ev){
       const t=(ev.name+' '+ev.desc).toLowerCase();
       const fi=(code)=>`<img src="https://flagcdn.com/w20/${code}.png" style="width:20px;height:14px;object-fit:cover;border-radius:2px;vertical-align:middle;box-shadow:0 1px 2px rgba(0,0,0,0.35);" alt="${code}">`;
@@ -5193,13 +5227,27 @@ function renderEvents(){
       if(t.includes('atlanta')||t.includes('hartford')||t.includes('los angeles')||t.includes('indianapolis')||t.includes('philadelphia')||t.includes('indy')||t.includes('pax')||t.includes('gen con')||t.includes('momocon')||t.includes('usa')||t.includes('united states')||t.includes('america')) return fi('us');
       return'';
     }
-    const schedHTML=SCHEDULE_2026.map(month=>{
+    // Filter past events out by default; "Show past" toggle restores them.
+    // Months with no visible events after filtering collapse out entirely.
+    let pastEventsHidden=0;
+    const visibleMonths=SCHEDULE_2026.map(month=>{
+      const visEvents=month.events.filter(ev=>{
+        const end=_schedEventEnd(month.month,ev.dates);
+        const isPast=end<today&&end.toDateString()!==today.toDateString();
+        if(isPast&&!showPastSchedule){pastEventsHidden++;return false;}
+        return true;
+      });
+      return {month:month.month,events:visEvents};
+    }).filter(m=>m.events.length>0);
+    const schedHTML=visibleMonths.map(month=>{
       const rows=month.events.map(ev=>{
         const flag=schedFlag(ev);
-        return`<div style="display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:8px;transition:background 0.12s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='transparent'">
-          <div style="min-width:90px;font-size:12px;font-weight:600;color:var(--accent);font-family:'Syne',sans-serif;">${ev.dates}</div>
+        const end=_schedEventEnd(month.month,ev.dates);
+        const isPast=end<today&&end.toDateString()!==today.toDateString();
+        return`<div style="display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:8px;transition:background 0.12s;${isPast?'opacity:0.55;':''}" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='transparent'">
+          <div style="min-width:90px;font-size:12px;font-weight:600;color:${isPast?'var(--text-muted)':'var(--accent)'};font-family:'Syne',sans-serif;">${ev.dates}</div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;">${flag?flag+' ':''} ${ev.name}</div>
+            <div style="font-size:13px;font-weight:600;color:${isPast?'var(--text-muted)':'var(--text)'};margin-bottom:2px;">${flag?flag+' ':''} ${ev.name}</div>
             <div style="font-size:12px;color:var(--text-muted);">${ev.desc}</div>
           </div>
           ${typeBadge(ev.type)}
@@ -5210,17 +5258,22 @@ function renderEvents(){
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;">${rows}</div>
       </div>`;
     }).join('');
+    const schedEmpty=!visibleMonths.length?`<div style="padding:1.25rem;text-align:center;color:var(--text-muted);font-size:13px;background:var(--surface2);border:1px dashed var(--border);border-radius:10px;">No upcoming events on the schedule. Click <em>Show past</em> to see earlier 2026 events.</div>`:'';
+    const pastLabel=showPastSchedule?'Hide past':`Show past${pastEventsHidden?` (${pastEventsHidden})`:''}`;
     return`
       <div style="margin-bottom:2rem;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;">
           <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;">🏆 Regional Qualifiers 2025–2026</div>
           <span style="font-size:12px;color:var(--text-muted);">${RQ_EVENTS.filter(r=>new Date(r.sortDate)>=today).length} upcoming</span>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;">${rqHTML}</div>
+        ${rqEmpty||`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;">${rqHTML}</div>`}
       </div>
       <div>
-        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:1rem;">📅 2026 Schedule</div>
-        ${schedHTML}
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap;">
+          <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;">📅 2026 Schedule</div>
+          <button class="sched-past-toggle${showPastSchedule?' on':''}" onclick="toggleSchedPast()" title="${showPastSchedule?'Hide events that have already passed':'Reveal events earlier in 2026'}">${pastLabel}</button>
+        </div>
+        ${schedEmpty||schedHTML}
       </div>`;
   }
   function myEventsHTML(){
