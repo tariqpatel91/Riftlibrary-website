@@ -1716,7 +1716,7 @@ function buildSideboardGuide(d){
   // (G1, G2, G3 — battlefields are picked every game). The sub-index is
   // appended to the cell key so old single-cell data is auto-migrated to
   // the first sub-cell.
-  function subsFor(section){return section==='b'?['G1','G2','G3']:['G2','G3'];}
+  function subsFor(section){return section==='b'?['G1','G2','G3']:['PB - 1st','PB - 2nd'];}
   function cellKey(section,r,c,sub){return `${section}|${r}|${c}|${sub}`;}
   function cellSubInput(section,r,c,sub,label){
     const key=cellKey(section,r,c,sub);
