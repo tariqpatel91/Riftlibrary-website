@@ -12,7 +12,8 @@
 <button class="play-floating-logo" onclick="goto('articles',null)" title="Back to RiftLibrary">Rift<em>Library</em></button>
 <nav>
   <div class="logo" onclick="goto('articles',null)" style="cursor:pointer;">Rift<em>Library</em></div>
-  <div class="nav-links">
+  <button class="nav-toggle" id="nav-toggle" aria-label="Menu" aria-expanded="false" onclick="toggleNav()"><span></span><span></span><span></span></button>
+  <div class="nav-links" id="nav-links">
     <button class="nl active" onclick="goto('search',this)">Cards</button>
     <button class="nl" onclick="goto('decks',this)">Decks</button>
     <button class="nl" onclick="goto('collection',this)">Collection</button>

@@ -591,7 +591,24 @@ function toggleClassSearch(on){
 }
 
 /* ── NAV ────────────────────────────────────────── */
+function toggleNav(force){
+  const nav=document.querySelector('nav');
+  const tog=document.getElementById('nav-toggle');
+  if(!nav)return;
+  const open=typeof force==='boolean'?force:!nav.classList.contains('nav-open');
+  nav.classList.toggle('nav-open',open);
+  if(tog)tog.setAttribute('aria-expanded',open?'true':'false');
+}
+// Close the mobile menu when tapping outside of it.
+document.addEventListener('click',e=>{
+  const nav=document.querySelector('nav');
+  if(nav&&nav.classList.contains('nav-open')&&!e.target.closest('nav')){
+    toggleNav(false);
+  }
+});
+
 function goto(p,el){
+  toggleNav(false);
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.nl').forEach(x=>x.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');

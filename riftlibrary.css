@@ -29,6 +29,12 @@ body.on-play-tab .play-floating-logo{display:inline-block;}
 .nl{padding:0 16px;font-size:13px;font-family:'Inter',system-ui,sans-serif;border:none;background:transparent;color:var(--text-muted);cursor:pointer;transition:color 0.15s;white-space:nowrap;display:flex;align-items:center;border-bottom:2px solid transparent;}
 .nl:hover{color:var(--text-soft);}
 .nl.active{color:var(--accent);border-bottom-color:var(--accent);}
+/* Mobile hamburger toggle — hidden on desktop, revealed in the responsive block below */
+.nav-toggle{display:none;flex-direction:column;justify-content:center;gap:5px;width:40px;height:40px;margin-left:auto;padding:9px;background:transparent;border:1px solid var(--border);border-radius:9px;cursor:pointer;flex-shrink:0;}
+.nav-toggle span{display:block;height:2px;width:100%;background:var(--text-soft);border-radius:2px;transition:transform 0.2s,opacity 0.2s;}
+nav.nav-open .nav-toggle span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+nav.nav-open .nav-toggle span:nth-child(2){opacity:0;}
+nav.nav-open .nav-toggle span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
 .page{display:none;position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:2rem 1.5rem;}
 #page-collection{max-width:none;padding:2rem 1.5rem;}
 #page-decks{max-width:1600px;}
@@ -320,8 +326,81 @@ select option{background:#1e1e2a;}
    so it's not confused with the green Sideboard button. */
 .lib-mb-btn{background:rgba(160,90,210,0.18);border-color:rgba(180,120,220,0.45);color:#dcb8ff;}
 .lib-mb-btn:hover{background:rgba(160,90,210,0.32);border-color:rgba(200,140,240,0.7);color:#fff;}
-@media(max-width:600px){nav{padding:0 1rem;}.page{padding:1.25rem 1rem;}}
-@media(max-width:600px){nav{padding:0 1rem;}.page{padding:1.25rem 1rem;}}
+/* ════════════════════════════════════════════════════════════════
+   MOBILE / RESPONSIVE
+   The app was built desktop-first; the rules below adapt the browsing
+   experience (nav, card search, grids, modals) for phones & tablets.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Tablet & below: collapse the nav into a hamburger menu ── */
+@media(max-width:820px){
+  nav{padding:0 1rem;gap:8px;}
+  .logo{margin-right:0;}
+  .nav-toggle{display:flex;order:3;margin-left:0;}
+  .auth-btn-wrap{margin-left:auto;}
+  /* nav-links become a dropdown panel under the bar */
+  .nav-links{position:absolute;top:54px;left:0;right:0;flex-direction:column;flex:none;
+    background:rgba(13,17,23,0.98);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);
+    box-shadow:0 12px 28px rgba(0,0,0,0.45);overflow:hidden;max-height:0;opacity:0;pointer-events:none;
+    transition:max-height 0.25s ease,opacity 0.2s ease;}
+  nav.nav-open .nav-links{max-height:70vh;opacity:1;pointer-events:auto;overflow-y:auto;}
+  .nl{padding:14px 1.25rem;font-size:15px;border-bottom:none;border-left:3px solid transparent;width:100%;justify-content:flex-start;}
+  .nl.active{border-bottom-color:transparent;border-left-color:var(--accent);background:var(--accent-dim);}
+}
+
+/* ── Phone breakpoint ── */
+@media(max-width:600px){
+  body{font-size:14px;}
+  .page{padding:1rem 0.85rem;}
+  #page-collection{padding:1rem 0.85rem;}
+  .ph{margin-bottom:1.25rem;}
+  .ph h1{font-size:22px;}
+
+  /* Card search panel: stack everything full-width so nothing is cramped */
+  .cs-top{padding:0.85rem;gap:9px;}
+  .cs-row2{gap:7px;}
+  .view-tog{width:100%;}
+  .view-tog .vt{flex:1;text-align:center;}
+  .cs-drop-wrap{flex:1 1 calc(50% - 4px);min-width:0;}
+  .cs-drop-btn{width:100%;justify-content:space-between;gap:4px;}
+  .cs-dropdown{right:0;width:100%;min-width:0;}
+  .art-sort-sel{flex:1 1 100%;}
+  .cs-class-toggle{flex:1 1 100%;justify-content:center;}
+  #reset-btn{margin-left:0!important;flex:1 1 100%;}
+
+  /* Bottom row: domains over the sliders instead of side-by-side */
+  .cs-btm{flex-direction:column;gap:1rem;padding:0.85rem;}
+  .cs-doms{justify-content:space-between;width:100%;padding-top:0;}
+  .dom-btn{width:38px;height:38px;}
+  .ranges{flex-direction:column;gap:1rem;width:100%;flex:none;}
+  .rg{width:100%;min-width:0;}
+
+  /* Results bar wraps rather than overflowing */
+  .rbar{flex-wrap:wrap;gap:8px 14px;}
+  .rbar #res-count{flex:1 1 100%;}
+
+  /* Two clean columns of cards on phones */
+  .cg{grid-template-columns:repeat(2,1fr);gap:8px;}
+  .dg{grid-template-columns:1fr;}
+
+  /* Deck sub-tabs / filters: let them scroll instead of squashing */
+  .deck-subtabs{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .deck-subtabs::-webkit-scrollbar{display:none;}
+  .dst{padding:8px 14px;white-space:nowrap;flex-shrink:0;}
+  .filters .btn{flex:1 1 auto;}
+
+  /* Modals use more of the screen and lose chunky padding */
+  .mbox{padding:1.25rem;width:100%;max-height:90vh;}
+  .auth-box{padding:1.5rem 1.25rem;}
+  .mo,.auth-mo,.card-mo{padding:0.6rem;}
+  .card-mbox{max-height:92vh;}
+}
+
+/* ── Narrow phones: single column of cards reads better than two cramped ones ── */
+@media(max-width:380px){
+  .cg{grid-template-columns:1fr;}
+  .cs-drop-wrap{flex:1 1 100%;}
+}
 
 /* ── CARD SEARCH UI ─────────────────────────────── */
 .cs-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:1.25rem;}
