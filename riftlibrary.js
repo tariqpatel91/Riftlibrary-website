@@ -1774,7 +1774,6 @@ function buildSideboardGuide(d){
         <button class="sbg-mu-eye" title="View matchup details" onclick="sbgEyeClick(${i})">👁</button>
         <button class="sbg-mu-del" title="Remove column" onclick="sbgRemoveCol(${i})">✕</button>
       </div></th>`).join('')}
-      <th class="sbg-add-col"><button class="sbg-add-btn" onclick="sbgAddCol()" title="Add matchup column">+</button></th>
     </tr>`;
   }
   function dataRow(section,r,row){
@@ -1787,22 +1786,24 @@ function buildSideboardGuide(d){
     return `<tr class="${cls}">
       <td class="sbg-row-label"><div class="sbg-row-label-wrap"><span class="sbg-row-name">${champBadge}${_sbgEsc(row.name)}</span>${cntBadge}</div></td>
       ${Array.from({length:cols},(_,c)=>`<td class="sbg-cell-td">${cellSplit(section,r,c)}</td>`).join('')}
-      <td class="sbg-cell-td sbg-cell-pad"></td>
     </tr>`;
   }
   function emptyRow(msg){
-    return `<tr><td class="sbg-row-label"><span class="sbg-empty-row">${msg}</span></td><td colspan="${cols+1}"></td></tr>`;
+    return `<tr><td class="sbg-row-label"><span class="sbg-empty-row">${msg}</span></td><td colspan="${cols}"></td></tr>`;
   }
   function sectionHdr(label,extra){
     return `<tr class="sbg-section-row">
       <td class="sbg-section-label">${label}${extra?` <span class="sbg-section-extra">${extra}</span>`:''}</td>
-      <td colspan="${cols+1}"></td>
+      <td colspan="${cols}"></td>
     </tr>`;
   }
   return `<div class="sbg-wrap">
     <div class="sbg-topbar">
       <div class="sbg-help">Use this grid to plan your sideboard swaps for each matchup. Edit a column header to name the matchup, then type the number of copies to side <em>in</em> (positive) or <em>out</em> (negative) of each card.</div>
-      <button class="btn btn-sm btn-g sbg-dl-btn" onclick="downloadSideboardGuide()" title="Export a printable sideboard guide">⬇ Download SB Guide</button>
+      <div class="sbg-topbar-actions">
+        <button class="btn btn-sm btn-p sbg-dl-btn" onclick="sbgAddCol()" title="Add a matchup column">＋ Add Matchup</button>
+        <button class="btn btn-sm btn-g sbg-dl-btn" onclick="downloadSideboardGuide()" title="Export a printable sideboard guide">⬇ Download SB Guide</button>
+      </div>
     </div>
     <div class="sbg-scroll">
       <table class="sbg-table">
