@@ -1800,7 +1800,10 @@ function buildSideboardGuide(d){
     </tr>`;
   }
   return `<div class="sbg-wrap">
-    <div class="sbg-help">Use this grid to plan your sideboard swaps for each matchup. Edit a column header to name the matchup, then type the number of copies to side <em>in</em> (positive) or <em>out</em> (negative) of each card.</div>
+    <div class="sbg-topbar">
+      <div class="sbg-help">Use this grid to plan your sideboard swaps for each matchup. Edit a column header to name the matchup, then type the number of copies to side <em>in</em> (positive) or <em>out</em> (negative) of each card.</div>
+      <button class="btn btn-sm btn-g sbg-dl-btn" onclick="downloadSideboardGuide()" title="Export a printable sideboard guide">⬇ Download SB Guide</button>
+    </div>
     <div class="sbg-scroll">
       <table class="sbg-table">
         <thead>${headerRow()}</thead>
@@ -1815,6 +1818,128 @@ function buildSideboardGuide(d){
       </table>
     </div>
   </div>`;
+}
+/* ── PRINTABLE SIDEBOARD GUIDE EXPORT ──────────────────────
+   Opens a print-friendly window with a compact, Excel-style swap grid.
+   To minimise wasted space on the printout we drop every empty matchup
+   column and every card row with no swaps, collapse a matchup's two
+   per-game sub-cells into one cell (only splitting "1st"/"2nd" when they
+   actually differ), and colour sided-out cells red / sided-in green. */
+function downloadSideboardGuide(){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d){toast('No deck selected');return;}
+  const g=_sbgEnsure(d);
+  const {mainRows,sbRows,bfRows,mainTotal,sbTotal,bfTotal}=_sbgRowLabels(d);
+  const esc=_sbgEsc;
+  // Read one cell, falling back to the pre-split legacy key for sub 0.
+  function rd(section,r,c,sub){
+    let v=g.cells[`${section}|${r}|${c}|${sub}`];
+    if(v===undefined&&sub===0){const lg=g.cells[`${section}|${r}|${c}`];if(lg!==undefined)v=lg;}
+    return (v==null?'':String(v)).trim();
+  }
+  const subsFor=section=>section==='b'?[[0,'G1'],[1,'1st'],[2,'2nd']]:[[0,'1st'],[1,'2nd']];
+  // Keep a matchup column if it has a name or any data anywhere in the grid.
+  function colHasData(c){
+    const scan=(rows,section)=>rows.some((row,r)=>subsFor(section).some(([s])=>rd(section,r,c,s)!==''));
+    return scan(mainRows,'m')||scan(sbRows,'s')||scan(bfRows,'b');
+  }
+  const cols=g.matchups.map((name,c)=>({name:(name||'').trim(),c}))
+                       .filter(o=>o.name!==''||colHasData(o.c));
+  if(!cols.length){toast('Add a matchup and some swaps first');return;}
+
+  // Build the display for one card/matchup cell.
+  function cellHtml(section,r,c){
+    const vals=subsFor(section).map(([s,lbl])=>({lbl,v:rd(section,r,c,s)})).filter(o=>o.v!=='');
+    if(!vals.length)return{html:'',cls:''};
+    const rep=vals[0].v,n=parseInt(rep,10);
+    let cls='';
+    if(/^-/.test(rep))cls='out';
+    else if(/^\+/.test(rep)||(!isNaN(n)&&n>0))cls='in';
+    const uniq=[...new Set(vals.map(o=>o.v))];
+    const html=uniq.length===1
+      ? esc(uniq[0])
+      : vals.map(o=>`<span class="mini"><b>${o.lbl}</b> ${esc(o.v)}</span>`).join('');
+    return{html,cls};
+  }
+  // Render the data rows for a section, skipping cards with no swaps.
+  function sectionRows(rows,section){
+    return rows.map((row,r)=>{
+      const cells=cols.map(o=>cellHtml(section,r,o.c));
+      if(cells.every(cl=>cl.html===''))return'';
+      const champ=row.role==='champion'?'★ ':'';
+      const cnt=row.cnt?`<span class="cnt">${row.cnt}</span>`:'';
+      const tds=cells.map(cl=>`<td class="${cl.cls}">${cl.html}</td>`).join('');
+      return `<tr><th class="rowlbl">${champ}${esc(row.name)}${cnt}</th>${tds}</tr>`;
+    }).join('');
+  }
+  // In / Out checksum per matchup (main + sideboard, representative value).
+  function totalsRow(label,kind){
+    const cells=cols.map(o=>{
+      let inc=0,out=0;
+      const add=(rows,section)=>rows.forEach((row,r)=>{
+        let rep='';for(const[s]of subsFor(section)){const v=rd(section,r,o.c,s);if(v!==''){rep=v;break;}}
+        const n=parseInt(rep,10);if(!isNaN(n)){if(n>0)inc+=n;else if(n<0)out+=-n;}
+      });
+      add(mainRows,'m');add(sbRows,'s');
+      const val=kind==='in'?inc:out;
+      return `<td>${val||''}</td>`;
+    }).join('');
+    return `<tr class="tot"><th>${label}</th>${cells}</tr>`;
+  }
+
+  const mainHtml=sectionRows(mainRows,'m');
+  const sbHtml=sectionRows(sbRows,'s');
+  const bfHtml=sectionRows(bfRows,'b');
+  const span=cols.length+1;
+  const colgroup=`<colgroup><col class="lblcol">${cols.map(()=>'<col>').join('')}</colgroup>`;
+  const headRow=`<tr class="muhdr"><th class="corner">Card</th>${cols.map(o=>`<th class="mu">${esc(o.name||('Matchup '+(o.c+1)))}</th>`).join('')}</tr>`;
+  const sec=(cls,label,extra)=>`<tr class="sec ${cls}"><th colspan="${span}">${label}${extra?` <small>${extra}</small>`:''}</th></tr>`;
+
+  let body='';
+  if(mainHtml)body+=sec('main','Main Deck',`${mainTotal}/40`)+mainHtml;
+  if(sbHtml)body+=sec('sb','Sideboard',`${sbTotal}/8`)+sbHtml;
+  if(bfHtml)body+=sec('bf','Battlefields',`${bfTotal}/3`)+bfHtml;
+  if(!body){toast('No swaps entered yet');return;}
+  if(mainHtml||sbHtml)body+=totalsRow('In ▸','in')+totalsRow('Out ▸','out');
+
+  const deckName=d.name||'My Deck';
+  const legend=(d.cards||[]).filter(c=>c.t==='Legend')[0];
+  const sub=[legend?legend.n:'',d.champion?('★ '+d.champion.n):''].filter(Boolean).join('  ·  ');
+  const w=window.open('','_blank');
+  if(!w){toast('Allow popups to download the guide');return;}
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(deckName)} — Sideboard Guide</title><style>
+    @page{size:landscape;margin:8mm;}
+    *{box-sizing:border-box;}
+    body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:10px;}
+    h1{font-size:15px;margin:0 0 1px;}
+    .meta{font-size:10px;color:#555;margin:0 0 8px;}
+    table{border-collapse:collapse;width:100%;table-layout:fixed;}
+    col.lblcol{width:150px;}
+    th,td{border:1px solid #9a9a9a;padding:2px 3px;font-size:9px;text-align:center;vertical-align:middle;line-height:1.15;}
+    .muhdr th.mu{background:#cfe2f3;font-weight:bold;word-break:break-word;}
+    th.corner{background:#cfe2f3;text-align:left;}
+    th.rowlbl{text-align:left;font-weight:normal;background:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    th.rowlbl .cnt{color:#888;margin-left:5px;font-size:8px;}
+    tr.sec th{text-align:left;font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.04em;}
+    tr.sec.main th{background:#9fc5e8;}
+    tr.sec.sb th{background:#b6d7a8;}
+    tr.sec.bf th{background:#ffe599;}
+    tr.sec small{font-weight:normal;color:#333;text-transform:none;letter-spacing:0;}
+    td.out{background:#f4cccc;font-weight:bold;}
+    td.in{background:#d9ead3;font-weight:bold;}
+    .mini{display:block;font-size:8px;}
+    .mini b{color:#555;}
+    tr.tot th{background:#eee;text-align:right;font-weight:bold;}
+    tr.tot td{background:#f6f6f6;font-weight:bold;}
+    .foot{margin-top:8px;font-size:8px;color:#aaa;}
+    @media print{body{padding:0;}}
+  </style></head><body>
+    <h1>${esc(deckName)} — Sideboard Guide</h1>
+    ${sub?`<div class="meta">${esc(sub)}</div>`:''}
+    <table>${colgroup}<thead>${headRow}</thead><tbody>${body}</tbody></table>
+    <div class="foot">Generated by RiftLibrary · ${new Date().toLocaleDateString()}</div>
+  </body></html>`;
+  w.document.write(html);w.document.close();
+  setTimeout(()=>w.print(),400);
 }
 /* ── EYEBALL MATCHUP MODAL ─────────────────────────────────
    Opens a deck-visualization overlay scoped to one matchup column. Each

@@ -514,6 +514,9 @@ select option{background:#1e1e2a;}
 
 /* ── SIDEBOARD GUIDE GRID ───────────────────────────────────── */
 .sbg-wrap{padding-top:4px;}
+.sbg-topbar{display:flex;align-items:stretch;gap:12px;margin-bottom:14px;}
+.sbg-topbar .sbg-help{flex:1;margin-bottom:0;}
+.sbg-dl-btn{white-space:nowrap;align-self:flex-start;}
 .sbg-help{font-size:12px;color:var(--text-muted);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;line-height:1.45;}
 .sbg-help em{color:var(--text-soft);font-style:italic;}
 .sbg-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface);}
