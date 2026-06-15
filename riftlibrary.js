@@ -1861,15 +1861,16 @@ function downloadSideboardGuide(){
       : vals.map(o=>`<span class="mini"><b>${o.lbl}</b> ${esc(o.v)}</span>`).join('');
     return{html,cls};
   }
-  // Render the data rows for a section, skipping cards with no swaps.
+  // Render every card row in the section (empty cells included — the user
+  // wants the full deck + sideboard list on the printout).
   function sectionRows(rows,section){
+    const lblCls=section==='m'?'lbl-m':section==='s'?'lbl-s':'lbl-b';
     return rows.map((row,r)=>{
       const cells=cols.map(o=>cellHtml(section,r,o.c));
-      if(cells.every(cl=>cl.html===''))return'';
       const champ=row.role==='champion'?'★ ':'';
       const cnt=row.cnt?`<span class="cnt">${row.cnt}</span>`:'';
       const tds=cells.map(cl=>`<td class="${cl.cls}">${cl.html}</td>`).join('');
-      return `<tr><th class="rowlbl">${champ}${esc(row.name)}${cnt}</th>${tds}</tr>`;
+      return `<tr><th class="rowlbl ${lblCls}">${champ}${esc(row.name)}${cnt}</th>${tds}</tr>`;
     }).join('');
   }
   // In / Out checksum per matchup (main + sideboard, representative value).
@@ -1891,15 +1892,15 @@ function downloadSideboardGuide(){
   const sbHtml=sectionRows(sbRows,'s');
   const bfHtml=sectionRows(bfRows,'b');
   const span=cols.length+1;
-  const colgroup=`<colgroup><col class="lblcol">${cols.map(()=>'<col>').join('')}</colgroup>`;
-  const headRow=`<tr class="muhdr"><th class="corner">Card</th>${cols.map(o=>`<th class="mu">${esc(o.name||('Matchup '+(o.c+1)))}</th>`).join('')}</tr>`;
+  const colgroup=`<colgroup><col class="lblcol">${cols.map(()=>'<col class="mucol">').join('')}</colgroup>`;
+  const headRow=`<tr class="muhdr"><th class="corner">Card</th>${cols.map(o=>`<th class="mu"><span>${esc(o.name||('Matchup '+(o.c+1)))}</span></th>`).join('')}</tr>`;
   const sec=(cls,label,extra)=>`<tr class="sec ${cls}"><th colspan="${span}">${label}${extra?` <small>${extra}</small>`:''}</th></tr>`;
 
   let body='';
   if(mainHtml)body+=sec('main','Main Deck',`${mainTotal}/40`)+mainHtml;
   if(sbHtml)body+=sec('sb','Sideboard',`${sbTotal}/8`)+sbHtml;
   if(bfHtml)body+=sec('bf','Battlefields',`${bfTotal}/3`)+bfHtml;
-  if(!body){toast('No swaps entered yet');return;}
+  if(!body){toast('Add cards to the deck first');return;}
   if(mainHtml||sbHtml)body+=totalsRow('In ▸','in')+totalsRow('Out ▸','out');
 
   const deckName=d.name||'My Deck';
@@ -1913,13 +1914,19 @@ function downloadSideboardGuide(){
     body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:10px;}
     h1{font-size:15px;margin:0 0 1px;}
     .meta{font-size:10px;color:#555;margin:0 0 8px;}
-    table{border-collapse:collapse;width:100%;table-layout:fixed;}
-    col.lblcol{width:150px;}
+    table{border-collapse:collapse;table-layout:fixed;}
+    col.lblcol{width:160px;}
+    col.mucol{width:30px;}
     th,td{border:1px solid #9a9a9a;padding:2px 3px;font-size:9px;text-align:center;vertical-align:middle;line-height:1.15;}
-    .muhdr th.mu{background:#cfe2f3;font-weight:bold;word-break:break-word;}
-    th.corner{background:#cfe2f3;text-align:left;}
+    /* Diagonal matchup headers — labels rise up and out to the right. */
+    .muhdr th.mu{height:135px;border:none;padding:0;background:#fff;vertical-align:bottom;position:relative;}
+    .muhdr th.mu span{position:absolute;left:50%;bottom:3px;transform-origin:left bottom;transform:rotate(-45deg);white-space:nowrap;font-size:9px;font-weight:bold;border-bottom:1px solid #9a9a9a;padding:2px 7px 2px 2px;}
+    th.corner{background:#cfe2f3;text-align:left;vertical-align:bottom;}
     th.rowlbl{text-align:left;font-weight:normal;background:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    th.rowlbl .cnt{color:#888;margin-left:5px;font-size:8px;}
+    th.rowlbl.lbl-m{background:#dce6f1;}
+    th.rowlbl.lbl-s{background:#e2efda;}
+    th.rowlbl.lbl-b{background:#fff2cc;}
+    th.rowlbl .cnt{color:#666;margin-left:5px;font-size:8px;}
     tr.sec th{text-align:left;font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.04em;}
     tr.sec.main th{background:#9fc5e8;}
     tr.sec.sb th{background:#b6d7a8;}
@@ -1927,10 +1934,10 @@ function downloadSideboardGuide(){
     tr.sec small{font-weight:normal;color:#333;text-transform:none;letter-spacing:0;}
     td.out{background:#f4cccc;font-weight:bold;}
     td.in{background:#d9ead3;font-weight:bold;}
-    .mini{display:block;font-size:8px;}
+    .mini{display:block;font-size:7px;}
     .mini b{color:#555;}
-    tr.tot th{background:#eee;text-align:right;font-weight:bold;}
-    tr.tot td{background:#f6f6f6;font-weight:bold;}
+    tr.tot th{background:#fce4d6;text-align:right;font-weight:bold;}
+    tr.tot td{background:#fde9d9;font-weight:bold;}
     .foot{margin-top:8px;font-size:8px;color:#aaa;}
     @media print{body{padding:0;}}
   </style></head><body>
