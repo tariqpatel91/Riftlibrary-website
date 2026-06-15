@@ -1837,7 +1837,7 @@ function downloadSideboardGuide(){
     if(v===undefined&&sub===0){const lg=g.cells[`${section}|${r}|${c}`];if(lg!==undefined)v=lg;}
     return (v==null?'':String(v)).trim();
   }
-  const subsFor=section=>section==='b'?[[0,'G1'],[1,'1st'],[2,'2nd']]:[[0,'1st'],[1,'2nd']];
+  const subsFor=section=>section==='b'?[[0,'G1'],[1,'PB 1st'],[2,'PB 2nd']]:[[0,'1st'],[1,'2nd']];
   // Keep a matchup column if it has a name or any data anywhere in the grid.
   function colHasData(c){
     const scan=(rows,section)=>rows.some((row,r)=>subsFor(section).some(([s])=>rd(section,r,c,s)!==''));
@@ -1851,6 +1851,12 @@ function downloadSideboardGuide(){
   function cellHtml(section,r,c){
     const vals=subsFor(section).map(([s,lbl])=>({lbl,v:rd(section,r,c,s)})).filter(o=>o.v!=='');
     if(!vals.length)return{html:'',cls:''};
+    if(section==='b'){
+      // Battlefields aren't sided in/out — they're a per-game pick. Show which
+      // box was marked (PB 1st / PB 2nd / G1) instead of a bare ✕.
+      const html=vals.map(o=>o.v==='✕'?esc(o.lbl):`${esc(o.lbl)}: ${esc(o.v)}`).join('<br>');
+      return{html,cls:'bf'};
+    }
     const rep=vals[0].v,n=parseInt(rep,10);
     let cls='';
     if(/^-/.test(rep))cls='out';
@@ -1894,6 +1900,10 @@ function downloadSideboardGuide(){
   const span=cols.length+1;
   const colgroup=`<colgroup><col class="lblcol">${cols.map(()=>'<col class="mucol">').join('')}</colgroup>`;
   const headRow=`<tr class="muhdr"><th class="corner">Card</th>${cols.map(o=>`<th class="mu"><span>${esc(o.name||('Matchup '+(o.c+1)))}</span></th>`).join('')}</tr>`;
+  // Size the diagonal-header band to the longest matchup name so short names
+  // don't leave a tall dead zone and long names don't get clipped.
+  const maxLbl=cols.reduce((m,o)=>Math.max(m,(o.name||('Matchup '+(o.c+1))).length),0);
+  const hdrH=Math.max(44,Math.min(170,Math.round(maxLbl*4.4)+16));
   const sec=(cls,label,extra)=>`<tr class="sec ${cls}"><th colspan="${span}">${label}${extra?` <small>${extra}</small>`:''}</th></tr>`;
 
   let body='';
@@ -1918,9 +1928,11 @@ function downloadSideboardGuide(){
     col.lblcol{width:160px;}
     col.mucol{width:30px;}
     th,td{border:1px solid #9a9a9a;padding:2px 3px;font-size:9px;text-align:center;vertical-align:middle;line-height:1.15;}
-    /* Diagonal matchup headers — labels rise up and out to the right. */
-    .muhdr th.mu{height:135px;border:none;padding:0;background:#fff;vertical-align:bottom;position:relative;}
-    .muhdr th.mu span{position:absolute;left:50%;bottom:3px;transform-origin:left bottom;transform:rotate(-45deg);white-space:nowrap;font-size:9px;font-weight:bold;border-bottom:1px solid #9a9a9a;padding:2px 7px 2px 2px;}
+    /* Diagonal matchup headers — labels rise up and out to the right.
+       No cell background so a long label can overflow over its neighbours
+       (rather than being painted over and clipped). */
+    .muhdr th.mu{height:${hdrH}px;border:none;padding:0;background:transparent;vertical-align:bottom;position:relative;}
+    .muhdr th.mu span{position:absolute;left:4px;bottom:3px;transform-origin:left bottom;transform:rotate(-45deg);white-space:nowrap;font-size:9px;font-weight:bold;border-bottom:1px solid #9a9a9a;padding:2px 7px 2px 2px;}
     th.corner{background:#cfe2f3;text-align:left;vertical-align:bottom;}
     th.rowlbl{text-align:left;font-weight:normal;background:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     th.rowlbl.lbl-m{background:#dce6f1;}
@@ -1934,6 +1946,7 @@ function downloadSideboardGuide(){
     tr.sec small{font-weight:normal;color:#333;text-transform:none;letter-spacing:0;}
     td.out{background:#f4cccc;font-weight:bold;}
     td.in{background:#d9ead3;font-weight:bold;}
+    td.bf{background:#fff2cc;font-weight:bold;font-size:7px;line-height:1.2;}
     .mini{display:block;font-size:7px;}
     .mini b{color:#555;}
     tr.tot th{background:#fce4d6;text-align:right;font-weight:bold;}
