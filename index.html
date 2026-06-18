@@ -595,11 +595,6 @@
     <div class="auth-logo">Rift<em>Library</em></div>
     <div class="auth-subtitle" id="auth-subtitle">Sign in to save decks to the cloud</div>
 
-    <div class="auth-tabs">
-      <button class="auth-tab active" id="auth-tab-login"    onclick="switchAuthTab('login')">Log in</button>
-      <button class="auth-tab"        id="auth-tab-register" onclick="switchAuthTab('register')">Sign up</button>
-    </div>
-
     <div class="auth-error"   id="auth-error"></div>
     <div class="auth-success" id="auth-success"></div>
 
@@ -616,49 +611,6 @@
       <svg viewBox="0 0 24 24" fill="#5865F2"><path d="M20.317 4.369A19.79 19.79 0 0 0 16.558 3.2a.075.075 0 0 0-.079.037c-.34.6-.719 1.385-.984 2.001a18.27 18.27 0 0 0-5.487 0 12.51 12.51 0 0 0-.997-2.001.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 5.18 4.369a.07.07 0 0 0-.032.027C2.78 7.92 2.114 11.37 2.45 14.781a.082.082 0 0 0 .031.056 19.9 19.9 0 0 0 5.993 3.029.077.077 0 0 0 .084-.027c.462-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.041-.105 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.006.127c-.598.349-1.22.645-1.873.892a.077.077 0 0 0-.041.106c.36.698.771 1.363 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-3.94-.838-7.36-3.549-10.385a.061.061 0 0 0-.031-.028zM8.02 12.704c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.955 2.418-2.157 2.418zm7.974 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
       Continue with Discord
     </button>
-
-    <div class="auth-divider"><span>or</span></div>
-
-    <!-- Login form -->
-    <div id="auth-form-login">
-      <div class="auth-field">
-        <label>Email</label>
-        <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
-      </div>
-      <div class="auth-field">
-        <label>Password</label>
-        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
-               onkeydown="if(event.key==='Enter')submitLogin()">
-      </div>
-      <button class="auth-submit" onclick="submitLogin()">Log in</button>
-      <div class="auth-switch">Don't have an account? <a onclick="switchAuthTab('register')">Sign up</a></div>
-    </div>
-
-    <!-- Register form -->
-    <div id="auth-form-register" style="display:none;">
-      <div class="auth-field">
-        <label>Username</label>
-        <input type="text" id="reg-username" placeholder="riftmaster99" autocomplete="username">
-      </div>
-      <div class="auth-field">
-        <label>Email</label>
-        <input type="email" id="reg-email" placeholder="you@example.com" autocomplete="email">
-      </div>
-      <div class="auth-field">
-        <label>Password</label>
-        <input type="password" id="reg-password" placeholder="Min 8 characters" autocomplete="new-password" oninput="checkPasswordStrength()">
-        <div id="pw-strength-bar" style="margin-top:6px;height:4px;border-radius:2px;background:var(--bg3);overflow:hidden;display:none;"><div id="pw-strength-fill" style="height:100%;width:0;transition:width 0.3s,background 0.3s;border-radius:2px;"></div></div>
-        <div id="pw-strength-label" style="font-size:11px;margin-top:3px;color:var(--text-muted);"></div>
-      </div>
-      <div class="auth-field">
-        <label>Confirm Password</label>
-        <input type="password" id="reg-password-confirm" placeholder="Re-enter your password" autocomplete="new-password"
-               onkeydown="if(event.key==='Enter')submitRegister()" oninput="checkPasswordMatch()">
-        <div id="pw-match-label" style="font-size:11px;margin-top:3px;"></div>
-      </div>
-      <button class="auth-submit" onclick="submitRegister()">Create account</button>
-      <div class="auth-switch">Already have an account? <a onclick="switchAuthTab('login')">Log in</a></div>
-    </div>
 
     <button onclick="closeAuthModal()" style="position:absolute;top:14px;right:16px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;">×</button>
   </div>
