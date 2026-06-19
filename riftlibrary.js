@@ -5437,7 +5437,6 @@ function renderEvents(){
       </div>`;
     }).join('');
     const schedEmpty=!visibleMonths.length?`<div style="padding:1.25rem;text-align:center;color:var(--text-muted);font-size:13px;background:var(--surface2);border:1px dashed var(--border);border-radius:10px;">No upcoming events on the schedule. Click <em>Show past</em> to see earlier 2026 events.</div>`:'';
-    const pastLabel=showPastSchedule?'Hide past':`Show past${pastEventsHidden?` (${pastEventsHidden})`:''}`;
     return`
       <div style="margin-bottom:2rem;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;">
@@ -5449,7 +5448,6 @@ function renderEvents(){
       <div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap;">
           <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;">📅 2026 Schedule</div>
-          <button class="sched-past-toggle${showPastSchedule?' on':''}" onclick="toggleSchedPast()" title="${showPastSchedule?'Hide events that have already passed':'Reveal events earlier in 2026'}">${pastLabel}</button>
         </div>
         ${schedEmpty||schedHTML}
       </div>`;
@@ -5502,9 +5500,11 @@ function renderEvents(){
     </div>
     <div style="display:flex;flex-direction:column;gap:12px;">${myList}</div>`;
   }
+  const pastLabel=showPastSchedule?'Hide past':`Show past${(()=>{let n=0;const today=new Date();today.setHours(0,0,0,0);SCHEDULE_2026.forEach(m=>m.events.forEach(ev=>{const end=_schedEventEnd(m.month,ev.dates);if(end<today&&end.toDateString()!==today.toDateString())n++;}));return n?` (${n})`:''})()}`;
   const tabs=`<div class="evt-tab-bar">
     <button class="evt-tab${activeEvtTab==='all'?' on':''}" onclick="switchEvtTab('all')">Schedule</button>
     <button class="evt-tab${activeEvtTab==='mine'?' on':''}" onclick="switchEvtTab('mine')">My Events${myEvents.length?` <span class="evt-tab-badge">${myEvents.length}</span>`:''}</button>
+    ${activeEvtTab==='all'?`<button class="sched-past-toggle${showPastSchedule?' on':''}" onclick="toggleSchedPast()" style="margin-left:auto;" title="${showPastSchedule?'Hide past events':'Show past events'}">${pastLabel}</button>`:''}
   </div>`;
   el.innerHTML=tabs+(activeEvtTab==='all'?allEventsHTML():myEventsHTML());
 }
