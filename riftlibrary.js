@@ -809,6 +809,10 @@ async function submitPublicDeck(){
     local_deck_id:String(deckId),
     name:d.name, legend:d.legend, legend_img:dcLegFull?dcLegFull.imageUrl:'',
     format:d.format||'', domains:d.domains||[], cards:d.cards||[],
+    champion:d.champion||null,
+    sideboard:d.sideboard||[],
+    runes:d.runes||[],
+    battlefields:d.battlefields||[],
     card_count:(d.cards||[]).reduce((a,c)=>a+c.cnt,0),
     author, description, created_at:new Date().toISOString()
   };
@@ -892,7 +896,9 @@ async function importPublicDeck(pubId){
     const newDeck={
       id:nextId++, name:data.name+' (imported)', legend:data.legend,
       format:data.format||'', domains:data.domains||[], cards:data.cards||[],
-      wins:0, losses:0, sideboard:[], results:[], runes:[], battlefields:[]
+      champion:data.champion||null,
+      wins:0, losses:0, sideboard:data.sideboard||[], results:[],
+      runes:data.runes||[], battlefields:data.battlefields||[]
     };
     myDecks.unshift(newDeck);
     persist();
