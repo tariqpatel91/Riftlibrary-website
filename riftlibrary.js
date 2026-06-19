@@ -1606,7 +1606,7 @@ function switchDDTab(tab){
   if(tab==='stats'){setTimeout(calcHG,20);}
 }
 function buildCardsGalleryView(d){
-  const d2=myDecks.find(x=>x.id===activeDeckId);if(!d2)return'';
+  const d2=d||myDecks.find(x=>x.id===activeDeckId);if(!d2)return'';
   // compact=true: render ONE tile per unique entry with an "×N" badge
   // (used for runes so 8 Calm + 4 Mind shows as two stacks, not 12 tiles).
   // compact=false (default): render entry.cnt tiles in a row.
@@ -6709,19 +6709,19 @@ function renderAuthNav(user) {
     var b1 = document.createElement('button');
     b1.textContent = 'My Decks';
     b1.onclick = function(){ goto('decks', null); closeUserDrop(); };
+    var bMyEvents = document.createElement('button');
+    bMyEvents.textContent = 'My Events';
+    bMyEvents.onclick = function(){ goto('events', null); activeEvtTab='mine'; renderEvents(); closeUserDrop(); };
     var bProfile = document.createElement('button');
-    bProfile.textContent = '👤 My Profile';
+    bProfile.textContent = 'My Profile';
     bProfile.onclick = function(){ goto('profile', null); closeUserDrop(); };
-    var b2 = document.createElement('button');
-    b2.textContent = '☁ Sync decks';
-    b2.onclick = function(){ syncCloudDecks(); closeUserDrop(); };
     var b3 = document.createElement('button');
     b3.textContent = 'Log out';
     b3.style.color = 'var(--fury)';
     b3.onclick = logOut;
     drop.appendChild(b1);
+    drop.appendChild(bMyEvents);
     drop.appendChild(bProfile);
-    drop.appendChild(b2);
     drop.appendChild(b3);
     wrap.appendChild(drop);
     area.appendChild(wrap);
@@ -6935,9 +6935,9 @@ function renderProfilePage(){
     </div>
 
     <div class="pf-card">
-      <label class="pf-lbl">Avatar URL</label>
-      <input id="pf-avatar" type="text" class="pf-input" value="${esc(meta.avatar_url||'')}" placeholder="https://…">
-      <button class="btn btn-g" style="padding:8px 14px;font-size:12px;margin-top:10px;" onclick="saveProfileExtras()">Save avatar</button>
+      <label class="pf-lbl">Avatar</label>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">${avatarBlock}<label class="btn btn-g" style="padding:8px 14px;font-size:12px;cursor:pointer;">Upload photo<input id="pf-avatar-file" type="file" accept="image/*" style="display:none;" onchange="uploadAvatar(this)"></label></div>
+      <div id="pf-avatar-status" style="font-size:11px;color:var(--text-muted);"></div>
     </div>
 
     <div class="pf-card">
@@ -6993,16 +6993,28 @@ function _pfMsg(text,kind){
   else{el.style.background='rgba(239,68,68,0.12)';el.style.color='#f87171';el.style.border='1px solid #ef4444';}
 }
 
-async function saveProfileExtras(){
-  const avatar_url=(document.getElementById('pf-avatar').value||'').trim();
+async function uploadAvatar(input){
+  const file=input.files&&input.files[0];
+  if(!file) return;
+  const st=document.getElementById('pf-avatar-status');
+  if(st) st.textContent='Uploading…';
   try{
+    const ext=file.name.split('.').pop();
+    const path=`avatars/${currentUser.id}.${ext}`;
+    const {error:upErr}=await _sb.storage.from('avatars').upload(path,file,{upsert:true,contentType:file.type});
+    if(upErr) throw upErr;
+    const {data:urlData}=_sb.storage.from('avatars').getPublicUrl(path);
+    const avatar_url=urlData.publicUrl;
     const {data,error}=await _sb.auth.updateUser({data:{avatar_url}});
     if(error) throw error;
     currentUser=data.user;
     renderAuthNav(currentUser);
-    _pfMsg('Avatar saved!','ok');
+    if(st) st.textContent='';
     renderProfilePage();
-  }catch(e){_pfMsg(e.message||'Could not save avatar','err');}
+  }catch(e){
+    if(st) st.textContent=e.message||'Upload failed';
+    _pfMsg(e.message||'Could not upload avatar','err');
+  }
 }
 
 async function updateProfileEmail(){
