@@ -197,6 +197,7 @@ function fillFromRQ(idx){
 let VIEW='cards';
 let activeDeckId=null;
 let activeDDTab='cards';
+const PUB_VIEW_ID='__pub_view__';
 let currentUser=null;
 let cardsTabView='visual';
 let deckSortMode='alpha'; // 'alpha' or 'energy'
@@ -471,8 +472,9 @@ function loadStorage(){
   }catch(e){myDecks=[];}
 }
 function persist(){
-  if(activeDeckId){const d=myDecks.find(x=>String(x.id)===String(activeDeckId));if(d)d.updated_at=new Date().toISOString();}
-  try{localStorage.setItem('rl_decks',JSON.stringify(myDecks));localStorage.setItem('rl_nid',String(nextId));}catch(e){}
+  if(activeDeckId&&activeDeckId!==PUB_VIEW_ID){const d=myDecks.find(x=>String(x.id)===String(activeDeckId));if(d)d.updated_at=new Date().toISOString();}
+  const toSave=myDecks.filter(x=>x.id!==PUB_VIEW_ID);
+  try{localStorage.setItem('rl_decks',JSON.stringify(toSave));localStorage.setItem('rl_nid',String(nextId));}catch(e){}
 }
 function wr(d){return d.wins+d.losses>0?Math.round(d.wins/(d.wins+d.losses)*100):0;}
 function wrc(w){return w>=55?'wg':w>=45?'wm':'wb';}
@@ -827,33 +829,61 @@ async function submitPublicDeck(){
 
 async function openPublicDeckDetail(pubId){
   const el=document.getElementById('public-decks-content');
-  if(!el) return;
-  el.innerHTML=`<div style="padding:3rem;text-align:center;color:var(--text-muted);font-size:13px;">Loading…</div>`;
+  if(el) el.innerHTML=`<div style="padding:3rem;text-align:center;color:var(--text-muted);font-size:13px;">Loading…</div>`;
   try{
     const {data,error}=await _sb.from('public_decks').select('*').eq('id',pubId).single();
     if(error||!data) throw error||new Error('not found');
-    const totalC=(data.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(data.champion?1:0);
-    const galleryDeck={cards:data.cards||[],champion:data.champion||null,sideboard:data.sideboard||[],runes:data.runes||[],battlefields:data.battlefields||[]};
-    const gallery=buildCardsGalleryView(galleryDeck);
-    const dcImg=data.legend_img||'';
-    const avatarHtml=dcImg?`<div class="dc-avatar" style="width:52px;height:52px;flex-shrink:0;"><img src="${dcImg}" alt="${data.legend}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"></div>`:'';
-    el.innerHTML=`
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
-        <button class="btn btn-sm" onclick="renderPublicDecks()" style="flex-shrink:0;">← Back</button>
-        ${avatarHtml}
-        <div>
-          <div style="font-size:18px;font-weight:700;">${data.name}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${data.legend||''}${data.format?' · '+data.format:''} · ${totalC} cards · by ${data.author||'Anonymous'}</div>
-        </div>
-        <button class="btn btn-g" style="margin-left:auto;" onclick="importPublicDeck('${pubId}')">Add to my decks</button>
-      </div>
-      ${gallery}`;
+    // Build a temporary deck object using the same shape as myDecks
+    const tmpDeck={
+      id:PUB_VIEW_ID,
+      name:data.name||'Imported Deck',
+      legend:data.legend||'',
+      format:data.format||'Constructed',
+      domains:data.domains||[],
+      cards:data.cards||[],
+      champion:data.champion||null,
+      sideboard:data.sideboard||[],
+      runes:data.runes||[],
+      battlefields:data.battlefields||[],
+      results:[],wins:0,losses:0,
+      _pubId:pubId,
+      _isPublicView:true,
+    };
+    // Replace any existing temp entry
+    myDecks=myDecks.filter(x=>x.id!==PUB_VIEW_ID);
+    myDecks.push(tmpDeck);
+    activeDeckId=PUB_VIEW_ID;
+    activeDDTab='cards';
+    // Show the same #dd panel used by My Decks
+    document.getElementById('dl').style.display='none';
+    document.getElementById('dd').style.display='block';
+    // Override back button to return to public decks
+    const bb=document.querySelector('#dd .bb');
+    if(bb){bb.textContent='← Back to Public Decks';bb.onclick=closePublicDeckView;}
+    renderDeckDetail();
+    // Swap out the Delete button for "Add to my decks"
+    setTimeout(()=>{
+      const delBtn=document.querySelector('#ddp-cards .btn-d');
+      if(delBtn){
+        delBtn.textContent='Add to my decks';
+        delBtn.className='btn btn-g';
+        delBtn.style.marginTop='1rem';
+        delBtn.onclick=()=>importPublicDeck(pubId);
+      }
+    },0);
   }catch(e){
-    el.innerHTML=`<div style="padding:2rem;">
+    if(el) el.innerHTML=`<div style="padding:2rem;">
       <button class="btn btn-sm" onclick="renderPublicDecks()">← Back</button>
       <p style="margin-top:1rem;color:var(--text-muted);">Could not load deck.</p>
     </div>`;
   }
+}
+function closePublicDeckView(){
+  myDecks=myDecks.filter(x=>x.id!==PUB_VIEW_ID);
+  activeDeckId=null;activeDDTab='cards';
+  document.getElementById('dd').style.display='none';
+  document.getElementById('dl').style.display='';
+  setDeckTab('public');
 }
 async function importPublicDeck(pubId){
   try{
@@ -3866,6 +3896,7 @@ function saveDeckTitle(deckId,val){
   if(currentUser) saveToCloud(deckId);
 }
 function closeDeckDetail(){
+  if(activeDeckId===PUB_VIEW_ID){closePublicDeckView();return;}
   if(currentUser&&activeDeckId) saveToCloud(activeDeckId);
   document.getElementById('dl').style.display='';document.getElementById('dd').style.display='none';activeDeckId=null;activeDDTab='cards';renderDecks();
 }
