@@ -834,7 +834,7 @@ async function openPublicDeckModal(pubId){
     m.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;background:rgba(0,0,0,0.7);overflow-y:auto;';
     const totalC=(data.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(data.champion?1:0);
     const galleryDeck={cards:data.cards||[],champion:data.champion||null,sideboard:data.sideboard||[],runes:data.runes||[],battlefields:data.battlefields||[]};
-    const gallery=buildCardsGallery(galleryDeck);
+    const gallery=buildCardsGalleryView(galleryDeck);
     m.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:860px;padding:24px;position:relative;">
       <button onclick="document.getElementById('pub-deck-view-modal').remove()" style="position:absolute;top:14px;right:16px;background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;">×</button>
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
