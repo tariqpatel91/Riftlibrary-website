@@ -728,7 +728,7 @@ async function renderPublicDecks(){
       const dcAvatar=dcImg
         ?`<div class="dc-avatar"><img src="${dcImg}" alt="${d.legend}"></div>`
         :`<div class="dc-avatar dc-avatar-empty"></div>`;
-      return `<div class="dc" onclick="openPublicDeckModal('${d.id}')" style="cursor:pointer;">
+      return `<div class="dc">
         <div class="dt">
           <div style="display:flex;align-items:center;gap:10px;">
             ${dcAvatar}
@@ -746,7 +746,7 @@ async function renderPublicDecks(){
           <span style="font-size:11px;color:var(--text-muted);">by ${d.author||'Anonymous'}</span>
         </div>
         <div class="da">
-          <button class="btn btn-sm btn-g" onclick="event.stopPropagation();importPublicDeck('${d.id}')">Add to my decks</button>
+          <button class="btn btn-sm btn-g" onclick="openPublicDeckDetail('${d.id}')">View</button>
         </div>
       </div>`;
     };
@@ -825,34 +825,34 @@ async function submitPublicDeck(){
   }
 }
 
-async function openPublicDeckModal(pubId){
+async function openPublicDeckDetail(pubId){
+  const el=document.getElementById('public-decks-content');
+  if(!el) return;
+  el.innerHTML=`<div style="padding:3rem;text-align:center;color:var(--text-muted);font-size:13px;">Loading…</div>`;
   try{
     const {data,error}=await _sb.from('public_decks').select('*').eq('id',pubId).single();
     if(error||!data) throw error||new Error('not found');
-    const m=document.createElement('div');
-    m.id='pub-deck-view-modal';
-    m.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;background:rgba(0,0,0,0.7);overflow-y:auto;';
     const totalC=(data.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+c.cnt,0)+(data.champion?1:0);
     const galleryDeck={cards:data.cards||[],champion:data.champion||null,sideboard:data.sideboard||[],runes:data.runes||[],battlefields:data.battlefields||[]};
     const gallery=buildCardsGalleryView(galleryDeck);
-    m.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:860px;padding:24px;position:relative;">
-      <button onclick="document.getElementById('pub-deck-view-modal').remove()" style="position:absolute;top:14px;right:16px;background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;">×</button>
-      <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
+    const dcImg=data.legend_img||'';
+    const avatarHtml=dcImg?`<div class="dc-avatar" style="width:52px;height:52px;flex-shrink:0;"><img src="${dcImg}" alt="${data.legend}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"></div>`:'';
+    el.innerHTML=`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+        <button class="btn btn-sm" onclick="renderPublicDecks()" style="flex-shrink:0;">← Back</button>
+        ${avatarHtml}
         <div>
-          <div style="font-size:19px;font-weight:700;">${data.name}</div>
-          <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">${data.legend||''}${data.format?' · '+data.format:''} · by ${data.author||'Anonymous'}</div>
+          <div style="font-size:18px;font-weight:700;">${data.name}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${data.legend||''}${data.format?' · '+data.format:''} · ${totalC} cards · by ${data.author||'Anonymous'}</div>
         </div>
+        <button class="btn btn-g" style="margin-left:auto;" onclick="importPublicDeck('${pubId}')">Add to my decks</button>
       </div>
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">${totalC} cards</div>
-      ${gallery}
-      <div style="margin-top:20px;text-align:right;">
-        <button class="btn btn-g" onclick="event.stopPropagation();importPublicDeck('${pubId}');document.getElementById('pub-deck-view-modal').remove()">Add to my decks</button>
-      </div>
-    </div>`;
-    m.addEventListener('click',e=>{if(e.target===m)m.remove();});
-    document.body.appendChild(m);
+      ${gallery}`;
   }catch(e){
-    toast('Could not load deck');
+    el.innerHTML=`<div style="padding:2rem;">
+      <button class="btn btn-sm" onclick="renderPublicDecks()">← Back</button>
+      <p style="margin-top:1rem;color:var(--text-muted);">Could not load deck.</p>
+    </div>`;
   }
 }
 async function importPublicDeck(pubId){
