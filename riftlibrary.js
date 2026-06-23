@@ -197,7 +197,7 @@ function fillFromRQ(idx){
 let VIEW='cards';
 let activeDeckId=null;
 let activeDDTab='cards';
-const PUB_VIEW_ID='__pub_view__';
+
 let currentUser=null;
 let cardsTabView='visual';
 let deckSortMode='alpha'; // 'alpha' or 'energy'
@@ -472,9 +472,8 @@ function loadStorage(){
   }catch(e){myDecks=[];}
 }
 function persist(){
-  if(activeDeckId&&activeDeckId!==PUB_VIEW_ID){const d=myDecks.find(x=>String(x.id)===String(activeDeckId));if(d)d.updated_at=new Date().toISOString();}
-  const toSave=myDecks.filter(x=>x.id!==PUB_VIEW_ID);
-  try{localStorage.setItem('rl_decks',JSON.stringify(toSave));localStorage.setItem('rl_nid',String(nextId));}catch(e){}
+  if(activeDeckId){const d=myDecks.find(x=>String(x.id)===String(activeDeckId));if(d)d.updated_at=new Date().toISOString();}
+  try{localStorage.setItem('rl_decks',JSON.stringify(myDecks));localStorage.setItem('rl_nid',String(nextId));}catch(e){}
 }
 function wr(d){return d.wins+d.losses>0?Math.round(d.wins/(d.wins+d.losses)*100):0;}
 function wrc(w){return w>=55?'wg':w>=45?'wm':'wb';}
@@ -622,7 +621,6 @@ function setDeckTab(tab){
     if(content) content.style.display=t===tab?'':'none';
   });
   if(tab==='mine') renderDecks();
-  if(tab==='public') renderPublicDecks();
   if(tab==='team') renderTeamDecksTab();
   if(tab==='tournament') renderTournamentDecks();
 }
@@ -704,238 +702,6 @@ function _renderDeckGrid(tab){
 function onDeckSearch(tab,val){_deckTabState[tab].q=val;_renderDeckGrid(tab);}
 function onDeckHero(tab,val){_deckTabState[tab].hero=val;_renderDeckGrid(tab);}
 
-/* ── PUBLIC DECKS ─────────────────────────────────────────────────────────────
-   Architecture: the full deck object is serialised as JSON into the `description`
-   column (an existing text column that always saves reliably).  All other columns
-   (name, legend, legend_img, format, domains, cards, card_count) are kept for
-   card-preview display only and are never used as the source of truth for zones.
-   When viewing or importing a deck the full object is deserialised from description.
-   ─────────────────────────────────────────────────────────────────────────────── */
-
-function _pubDeckFromRow(row){
-  // Deserialise the full deck object stored in description.
-  // Falls back to top-level columns so old rows still work.
-  let blob={};
-  try{blob=JSON.parse(row.description||'{}');}catch(e){}
-  return {
-    name:       row.name||blob.name||'Imported Deck',
-    legend:     row.legend||blob.legend||'',
-    format:     row.format||blob.format||'Constructed',
-    domains:    row.domains||blob.domains||[],
-    cards:      row.cards||blob.cards||[],
-    champion:   blob.champion||null,
-    sideboard:  blob.sideboard||[],
-    runes:      blob.runes||[],
-    battlefields: blob.battlefields||[],
-  };
-}
-
-async function renderPublicDecks(){
-  const el=document.getElementById('public-decks-content');
-  if(!el) return;
-  el.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">Loading public decks…</div>`;
-  try{
-    const {data,error}=await _sb.from('public_decks')
-      .select('id,name,legend,legend_img,format,domains,cards,card_count,author,created_at')
-      .order('created_at',{ascending:false}).limit(50);
-    if(error) throw error;
-    const st=_deckTabState.public;
-    st.data=data||[];
-    st.gridId='public-deck-grid';
-    st.getName=d=>d.name||'';
-    st.getHero=d=>d.legend||'';
-    st.getAuthor=d=>d.author||'';
-    if(!data||!data.length){
-      el.innerHTML=`<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Visible to everyone — anyone can browse and import these.</div>`
-        +`<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:1rem;">${_buildPublishBtn()}</div>`
-        +_deckSearchBar('public')
-        +`<div style="padding:3rem;text-align:center;"><h3 style="margin-bottom:8px;">No public decks yet</h3><p style="color:var(--text-muted);font-size:13px;">Be the first to publish a deck!</p></div>`;
-      return;
-    }
-    st.card=d=>{
-      const totalC=(d.cards||[]).reduce((a,c)=>a+c.cnt,0)||d.card_count||0;
-      const dcImg=d.legend_img||'';
-      const dcAvatar=dcImg
-        ?`<div class="dc-avatar"><img src="${dcImg}" alt="${d.legend}"></div>`
-        :`<div class="dc-avatar dc-avatar-empty"></div>`;
-      return `<div class="dc">
-        <div class="dt">
-          <div style="display:flex;align-items:center;gap:10px;">
-            ${dcAvatar}
-            <div>
-              <div class="dn">${d.name}</div>
-              <div class="dl">${d.legend||'—'}</div>
-            </div>
-          </div>
-          <span class="ftag">${d.format||''}</span>
-        </div>
-        ${d.domains&&d.domains.length?`<div class="dr">${pills(d.domains)}</div>`:''}
-        <div class="df">
-          <span><strong>${totalC}</strong> cards</span>
-          <span style="font-size:11px;color:var(--text-muted);">by ${d.author||'Anonymous'}</span>
-        </div>
-        <div class="da">
-          <button class="btn btn-sm btn-g" onclick="openPublicDeckDetail('${d.id}')">View</button>
-        </div>
-      </div>`;
-    };
-    let html=`<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Visible to everyone — anyone can browse and import these.</div>`
-      +`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">`
-      +`<span style="font-size:13px;color:var(--text-muted);">${data.length} public deck${data.length!==1?'s':''}</span>`
-      +_buildPublishBtn()
-      +`</div>`;
-    html+=_deckSearchBar('public');
-    html+=`<div class="dg" id="public-deck-grid"></div>`;
-    el.innerHTML=html;
-    _renderDeckGrid('public');
-  }catch(e){
-    if(_isMissingTableError(e)){
-      el.innerHTML=`<div style="padding:2rem;text-align:center;"><h3 style="margin-bottom:6px;">Public decks aren't set up yet</h3></div>`+_setupHint('public_decks');
-    } else {
-      el.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">Could not load public decks: ${(e&&e.message)||'unknown error'}</div>`;
-    }
-  }
-}
-
-function _buildPublishBtn(){
-  return `<button class="btn btn-p" style="font-size:12px;padding:7px 16px;" onclick="openPublishDeckModal()">↑ Publish a Deck</button>`;
-}
-
-function openPublishDeckModal(){
-  if(!currentUser){toast('Log in to publish a deck');openAuthModal('login');return;}
-  const publishable=myDecks.filter(x=>x.id!==PUB_VIEW_ID);
-  if(!publishable.length){toast('Create a deck first');return;}
-  const opts=publishable.map(d=>`<option value="${d.id}">${d.name}${d.legend?' ('+d.legend+')':''}</option>`).join('');
-  const m=document.createElement('div');
-  m.id='publish-modal';
-  m.innerHTML=`<div class="modal-backdrop" onclick="document.getElementById('publish-modal').remove()"></div>
-  <div class="modal-box" style="max-width:440px;">
-    <div class="modal-header"><h2>Publish Deck</h2><button class="modal-close" onclick="document.getElementById('publish-modal').remove()">✕</button></div>
-    <div style="display:flex;flex-direction:column;gap:12px;padding:16px;">
-      <label style="font-size:13px;font-weight:600;">Select deck</label>
-      <select id="pub-deck-sel" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">${opts}</select>
-      <div style="font-size:12px;color:var(--text-muted);">Published as <b>${String(profileDisplayName()).replace(/</g,'&lt;')}</b></div>
-      <button class="btn btn-p" onclick="submitPublicDeck()">Publish</button>
-    </div>
-  </div>`;
-  document.body.appendChild(m);
-}
-
-async function submitPublicDeck(){
-  if(!currentUser){toast('Log in to publish a deck');openAuthModal('login');return;}
-  const deckId=document.getElementById('pub-deck-sel').value;
-  const d=myDecks.find(x=>String(x.id)===String(deckId));
-  if(!d){toast('Deck not found');return;}
-  const _pubMainCount=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+(c.cnt||0),0)+(d.champion?1:0);
-  if(_pubMainCount!==40){toast(`Deck must be exactly 40 cards to publish (currently ${_pubMainCount})`);return;}
-  const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
-  const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
-  // Serialise the FULL deck object into description — single source of truth for all zones
-  const deckBlob=JSON.stringify({
-    name:d.name, legend:d.legend, format:d.format||'', domains:d.domains||[],
-    cards:d.cards||[], champion:d.champion||null,
-    sideboard:d.sideboard||[], runes:d.runes||[], battlefields:d.battlefields||[],
-  });
-  const payload={
-    user_id:currentUser.id,
-    local_deck_id:String(deckId),
-    name:d.name,
-    legend:d.legend,
-    legend_img:dcLegFull?dcLegFull.imageUrl:'',
-    format:d.format||'',
-    domains:d.domains||[],
-    cards:d.cards||[],
-    card_count:(d.cards||[]).reduce((a,c)=>a+c.cnt,0),
-    author:profileDisplayName(),
-    description:deckBlob,
-    created_at:new Date().toISOString(),
-  };
-  try{
-    const {error}=await _sb.from('public_decks').insert([payload]);
-    if(error) throw error;
-    document.getElementById('publish-modal').remove();
-    toast('Deck published!');
-    setDeckTab('public');
-  }catch(e){
-    if(_isMissingTableError(e)){
-      toast('Public decks table missing — run supabase-setup.sql in your Supabase SQL Editor');
-    } else {
-      toast('Could not publish: '+(e.message||'unknown error'));
-    }
-  }
-}
-
-async function openPublicDeckDetail(pubId){
-  const el=document.getElementById('public-decks-content');
-  if(el) el.innerHTML=`<div style="padding:3rem;text-align:center;color:var(--text-muted);font-size:13px;">Loading…</div>`;
-  try{
-    const {data,error}=await _sb.from('public_decks').select('*').eq('id',pubId).single();
-    if(error||!data) throw error||new Error('not found');
-    const deck=_pubDeckFromRow(data);
-    const tmpDeck={
-      id:PUB_VIEW_ID,
-      name:deck.name, legend:deck.legend, format:deck.format,
-      domains:deck.domains, cards:deck.cards,
-      champion:deck.champion, sideboard:deck.sideboard,
-      runes:deck.runes, battlefields:deck.battlefields,
-      results:[],wins:0,losses:0,
-      _pubId:pubId, _isPublicView:true,
-    };
-    myDecks=myDecks.filter(x=>x.id!==PUB_VIEW_ID);
-    myDecks.push(tmpDeck);
-    activeDeckId=PUB_VIEW_ID;
-    activeDDTab='cards';
-    document.getElementById('dl').style.display='none';
-    document.getElementById('dd').style.display='block';
-    const bb=document.querySelector('#dd .bb');
-    if(bb){bb.textContent='← Back to Public Decks';bb.onclick=closePublicDeckView;}
-    renderDeckDetail();
-    setTimeout(()=>{
-      const delBtn=document.querySelector('#ddp-cards .btn-d');
-      if(delBtn){
-        delBtn.textContent='Add to my decks';
-        delBtn.className='btn btn-g';
-        delBtn.style.marginTop='1rem';
-        delBtn.onclick=()=>importPublicDeck(pubId);
-      }
-    },0);
-  }catch(e){
-    if(el) el.innerHTML=`<div style="padding:2rem;">
-      <button class="btn btn-sm" onclick="renderPublicDecks()">← Back</button>
-      <p style="margin-top:1rem;color:var(--text-muted);">Could not load deck.</p>
-    </div>`;
-  }
-}
-
-function closePublicDeckView(){
-  myDecks=myDecks.filter(x=>x.id!==PUB_VIEW_ID);
-  activeDeckId=null; activeDDTab='cards';
-  document.getElementById('dd').style.display='none';
-  document.getElementById('dl').style.display='';
-  setDeckTab('public');
-}
-
-async function importPublicDeck(pubId){
-  try{
-    const {data,error}=await _sb.from('public_decks').select('*').eq('id',pubId).single();
-    if(error||!data) throw error||new Error('not found');
-    const deck=_pubDeckFromRow(data);
-    const newDeck={
-      id:nextId++, name:deck.name+' (imported)',
-      legend:deck.legend, format:deck.format, domains:deck.domains,
-      cards:deck.cards, champion:deck.champion,
-      sideboard:deck.sideboard, runes:deck.runes, battlefields:deck.battlefields,
-      wins:0, losses:0, results:[],
-    };
-    myDecks.unshift(newDeck);
-    persist();
-    closePublicDeckView();
-    toast('Deck imported to My Decks!');
-    setDeckTab('mine');
-  }catch(e){
-    toast('Import failed');
-  }
-}
 
 /* ── TOURNAMENT DECKS ─────────────────────────────────────────
    A curated, site-wide showcase of competitive decklists. Everyone can browse
@@ -1183,10 +949,7 @@ function openShareToTeamModal(){
   document.body.appendChild(m);
 }
 
-let publishedPublicSet=JSON.parse(localStorage.getItem('rl_published_public')||'[]');
-function isPublishedPublic(id){return publishedPublicSet.includes(String(id));}
 function isPublishedTeam(id){return !!teamDecklists.find(x=>String(x.deckId)===String(id));}
-function persistPublishedPublic(){localStorage.setItem('rl_published_public',JSON.stringify(publishedPublicSet));}
 
 function closeDeckMenus(){
   document.querySelectorAll('.dc-hmenu-pop.open').forEach(el=>el.classList.remove('open'));
@@ -1205,46 +968,6 @@ document.addEventListener('click',e=>{
   if(!e.target.closest('.dc-hmenu'))closeDeckMenus();
 });
 
-async function publishDeckToPublic(deckId){
-  if(!currentUser){toast('Log in to publish a deck');openAuthModal('login');return;}
-  const d=myDecks.find(x=>String(x.id)===String(deckId));
-  if(!d){toast('Deck not found');return;}
-  if(isPublishedPublic(deckId)){
-    if(!confirm(`"${d.name}" is already published to Public Decks. Unpublish it?`))return;
-    publishedPublicSet=publishedPublicSet.filter(x=>String(x)!==String(deckId));
-    persistPublishedPublic();
-    try{ await _sb.from('public_decks').delete().eq('local_deck_id',String(deckId)).eq('user_id',currentUser.id); }catch(e){}
-    toast('Removed from Public Decks');
-    renderDecks();
-    return;
-  }
-  if(!confirm(`Publish "${d.name}" to Public Decks as ${profileDisplayName()}? Anyone will be able to view and import it.`))return;
-  const author=profileDisplayName();
-  const description='';
-  const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
-  const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
-  const payload={
-    user_id:currentUser.id,
-    name:d.name, legend:d.legend, legend_img:dcLegFull?dcLegFull.imageUrl:'',
-    format:d.format||'', domains:d.domains||[], cards:d.cards||[],
-    card_count:(d.cards||[]).reduce((a,c)=>a+c.cnt,0),
-    author, description, local_deck_id:String(deckId), created_at:new Date().toISOString()
-  };
-  try{
-    const {error}=await _sb.from('public_decks').insert([payload]);
-    if(error) throw error;
-    publishedPublicSet.push(String(deckId));
-    persistPublishedPublic();
-    toast('Deck published to Public Decks!');
-    renderDecks();
-  }catch(e){
-    if(_isMissingTableError(e)){
-      toast('Public decks table missing — run supabase-setup.sql in your Supabase SQL Editor');
-    } else {
-      toast('Could not publish: '+(e.message||'unknown error'));
-    }
-  }
-}
 
 function publishDeckToTeam(deckId){
   const d=myDecks.find(x=>String(x.id)===String(deckId));
@@ -1340,7 +1063,6 @@ function renderDecks(){
               <svg viewBox="0 0 16 16" fill="none" width="14" height="14"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
             </button>
             <div class="dc-hmenu-pop" id="dc-hmenu-${d.id}">
-              <button class="dc-hmenu-item ${isPublishedPublic(d.id)?'is-on':''}" onclick="event.stopPropagation();closeDeckMenus();publishDeckToPublic('${d.id}')">${isPublishedPublic(d.id)?'✓ Published':'Publish to Public'}</button>
               <button class="dc-hmenu-item ${isPublishedTeam(d.id)?'is-on':''}" onclick="event.stopPropagation();closeDeckMenus();publishDeckToTeam('${d.id}')">${isPublishedTeam(d.id)?'✓ On Team':'Publish to Team'}</button>
               <button class="dc-hmenu-item dc-hmenu-danger" onclick="event.stopPropagation();closeDeckMenus();delDeck('${d.id}')">Delete</button>
             </div>
@@ -3930,7 +3652,6 @@ function saveDeckTitle(deckId,val){
   if(currentUser) saveToCloud(deckId);
 }
 function closeDeckDetail(){
-  if(activeDeckId===PUB_VIEW_ID){closePublicDeckView();return;}
   if(currentUser&&activeDeckId) saveToCloud(activeDeckId);
   document.getElementById('dl').style.display='';document.getElementById('dd').style.display='none';activeDeckId=null;activeDDTab='cards';renderDecks();
 }
