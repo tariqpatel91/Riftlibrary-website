@@ -742,7 +742,7 @@ async function renderPublicDecks(){
           <span class="ftag">${d.format||''}</span>
         </div>
         ${d.domains&&d.domains.length?`<div class="dr">${pills(d.domains)}</div>`:''}
-        ${d.description?`<div style="font-size:12px;color:var(--text-muted);padding:4px 0;border-top:1px solid var(--border);margin-top:6px;">${d.description.slice(0,100)}${d.description.length>100?'…':''}</div>`:''}
+        ${d.description&&!d.description.startsWith('{')?`<div style="font-size:12px;color:var(--text-muted);padding:4px 0;border-top:1px solid var(--border);margin-top:6px;">${d.description.slice(0,100)}${d.description.length>100?'…':''}</div>`:''}
         <div class="df">
           <span><strong>${totalC||d.card_count||'?'}</strong> cards</span>
           <span style="font-size:11px;color:var(--text-muted);">by ${d.author||'Anonymous'}</span>
@@ -797,7 +797,6 @@ async function submitPublicDeck(){
   if(!currentUser){toast('Log in to publish a deck');openAuthModal('login');return;}
   const deckId=document.getElementById('pub-deck-sel').value;
   const author=profileDisplayName();
-  const description='';
   const d=myDecks.find(x=>String(x.id)===String(deckId));
   if(!d){toast('Deck not found');return;}
   const _pubMainCount=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+(c.cnt||0),0)+(d.champion?1:0);
