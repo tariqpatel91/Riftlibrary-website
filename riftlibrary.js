@@ -804,22 +804,18 @@ async function submitPublicDeck(){
   if(_pubMainCount!==40){toast(`Deck must be exactly 40 cards to publish (currently ${_pubMainCount})`);return;}
   const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
   const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
+  // Pack extra zones into description (avoids PostgREST schema cache issues with new columns)
+  const _deckExtra=JSON.stringify({champion:d.champion||null,sideboard:d.sideboard||[],runes:d.runes||[],battlefields:d.battlefields||[]});
   const payload={
     user_id:currentUser.id,
     local_deck_id:String(deckId),
     name:d.name, legend:d.legend, legend_img:dcLegFull?dcLegFull.imageUrl:'',
     format:d.format||'', domains:d.domains||[], cards:d.cards||[],
-    champion:d.champion||null,
-    sideboard:d.sideboard||[],
-    runes:d.runes||[],
-    battlefields:d.battlefields||[],
     card_count:(d.cards||[]).reduce((a,c)=>a+c.cnt,0),
-    author, description, created_at:new Date().toISOString()
+    author, description:_deckExtra, created_at:new Date().toISOString()
   };
-  console.log('PUBLISH_PAYLOAD:',JSON.stringify({deckId,champion:payload.champion,battlefields:payload.battlefields,sideboardLen:(payload.sideboard||[]).length,runesLen:(payload.runes||[]).length}));
   try{
-    const {data:insertData,error}=await _sb.from('public_decks').insert([payload]).select('champion,battlefields,sideboard,runes');
-    console.log('PUBLISH_RESULT:',JSON.stringify({insertData,error}));
+    const {error}=await _sb.from('public_decks').insert([payload]);
     if(error) throw error;
     document.getElementById('publish-modal').remove();
     toast('Deck published!');
@@ -839,6 +835,13 @@ async function openPublicDeckDetail(pubId){
   try{
     const {data,error}=await _sb.from('public_decks').select('*').eq('id',pubId).single();
     if(error||!data) throw error||new Error('not found');
+    // Extra zones are packed in description as JSON (champion/sideboard/runes/battlefields)
+    let _extra={};
+    try{_extra=JSON.parse(data.description||'{}');}catch(e){}
+    const _champion=_extra.champion||data.champion||null;
+    const _sideboard=_extra.sideboard||data.sideboard||[];
+    const _runes=_extra.runes||data.runes||[];
+    const _battlefields=_extra.battlefields||data.battlefields||[];
     // Build a temporary deck object using the same shape as myDecks
     const tmpDeck={
       id:PUB_VIEW_ID,
@@ -847,10 +850,10 @@ async function openPublicDeckDetail(pubId){
       format:data.format||'Constructed',
       domains:data.domains||[],
       cards:data.cards||[],
-      champion:data.champion||null,
-      sideboard:data.sideboard||[],
-      runes:data.runes||[],
-      battlefields:data.battlefields||[],
+      champion:_champion,
+      sideboard:_sideboard,
+      runes:_runes,
+      battlefields:_battlefields,
       results:[],wins:0,losses:0,
       _pubId:pubId,
       _isPublicView:true,
@@ -895,12 +898,13 @@ async function importPublicDeck(pubId){
   try{
     const {data,error}=await _sb.from('public_decks').select('*').eq('id',pubId).single();
     if(error||!data) throw error||new Error('not found');
+    let _ex={};try{_ex=JSON.parse(data.description||'{}');}catch(e){}
     const newDeck={
       id:nextId++, name:data.name+' (imported)', legend:data.legend,
       format:data.format||'', domains:data.domains||[], cards:data.cards||[],
-      champion:data.champion||null,
-      wins:0, losses:0, sideboard:data.sideboard||[], results:[],
-      runes:data.runes||[], battlefields:data.battlefields||[]
+      champion:_ex.champion||data.champion||null,
+      wins:0, losses:0, sideboard:_ex.sideboard||data.sideboard||[], results:[],
+      runes:_ex.runes||data.runes||[], battlefields:_ex.battlefields||data.battlefields||[]
     };
     myDecks.unshift(newDeck);
     persist();
