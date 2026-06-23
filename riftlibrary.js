@@ -816,8 +816,10 @@ async function submitPublicDeck(){
     card_count:(d.cards||[]).reduce((a,c)=>a+c.cnt,0),
     author, description, created_at:new Date().toISOString()
   };
+  console.log('PUBLISH_PAYLOAD:',JSON.stringify({deckId,champion:payload.champion,battlefields:payload.battlefields,sideboardLen:(payload.sideboard||[]).length,runesLen:(payload.runes||[]).length}));
   try{
-    const {error}=await _sb.from('public_decks').insert([payload]);
+    const {data:insertData,error}=await _sb.from('public_decks').insert([payload]).select('champion,battlefields,sideboard,runes');
+    console.log('PUBLISH_RESULT:',JSON.stringify({insertData,error}));
     if(error) throw error;
     document.getElementById('publish-modal').remove();
     toast('Deck published!');
