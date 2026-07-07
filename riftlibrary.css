@@ -1843,3 +1843,11 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 #discard-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:500;display:none;align-items:center;justify-content:center;}
 #discard-overlay.open{display:flex;}
 #discard-box{background:#0a1428;border:1px solid rgba(180,140,50,0.4);border-radius:10px;padding:1.25rem;max-width:620px;width:92%;max-height:80vh;overflow-y:auto;}
+
+/* ── Generic JS-injected modals (share-to-team, tournament, public deck viewer) ── */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9998;}
+.modal-box{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:14px;width:min(94vw,520px);max-height:88vh;overflow-y:auto;}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);}
+.modal-header h2{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin:0;}
+.modal-close{background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;line-height:1;padding:4px;}
+.modal-close:hover{color:var(--text);}

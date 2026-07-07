@@ -1002,11 +1002,11 @@ function _doShareToTeam(){
   renderTeamDecksTab();
 }
 
-/* ── TEAM 2.0 DECKS (public team decks) ───────────────────────
+/* ── PUBLIC DECK LISTS (internally "team2") ───────────────────
    Works exactly like the Team Decks tab, but rows live in the Supabase
    `public_decks` table so EVERY visitor (even logged-out) sees the same
-   list. Anyone can browse and import; sharing/removing requires login
-   and only touches your own rows (enforced by RLS in supabase-setup.sql). */
+   list. Anyone can browse, view, and import; sharing/removing requires
+   login and only touches your own rows (RLS in supabase-setup.sql). */
 let team2PublishedIds=new Set(); // local deck ids the current user has shared
 
 async function _refreshTeam2Published(){
@@ -1024,7 +1024,7 @@ function isPublishedTeam2(id){return team2PublishedIds.has(String(id));}
 async function renderTeam2DecksTab(){
   const el=document.getElementById('team2-decks-content');
   if(!el) return;
-  el.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">Loading Team 2.0 decks…</div>`;
+  el.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">Loading public deck lists…</div>`;
   try{
     const [{data,error}]=await Promise.all([
       _sb.from('public_decks').select('*').order('created_at',{ascending:false}).limit(200),
@@ -1038,7 +1038,7 @@ async function renderTeam2DecksTab(){
     html+=`<button class="btn btn-g" style="font-size:12px;padding:7px 16px;" onclick="openShareToTeam2Modal()">+ Share a Deck</button>`;
     html+=`</div>`;
     if(!decks.length){
-      html+=`<div style="padding:3rem;text-align:center;color:var(--text-muted);font-size:13px;">No Team 2.0 decks yet. Share one of your decks!</div>`;
+      html+=`<div style="padding:3rem;text-align:center;color:var(--text-muted);font-size:13px;">No public deck lists yet. Share one of your decks!</div>`;
       el.innerHTML=html; return;
     }
     const st=_deckTabState.team2;
@@ -1049,7 +1049,6 @@ async function renderTeam2DecksTab(){
     st.getAuthor=d=>d.author||'';
     st.card=d=>{
       const mine=!!(currentUser&&d.user_id===currentUser.id);
-      const local=d.local_deck_id?myDecks.find(x=>String(x.id)===String(d.local_deck_id)):null;
       const totalC=(d.cards||[]).reduce((a,c)=>a+(c.cnt||0),0)||d.card_count||0;
       const dcImg=d.legend_img||'';
       const dcAvatar=dcImg
@@ -1074,7 +1073,7 @@ async function renderTeam2DecksTab(){
         ${d.description?`<div style="font-size:12px;color:var(--text-muted);padding:4px 0;border-top:1px solid var(--border);margin-top:6px;">${_teamEsc(d.description).slice(0,120)}${d.description.length>120?'…':''}</div>`:''}
         <div class="df"><span><strong>${totalC||'?'}</strong> cards</span></div>
         <div class="da">
-          ${mine&&local?`<button class="btn btn-sm btn-g" onclick="openDD('${local.id}')">View</button>`:''}
+          <button class="btn btn-sm btn-g" onclick="viewTeam2Deck('${d.id}')">View Deck</button>
           <button class="btn btn-sm btn-g" onclick="importTeam2Deck('${d.id}')">Add to my decks</button>
           ${mine?`<button class="btn btn-sm btn-d" onclick="unshareTeam2Deck('${d.id}')">Remove</button>`:''}
         </div>
@@ -1086,9 +1085,9 @@ async function renderTeam2DecksTab(){
     _renderDeckGrid('team2');
   }catch(e){
     if(_isMissingTableError(e)){
-      el.innerHTML=`<div style="padding:2rem;text-align:center;"><h3 style="margin-bottom:6px;">Team 2.0 decks aren't set up yet</h3></div>`+_setupHint('public_decks');
+      el.innerHTML=`<div style="padding:2rem;text-align:center;"><h3 style="margin-bottom:6px;">Public deck lists aren't set up yet</h3></div>`+_setupHint('public_decks');
     } else {
-      el.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">Could not load Team 2.0 decks: ${(e&&e.message)||'unknown error'}</div>`;
+      el.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">Could not load public deck lists: ${(e&&e.message)||'unknown error'}</div>`;
     }
   }
 }
@@ -1101,7 +1100,7 @@ function openShareToTeam2Modal(){
   m.id='share-team2-modal';
   m.innerHTML=`<div class="modal-backdrop" onclick="document.getElementById('share-team2-modal').remove()"></div>
   <div class="modal-box" style="max-width:380px;">
-    <div class="modal-header"><h2>Share to Team 2.0</h2><button class="modal-close" onclick="document.getElementById('share-team2-modal').remove()">✕</button></div>
+    <div class="modal-header"><h2>Share to Public Deck Lists</h2><button class="modal-close" onclick="document.getElementById('share-team2-modal').remove()">✕</button></div>
     <div style="display:flex;flex-direction:column;gap:12px;padding:16px;">
       <div style="font-size:12px;color:var(--text-muted);">Shared decks are visible to everyone who visits the site.</div>
       <select id="share-team2-deck-sel" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">${opts}</select>
@@ -1125,18 +1124,18 @@ async function publishDeckToTeam2(deckId){
   const d=myDecks.find(x=>String(x.id)===String(deckId));
   if(!d){toast('Deck not found');return false;}
   if(isPublishedTeam2(d.id)){
-    if(!confirm(`"${d.name}" is already shared on Team 2.0. Remove it?`))return false;
+    if(!confirm(`"${d.name}" is already on the public deck lists. Remove it?`))return false;
     try{
       const {error}=await _sb.from('public_decks').delete().eq('user_id',currentUser.id).eq('local_deck_id',String(d.id));
       if(error) throw error;
       team2PublishedIds.delete(String(d.id));
-      toast('Removed from Team 2.0');
+      toast('Removed from public deck lists');
       renderDecks();
       if(activeDeckTab==='team2')renderTeam2DecksTab();
       return true;
     }catch(e){toast('Could not remove: '+((e&&e.message)||'unknown error'));return false;}
   }
-  if(!confirm(`Share "${d.name}" with everyone on Team 2.0?`))return false;
+  if(!confirm(`Share "${d.name}" publicly with everyone?`))return false;
   const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
   const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
   const payload={
@@ -1160,7 +1159,7 @@ async function publishDeckToTeam2(deckId){
     return true;
   }catch(e){
     if(_isMissingTableError(e)){
-      toast('Team 2.0 table missing — run supabase-setup.sql in your Supabase SQL Editor');
+      toast('Public decks table missing — run supabase-setup.sql in your Supabase SQL Editor');
     }else{
       toast('Could not share: '+((e&&e.message)||'unknown error'));
     }
@@ -1170,16 +1169,16 @@ async function publishDeckToTeam2(deckId){
 
 async function unshareTeam2Deck(id){
   if(!currentUser){toast('Log in first');return;}
-  if(!confirm('Remove this deck from Team 2.0 for everyone?'))return;
+  if(!confirm('Remove this deck from the public deck lists for everyone?'))return;
   try{
     const {error}=await _sb.from('public_decks').delete().eq('id',id);
     if(error) throw error;
-    toast('Removed from Team 2.0');
+    toast('Removed from public deck lists');
     renderTeam2DecksTab(); // also refreshes team2PublishedIds
   }catch(e){toast('Could not remove: '+((e&&e.message)||'unknown error'));}
 }
 
-// Copy a Team 2.0 deck into My Decks — full deck: main cards, champion,
+// Copy a public deck into My Decks — full deck: main cards, champion,
 // sideboard, runes, and battlefields all come along.
 async function importTeam2Deck(id){
   try{
@@ -1194,11 +1193,79 @@ async function importTeam2Deck(id){
     };
     myDecks.unshift(newDeck);
     persist();
-    toast('Team 2.0 deck imported to My Decks!');
+    toast('Deck imported to My Decks!');
     setDeckTab('mine');
   }catch(e){
     toast('Import failed');
   }
+}
+
+// Read-only deck viewer for the Public Deck Lists tab. Renders the full
+// decklist (champion, main deck, battlefields, runes, sideboard) straight
+// from the cloud row, so it works for anyone's deck — no import needed.
+function _t2Tile(entry){
+  const full=CARDS.find(c=>c.id===entry.id);
+  const name=entry.n||entry.name||(full?full.name:'')||'?';
+  const img=full?full.imageUrl:'';
+  const inner=img
+    ?`<img src="${img}" alt="${_teamEsc(name)}" loading="lazy">`
+    :`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${_teamEsc(name)}</div>`;
+  const cnt=(entry.cnt||1)>1?`<div class="gallery-card-cnt">×${entry.cnt}</div>`:'';
+  const bf=(entry.t==='Battlefield'||(full&&full.type==='Battlefield'))?' gallery-card-bf':'';
+  return `<div class="gallery-card${bf}" title="${_teamEsc(name)}">${inner}${cnt}</div>`;
+}
+function viewTeam2Deck(id){
+  const d=(_deckTabState.team2.data||[]).find(x=>String(x.id)===String(id));
+  if(!d){toast('Deck not found — try reloading the tab');return;}
+  const legendEntry=(d.cards||[]).find(c=>c.t==='Legend');
+  const main=(d.cards||[]).filter(c=>c.t!=='Legend');
+  const mainCnt=main.reduce((a,c)=>a+(c.cnt||1),0)+(d.champion?1:0);
+  const sb=d.sideboard||[];
+  const sbCnt=sb.reduce((a,c)=>a+(c.cnt||1),0);
+  // Runes are stored flat (one entry per copy, no cnt) — group for display.
+  const runeMap=new Map();
+  (d.runes||[]).forEach(r=>{
+    const k=String(r.id||r.n);
+    const e=runeMap.get(k);
+    if(e)e.cnt++;else runeMap.set(k,{...r,cnt:1});
+  });
+  const runes=[...runeMap.values()];
+  const runeCnt=(d.runes||[]).length;
+  const bfs=(d.battlefields||[]).filter(Boolean);
+  const sec=(title,tally,entries,bfRow)=>entries.length
+    ?`<div class="gallery-section"><div class="gallery-section-hdr">${title}<span class="gallery-section-tally">${tally}</span></div><div class="${bfRow?'cards-gallery-view-bf':'cards-gallery-view'}">${entries.map(_t2Tile).join('')}</div></div>`
+    :'';
+  let body='';
+  const topRow=[];
+  if(legendEntry) topRow.push(sec('Legend','1',[legendEntry]));
+  if(d.champion) topRow.push(sec('Champion','1/1',[{...d.champion,cnt:1}]));
+  if(topRow.length) body+=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,160px));gap:16px;">${topRow.join('')}</div>`;
+  body+=sec('Main Deck',`${mainCnt}/40`,main);
+  body+=sec('Battlefields',`${bfs.length}/3`,bfs,true);
+  body+=sec('Runes',`${runeCnt}/12`,runes);
+  body+=sec('Sideboard',`${sbCnt}/8`,sb);
+  if(!body) body=`<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">This deck has no cards.</div>`;
+  const byLine=[d.author?_teamEsc(d.author):'',d.created_at?new Date(d.created_at).toLocaleDateString():''].filter(Boolean).join(' • ');
+  const m=document.createElement('div');
+  m.id='team2-view-modal';
+  m.innerHTML=`<div class="modal-backdrop" onclick="document.getElementById('team2-view-modal').remove()"></div>
+  <div class="modal-box" style="width:min(94vw,860px);">
+    <div class="modal-header">
+      <div>
+        <h2>${_teamEsc(d.name)}</h2>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${_teamEsc(d.legend||'')}${byLine?` — ${byLine}`:''}</div>
+      </div>
+      <button class="modal-close" onclick="document.getElementById('team2-view-modal').remove()">✕</button>
+    </div>
+    <div style="padding:16px;display:flex;flex-direction:column;gap:14px;">
+      ${body}
+      <div style="display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--border);padding-top:12px;">
+        <button class="btn btn-sm btn-g" onclick="importTeam2Deck('${d.id}');document.getElementById('team2-view-modal').remove()">Add to my decks</button>
+        <button class="btn btn-sm" onclick="document.getElementById('team2-view-modal').remove()">Close</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
 }
 
 function renderDecks(){
@@ -1265,7 +1332,7 @@ function renderDecks(){
             </button>
             <div class="dc-hmenu-pop" id="dc-hmenu-${d.id}">
               <button class="dc-hmenu-item ${isPublishedTeam(d.id)?'is-on':''}" onclick="event.stopPropagation();closeDeckMenus();publishDeckToTeam('${d.id}')">${isPublishedTeam(d.id)?'✓ On Team':'Publish to Team'}</button>
-              <button class="dc-hmenu-item ${isPublishedTeam2(d.id)?'is-on':''}" onclick="event.stopPropagation();closeDeckMenus();publishDeckToTeam2('${d.id}')">${isPublishedTeam2(d.id)?'✓ On Team 2.0':'Publish to Team 2.0'}</button>
+              <button class="dc-hmenu-item ${isPublishedTeam2(d.id)?'is-on':''}" onclick="event.stopPropagation();closeDeckMenus();publishDeckToTeam2('${d.id}')">${isPublishedTeam2(d.id)?'✓ On Public Lists':'Publish to Public Lists'}</button>
               <button class="dc-hmenu-item dc-hmenu-danger" onclick="event.stopPropagation();closeDeckMenus();delDeck('${d.id}')">Delete</button>
             </div>
           </div>
