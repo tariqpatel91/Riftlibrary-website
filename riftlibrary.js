@@ -1381,7 +1381,7 @@ function renderDeckDetail(){
 
     <!-- PANEL: RESULTS -->
     <div class="dd-panel${activeDDTab==='results'?' active':''}" id="ddp-results">
-      <div class="result-form">
+      ${ddReadOnly?'':`<div class="result-form">
         <div>
           <label>Outcome</label>
           <select id="r-outcome"><option value="win">Win</option><option value="loss">Loss</option></select>
@@ -1403,7 +1403,7 @@ function renderDeckDetail(){
           <input type="text" id="r-notes" placeholder="Optional" style="width:160px;">
         </div>
         <button class="btn btn-g" onclick="addResult(${d.id})" style="align-self:flex-end;">+ Add</button>
-      </div>
+      </div>`}
       <div class="result-list" id="result-list">
         ${renderResultsList(d)}
       </div>
@@ -1699,7 +1699,7 @@ function buildSideboardGuide(d){
       if(legacy!==undefined) v=legacy;
     }
     v=v||'';
-    return `<div class="sbg-sub"><span class="sbg-sub-lbl">${label}</span><input class="sbg-cell sbg-cell-sub" type="text" maxlength="6" value="${_sbgEsc(v)}" oninput="sbgSetCell('${section}',${r},${c},${sub},this.value)"></div>`;
+    return `<div class="sbg-sub"><span class="sbg-sub-lbl">${label}</span><input class="sbg-cell sbg-cell-sub" type="text" maxlength="6" value="${_sbgEsc(v)}" ${ddReadOnly?'disabled':`oninput="sbgSetCell('${section}',${r},${c},${sub},this.value)"`}></div>`;
   }
   function cellSplit(section,r,c){
     const subs=subsFor(section);
@@ -1709,9 +1709,9 @@ function buildSideboardGuide(d){
     return `<tr class="sbg-hdr-row">
       <th class="sbg-row-label sbg-corner">Matchup →</th>
       ${g.matchups.map((t,i)=>`<th class="sbg-mu-cell"><div class="sbg-mu-wrap">
-        <input class="sbg-mu-input" type="text" placeholder="Matchup ${i+1}" value="${_sbgEsc(t)}" oninput="sbgSetMatchup(${i},this.value)">
+        <input class="sbg-mu-input" type="text" placeholder="Matchup ${i+1}" value="${_sbgEsc(t)}" ${ddReadOnly?'disabled':`oninput="sbgSetMatchup(${i},this.value)"`}>
         <button class="sbg-mu-eye" title="View matchup details" onclick="sbgEyeClick(${i})">👁</button>
-        <button class="sbg-mu-del" title="Remove column" onclick="sbgRemoveCol(${i})">✕</button>
+        ${ddReadOnly?'':`<button class="sbg-mu-del" title="Remove column" onclick="sbgRemoveCol(${i})">✕</button>`}
       </div></th>`).join('')}
     </tr>`;
   }
@@ -1738,9 +1738,11 @@ function buildSideboardGuide(d){
   }
   return `<div class="sbg-wrap">
     <div class="sbg-topbar">
-      <div class="sbg-help">Use this grid to plan your sideboard swaps for each matchup. Edit a column header to name the matchup, then type the number of copies to side <em>in</em> (positive) or <em>out</em> (negative) of each card.</div>
+      <div class="sbg-help">${ddReadOnly
+        ?'Read-only view of this deck’s sideboard plan for each matchup.'
+        :'Use this grid to plan your sideboard swaps for each matchup. Edit a column header to name the matchup, then type the number of copies to side <em>in</em> (positive) or <em>out</em> (negative) of each card.'}</div>
       <div class="sbg-topbar-actions">
-        <button class="btn btn-sm btn-p sbg-dl-btn" onclick="sbgAddCol()" title="Add a matchup column">＋ Add Matchup</button>
+        ${ddReadOnly?'':`<button class="btn btn-sm btn-p sbg-dl-btn" onclick="sbgAddCol()" title="Add a matchup column">＋ Add Matchup</button>`}
         <button class="btn btn-sm btn-g sbg-dl-btn" onclick="downloadSideboardGuide()" title="Export a printable sideboard guide">⬇ Download SB Guide</button>
       </div>
     </div>
@@ -1927,6 +1929,7 @@ function sbgEyeClick(idx){
 }
 function sbgEyeSetView(v){_sbgEye.view=v;_sbgRenderEyeModal();}
 function _sbgEyeBfClick(name){
+  if(ddReadOnly)return;
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const g=_sbgEnsure(d);
   const {bfRows}=_sbgRowLabels(d);
@@ -1969,6 +1972,7 @@ function _sbgFormatDelta(n,positiveSign){
   return positiveSign&&n>0?`+${n}`:String(n);
 }
 function _sbgEyeAdjust(section,name,direction){
+  if(ddReadOnly)return;
   // direction: +1 or -1 added to current signed value, then clamped.
   // section: 'm' (main) or 's' (sideboard).
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
@@ -2061,6 +2065,7 @@ function _sbgRenderEyeModal(){
   //     display 's', origin 's' → delta += 1 (side it in)         → dir +1 for 's' row
   //     display 'm', origin 's' → delta -= 1 (return to SB)       → dir -1 for 's' row
   function _clickAttrs(entry,displaySection){
+    if(ddReadOnly)return'';
     const safeName=_sbgEsc(entry.n).replace(/'/g,"\\'");
     const o=entry.origin;
     let dir,rowSection=o;
@@ -2081,7 +2086,7 @@ function _sbgRenderEyeModal(){
       // Subtle indicator that this stack came from the other zone.
       const movedDir=displaySection==='s'?'OUT':'IN';
       const movedBadge=entry.moved?`<div class="sbg-eye-moved-tag sbg-eye-moved-${movedDir.toLowerCase()}">${movedDir}</div>`:'';
-      const title=displaySection==='m'?`${entry.n} — click to side out · right-click to undo`:`${entry.n} — click to side in · right-click to undo`;
+      const title=ddReadOnly?entry.n:(displaySection==='m'?`${entry.n} — click to side out · right-click to undo`:`${entry.n} — click to side in · right-click to undo`);
       return `<div class="gallery-card sbg-eye-swap-card${entry.moved?' sbg-eye-moved':''}" title="${_sbgEsc(title)}" ${_clickAttrs(entry,displaySection)}>${imgInner}${stackBadge}${movedBadge}</div>`;
     }).join('');
   }
@@ -2104,7 +2109,7 @@ function _sbgRenderEyeModal(){
     const full=CARDS.find(c=>c.id===entry.id);
     const img=full?full.imageUrl:'';
     const total=entry.cnt||1;
-    const title=displaySection==='m'?`${entry.n} — click to side out · right-click to undo`:`${entry.n} — click to side in · right-click to undo`;
+    const title=ddReadOnly?entry.n:(displaySection==='m'?`${entry.n} — click to side out · right-click to undo`:`${entry.n} — click to side in · right-click to undo`);
     // Each individual stacked tile carries its own OUT/IN tag and accent
     // outline when this group represents copies moved from the other zone.
     const movedDir=displaySection==='s'?'OUT':'IN';
@@ -2178,7 +2183,7 @@ function _sbgRenderEyeModal(){
     const safeName=_sbgEsc(bf.n).replace(/'/g,"\\'");
     const cls=`gallery-card gallery-card-bf sbg-eye-bf-tile${isSelected?' sbg-eye-bf-selected':''}${isFaded?' sbg-eye-bf-faded':''}`;
     const inner=img?`<img src="${img}" alt="${_sbgEsc(bf.n)}" loading="lazy">`:`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${_sbgEsc(bf.n)}</div>`;
-    return `<div class="${cls}" title="${_sbgEsc(bf.n)} — click to ${isSelected?'unpick':'pick for this game'}" onclick="_sbgEyeBfClick('${safeName}')">${inner}</div>`;
+    return `<div class="${cls}" title="${ddReadOnly?_sbgEsc(bf.n):`${_sbgEsc(bf.n)} — click to ${isSelected?'unpick':'pick for this game'}`}" ${ddReadOnly?'':`onclick="_sbgEyeBfClick('${safeName}')"`}>${inner}</div>`;
   }
   let bodyHtml='';
   // Top read-only strip: Champion + Battlefields side by side. Battlefield
@@ -2239,7 +2244,7 @@ function _sbgRenderEyeModal(){
       <span class="sbg-eye-stat">In <strong>${totalIn}</strong></span>
       <span class="sbg-eye-stat">Out <strong>${totalOut}</strong></span>
       <span class="sbg-eye-stat ${balanceCls}">${balanceText}</span>
-      <span class="sbg-eye-hint">Click a card in the main deck to side it out · click a sideboard card to side it in · right-click to undo.</span>
+      <span class="sbg-eye-hint">${ddReadOnly?'Read-only view of this matchup’s post-board plan.':'Click a card in the main deck to side it out · click a sideboard card to side it in · right-click to undo.'}</span>
     </div>
     <div class="sbg-eye-body">${galleryBody}</div>
     <div class="sbg-eye-resize sbg-eye-resize-right" title="Drag to resize width"></div>
@@ -2301,6 +2306,7 @@ function _attachSbgEyeEdgeHandles(box){
   const b=box.querySelector('.sbg-eye-resize-bottom');if(b) startDrag(b,'y', 1);
 }
 function sbgSetCell(section,row,col,sub,val){
+  if(ddReadOnly)return;
   // Back-compat shim: pre-split callers passed (section,row,col,val) without
   // sub — treat that as sub=0.
   if(val===undefined){val=sub;sub=0;}
@@ -2311,12 +2317,14 @@ function sbgSetCell(section,row,col,sub,val){
   persist();
 }
 function sbgSetMatchup(idx,val){
+  if(ddReadOnly)return;
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const g=_sbgEnsure(d);
   g.matchups[idx]=String(val);
   persist();
 }
 function sbgAddCol(){
+  if(ddReadOnly)return;
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const g=_sbgEnsure(d);
   g.matchups.push('');
@@ -2324,6 +2332,7 @@ function sbgAddCol(){
   document.getElementById('ddp-sbguide').innerHTML=buildSideboardGuide(d);
 }
 function sbgRemoveCol(idx){
+  if(ddReadOnly)return;
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   const g=_sbgEnsure(d);
   if(g.matchups.length<=1){toast('Keep at least one matchup column');return;}
@@ -2450,12 +2459,13 @@ function renderResultsList(d){
       +(r.bf?'<span class="result-notes" style="color:var(--text-muted);">🌍 '+r.bf+'</span>':'')
       +'<span class="result-opp">vs '+(r.opp||'Unknown')+'</span>'
       +(r.notes?'<span class="result-notes">'+r.notes+'</span>':'')
-      +'<button class="result-del" onclick="deleteResult('+d.id+','+realIdx+')" title="Remove">×</button>'
+      +(ddReadOnly?'':'<button class="result-del" onclick="deleteResult('+d.id+','+realIdx+')" title="Remove">×</button>')
       +'</div>';
   }).join('');
 }
 
 function addResult(deckId){
+  if(ddReadOnly)return;
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   const outcome=document.getElementById('r-outcome').value;
   const turn=document.getElementById('r-turn').value;
@@ -2477,6 +2487,7 @@ function addResult(deckId){
 }
 
 function deleteResult(deckId,idx){
+  if(ddReadOnly)return;
   const d=myDecks.find(x=>x.id===deckId);if(!d||!d.results)return;
   const r=d.results[idx];
   if(r.outcome==='win'&&d.wins>0) d.wins--;
