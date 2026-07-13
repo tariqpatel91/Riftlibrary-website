@@ -197,6 +197,7 @@ function fillFromRQ(idx){
 let VIEW='cards';
 let activeDeckId=null;
 let activeDDTab='cards';
+let ddReadOnly=false; // true when a deck is opened from Public Deck Lists — hides all editing controls
 
 let currentUser=null;
 let cardsTabView='visual';
@@ -1049,7 +1050,7 @@ function renderTeam2DecksTab(){
         <span style="font-size:11px;color:var(--text-muted);">Shared ${new Date(entry.ts).toLocaleDateString()}</span>
       </div>
       <div class="da">
-        ${d?`<button class="btn btn-sm btn-g" onclick="openDD('${d.id}')">View</button>`:'<span style="font-size:11px;color:var(--text-muted);">Deck not in your library</span>'}
+        ${d?`<button class="btn btn-sm btn-g" onclick="openDD('${d.id}',true)">View</button>`:'<span style="font-size:11px;color:var(--text-muted);">Deck not in your library</span>'}
         <button class="btn btn-sm btn-d" onclick="unshareTeam2Decklist(${entry.id});renderTeam2DecksTab()">Remove</button>
       </div>
     </div>`;
@@ -1202,8 +1203,10 @@ function populateDeckSelectors(){
   });
 }
 
-function openDD(id){
+function openDD(id,readOnly){
   const d=myDecks.find(x=>String(x.id)===String(id));if(!d)return;
+  ddReadOnly=!!readOnly;
+  if(ddReadOnly&&activeDDTab==='edit')activeDDTab='cards';
   activeDeckId=d.id;
   if(!d.sideboard) d.sideboard=[];
   if(!d.results)   d.results=[];
@@ -1278,7 +1281,9 @@ function renderDeckDetail(){
       <div class="deck-header-left">
         ${avatarHtml}
         <div class="deck-header-title-col">
-          <div class="dtitle" id="deck-title-display" onclick="startEditDeckTitle(${d.id})" title="Click to edit">${d.name}<span class="dtitle-edit-icon">✎</span></div>
+          ${ddReadOnly
+            ?`<div class="dtitle" id="deck-title-display">${d.name}</div>`
+            :`<div class="dtitle" id="deck-title-display" onclick="startEditDeckTitle(${d.id})" title="Click to edit">${d.name}<span class="dtitle-edit-icon">✎</span></div>`}
           <div class="dmeta">
             <span>${d.legend}</span><span>·</span>
             <div class="dr" style="margin:0;">${pills(d.domains)}</div>
@@ -1295,10 +1300,10 @@ function renderDeckDetail(){
         <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="9" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 5h3M5 8h3M5 11h1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><rect x="6" y="1" width="9" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/></svg>
         Decklist
       </button>
-      <button class="dd-tab${activeDDTab==='edit'?' active':''}" onclick="switchDDTab('edit')">
+      ${ddReadOnly?'':`<button class="dd-tab${activeDDTab==='edit'?' active':''}" onclick="switchDDTab('edit')">
         <svg viewBox="0 0 16 16" fill="none"><path d="M11 2.5l2.5 2.5-7 7H4V9.5l7-7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.5 4l2.5 2.5" stroke="currentColor" stroke-width="1.2"/></svg>
         Edit
-      </button>
+      </button>`}
       <button class="dd-tab${activeDDTab==='sbguide'?' active':''}" onclick="switchDDTab('sbguide')">
         <svg viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M1.5 5.5h13M1.5 9.5h13M5.5 1.5v13M10 1.5v13" stroke="currentColor" stroke-width="1.2"/></svg>
         Sideboard Guide
@@ -1353,7 +1358,7 @@ function renderDeckDetail(){
       </div>
       <div id="cards-visual-view" style="${cardsTabView==='visual'?'':'display:none'}"></div>
       <div id="cards-gallery-view" style="${cardsTabView==='gallery'?'':'display:none'}"></div>
-      <button class="btn btn-d" style="margin-top:1rem;" onclick="delDeck(${d.id});closeDeckDetail()">Delete deck</button>
+      ${ddReadOnly?'':`<button class="btn btn-d" style="margin-top:1rem;" onclick="delDeck(${d.id});closeDeckDetail()">Delete deck</button>`}
     </div>
 
     <!-- PANEL: EDIT -->
@@ -1498,6 +1503,7 @@ function buildCardsListView(d){
 }
 
 function switchDDTab(tab){
+  if(ddReadOnly&&tab==='edit')return;
   if(tab!=='edit'){EF.type='';EF.dom='';EF.set='';EF.subtype='';EF.variant='';EF.rar='';EF.energy=[0,12];EF.power=[0,4];EF.might=[0,12];EF.page=1;EF.showAllVersions=false;const hzb=document.getElementById('hero-zone-bar');if(hzb)hzb.innerHTML='';}
   activeDDTab=tab;
   renderDeckDetail();
