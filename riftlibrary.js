@@ -20,6 +20,10 @@ function isBannedCard(card){
   return BANNED_CARDS.has(baseName(card.name||''));
 }
 function baseName(n){return(n||'').replace(/\s*\([^)]*\)\s*$/,'').trim();}
+// Cards exempt from the 3-copy limit: a deck whose domains allow the card
+// may run any number of copies. Domain legality itself is unchanged.
+const UNLIMITED_COPY_CARDS=new Set(['Spiderling']);
+function isUnlimitedCard(n){return UNLIMITED_COPY_CARDS.has(baseName(n||''));}
 let myEvents=JSON.parse(localStorage.getItem('rl_myEvents')||'[]');
 let activeEvtTab='all';
 let myTeam=JSON.parse(localStorage.getItem('rl_team')||'null');
@@ -2539,7 +2543,7 @@ function adjustSB(deckId,cardId,delta){
   if(!d.sideboard) d.sideboard=[];
   const entry=d.sideboard.find(c=>c.id===cardId);
   if(entry){
-    if(delta>0&&entry.cnt>=3){toast('Max 3 copies');return;}
+    if(delta>0&&entry.cnt>=3&&!isUnlimitedCard(entry.n)){toast('Max 3 copies');return;}
     if(delta>0){const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}}
     entry.cnt=Math.max(0,entry.cnt+delta);
     if(entry.cnt===0) d.sideboard=d.sideboard.filter(c=>c.id!==cardId);
@@ -2611,7 +2615,7 @@ function addToSB(deckId,cardId,cardName,cardType){
   d.cards[deckIdx].cnt--;
   if(d.cards[deckIdx].cnt<=0) d.cards.splice(deckIdx,1);
   const existing=d.sideboard.find(c=>c.id===cardId);
-  if(existing){if(existing.cnt>=3){toast('Max 3 copies');return;}existing.cnt++;}
+  if(existing){if(existing.cnt>=3&&!isUnlimitedCard(cardName)){toast('Max 3 copies');return;}existing.cnt++;}
   else d.sideboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
   persist();
   renderEditSearch();
@@ -2633,7 +2637,7 @@ function addDirectToSB(deckId,cardId,cardName,cardType){
   const sbCnt=(d.sideboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const mbCnt=(d.maybeboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const zoneCnt=(d.champion&&baseName(d.champion.n)===bn)?1:0;
-  if(deckCnt+sbCnt+mbCnt+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
+  if(deckCnt+sbCnt+mbCnt+zoneCnt>=3&&!isUnlimitedCard(cardName)){toast('Max 3 copies (including variants)');return;}
   const existing=d.sideboard.find(c=>c.id===cardId);
   if(existing) existing.cnt++;
   else d.sideboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
@@ -2658,7 +2662,7 @@ function addDirectToMB(deckId,cardId,cardName,cardType){
   const _sC=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const _mC=d.maybeboard.filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const _zC=(d.champion&&baseName(d.champion.n)===_bn)?1:0;
-  if(_dC+_sC+_mC+_zC>=3){toast('Max 3 copies (including variants)');return;}
+  if(_dC+_sC+_mC+_zC>=3&&!isUnlimitedCard(cardName)){toast('Max 3 copies (including variants)');return;}
   const existing=d.maybeboard.find(c=>c.id===cardId);
   if(existing){
     if(existing.cnt>=MAYBE_PER_CARD_MAX){toast('Max '+MAYBE_PER_CARD_MAX+' copies of any one card in the maybe board');return;}
@@ -2863,7 +2867,7 @@ function _buildEditResultsHtml(d,slice,total,pages){
       // Maxed = at the per-card cap for this deck slot. Battlefields cap at 1
       // copy of each, regular cards at 3. Runes don't grey out here (their
       // own counts panel handles limits).
-      const isMaxed=!isBanned&&(isBF?bfInDeck:(!isRune&&variantTotal>=3));
+      const isMaxed=!isBanned&&(isBF?bfInDeck:(!isRune&&variantTotal>=3&&!isUnlimitedCard(c.name)));
       const addFn=isBanned?`toast('This card is banned')`:isMaxed?`toast('Already at max for this card')`:(isRune?`addRune('${si}','${sn}')`:isBF?`addBattlefield(-1,'${si}','${sn}')`:`editDeckCard('${si}','${sn}','${at}',1)`);
       const dragAttrs=(isBanned||isMaxed)?'draggable="false"':`draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')"`;
       html+=`<div class="ct ct-img lib-card${isBF?' lib-card-bf':''}${isBanned?' lib-card-banned':''}${isMaxed?' lib-card-maxed':''}" ${dragAttrs} title="${c.name}" onclick="${addFn}">`;
@@ -2993,7 +2997,7 @@ function addToMaybeboard(deckId,cardId,cardName,cardType){
   const _sC=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const _mC=d.maybeboard.filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const _zC=(d.champion&&baseName(d.champion.n)===_bn)?1:0;
-  if(_dC+_sC+_mC+_zC>=3){toast('Max 3 copies (including variants)');return;}
+  if(_dC+_sC+_mC+_zC>=3&&!isUnlimitedCard(cardName)){toast('Max 3 copies (including variants)');return;}
   const existing=d.maybeboard.find(c=>c.id===cardId);
   if(existing){
     if(existing.cnt>=MAYBE_PER_CARD_MAX){toast('Max '+MAYBE_PER_CARD_MAX+' copies of any one card in the maybe board');return;}
@@ -3034,7 +3038,7 @@ function maybeboardToDeck(deckId,cardId,cardName,cardType){
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const zoneCnt=(d.champion&&baseName(d.champion.n)===bn)?1:0;
-  if(deckCntBN+sbCntBN+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
+  if(deckCntBN+sbCntBN+zoneCnt>=3&&!isUnlimitedCard(cardName)){toast('Max 3 copies (including variants)');return;}
   const mIdx=d.maybeboard.findIndex(c=>c.id===cardId);
   if(mIdx<0)return;
   d.maybeboard[mIdx].cnt--;
@@ -3059,7 +3063,7 @@ function maybeboardToSideboard(deckId,cardId,cardName,cardType){
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const sbCntBN=d.sideboard.filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const zoneCnt=(d.champion&&baseName(d.champion.n)===bn)?1:0;
-  if(deckCntBN+sbCntBN+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
+  if(deckCntBN+sbCntBN+zoneCnt>=3&&!isUnlimitedCard(cardName)){toast('Max 3 copies (including variants)');return;}
   const mIdx=d.maybeboard.findIndex(c=>c.id===cardId);
   if(mIdx<0)return;
   d.maybeboard[mIdx].cnt--;
@@ -3097,7 +3101,7 @@ function _moveMaybeboardToDeck(){
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const zoneCnt=(d.champion&&baseName(d.champion.n)===_bn)?1:0;
-  if(deckCntBN+sbCntBN+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
+  if(deckCntBN+sbCntBN+zoneCnt>=3&&!isUnlimitedCard(_DRAG.n)){toast('Max 3 copies (including variants)');return;}
   const mIdx=d.maybeboard.findIndex(c=>c.id===_DRAG.id);
   if(mIdx<0)return;
   d.maybeboard[mIdx].cnt--;
@@ -3116,7 +3120,7 @@ function _moveMaybeboardToSideboard(){
   const _bn=baseName(_DRAG.n);
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
-  if(deckCntBN+sbCntBN>=3){toast('Max 3 copies (including variants)');return;}
+  if(deckCntBN+sbCntBN>=3&&!isUnlimitedCard(_DRAG.n)){toast('Max 3 copies (including variants)');return;}
   const mIdx=d.maybeboard.findIndex(c=>c.id===_DRAG.id);
   if(mIdx<0)return;
   d.maybeboard[mIdx].cnt--;
@@ -3147,7 +3151,7 @@ function _moveSideboardToDeck(){
   const _bn=baseName(_DRAG.n);
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
-  if((deckCntBN+sbCntBN)>3){toast('Max 3 copies (including variants)');return;}
+  if((deckCntBN+sbCntBN)>3&&!isUnlimitedCard(_DRAG.n)){toast('Max 3 copies (including variants)');return;}
   // Decrement sideboard
   d.sideboard[sbIdx].cnt--;
   if(d.sideboard[sbIdx].cnt<=0) d.sideboard.splice(sbIdx,1);
@@ -3278,7 +3282,7 @@ function renderEditPreview(targetEl){
     const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const st=c.t.replace(/'/g,"\\'");
     const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    const canAdd=c.cnt<3;
+    const canAdd=c.cnt<3||isUnlimitedCard(c.n);
     let h=`<div class="deck-card-item ${cls}" title="${c.n}" draggable="true" ondragstart="editDeckDragStart('${si}','${sn}','${st}')" data-hover-img="${img||''}">`;
     if(img) h+=`<img src="${img}" alt="" loading="lazy">`;
     else h+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
@@ -3445,9 +3449,12 @@ function renderEditPreview(targetEl){
         if(type==='Gear'){
           h+=_renderGearItem(c);
         } else {
-          h+='<div class="deck-col-stack">';
-          for(let i=0;i<c.cnt;i++) h+=cardItem(c,'deck-card-main');
-          h+='</div>';
+          // Unlimited-copy cards can exceed 3 — start a new column every 3 copies
+          for(let k=0;k<c.cnt;k+=3){
+            h+='<div class="deck-col-stack">';
+            for(let i=k;i<Math.min(k+3,c.cnt);i++) h+=cardItem(c,'deck-card-main');
+            h+='</div>';
+          }
         }
       });
       h+='</div>';
@@ -3537,8 +3544,9 @@ function renderEditPreview(targetEl){
       const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const st=(c.t||'').replace(/'/g,"\\'");
+      for(let k=0;k<c.cnt;k+=3){
       html+='<div class="deck-col-stack">';
-      for(let i=0;i<c.cnt;i++){
+      for(let i=k;i<Math.min(k+3,c.cnt);i++){
         html+=`<div class="deck-card-item deck-card-main" title="${c.n}" draggable="true" ondragstart="editSideboardDragStart('${si}','${sn}','${st}')" data-hover-img="${img||''}">`;
         if(img) html+=`<img src="${img}" alt="" loading="lazy">`;
         else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
@@ -3552,6 +3560,7 @@ function renderEditPreview(targetEl){
         html+='</div>';
       }
       html+='</div>';
+      }
     });
     html+='</div>';
   }
@@ -3572,8 +3581,9 @@ function renderEditPreview(targetEl){
       const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const st=(c.t||'').replace(/'/g,"\\'");
+      for(let k=0;k<c.cnt;k+=3){
       html+='<div class="deck-col-stack">';
-      for(let i=0;i<c.cnt;i++){
+      for(let i=k;i<Math.min(k+3,c.cnt);i++){
         html+=`<div class="deck-card-item deck-card-main" title="${c.n}" draggable="true" ondragstart="editMaybeboardDragStart('${si}','${sn}','${st}')" data-hover-img="${img||''}">`;
         if(img) html+=`<img src="${img}" alt="" loading="lazy">`;
         else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
@@ -3588,6 +3598,7 @@ function renderEditPreview(targetEl){
         html+='</div>';
       }
       html+='</div>';
+      }
     });
     html+='</div>';
   }
@@ -3610,7 +3621,7 @@ function editDeckCard(cardId,cardName,cardType,delta){
     const sbCnt=(d.sideboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
     const mbCnt=(d.maybeboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
     const zoneCnt=(d.champion&&baseName(d.champion.n)===bn)?1:0;
-    if(deckCnt+sbCnt+mbCnt+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
+    if(deckCnt+sbCnt+mbCnt+zoneCnt>=3&&!isUnlimitedCard(cardName)){toast('Max 3 copies (including variants)');return;}
   }
   if(idx>=0){
     d.cards[idx].cnt=Math.max(0,d.cards[idx].cnt+delta);
@@ -3645,7 +3656,7 @@ function showDeckCardMenu(e,cardId,cardName,cardType){
     (img?`<div class="dcm-preview"><img src="${img}" alt=""></div>`:'')
     +`<div class="dcm-item" onclick="dcmZoom()"><span class="dcm-icon">🔍</span>Zoom</div>`
     +`<div class="dcm-item dcm-danger" onclick="dcmRemove()"><span class="dcm-icon">✕</span>Remove</div>`
-    +`<div class="dcm-item${cnt>=3?' dcm-disabled':''}" onclick="dcmAdd()"><span class="dcm-icon">＋</span>1 copy</div>`
+    +`<div class="dcm-item${cnt>=3&&!isUnlimitedCard(cardName)?' dcm-disabled':''}" onclick="dcmAdd()"><span class="dcm-icon">＋</span>1 copy</div>`
     +`<div class="dcm-item" onclick="dcmSideboard()"><span class="dcm-icon">→</span>Sideboard</div>`
     +`<div class="dcm-item" onclick="dcmMaybeboard()"><span class="dcm-icon">?</span>Maybe Board</div>`;
   document.body.appendChild(menu);
