@@ -2838,7 +2838,19 @@ function renderEditSearch(){
 }
 
 function _buildEditResultsHtml(d,slice,total,pages){
-  let html='<div class="edit-card-grid">';
+  // Pagination renders above the card grid, right under the stat sliders
+  let html='';
+  if(pages>1){
+    html+='<div class="edit-pagination">';
+    html+=`<button class="edit-page-btn"${EF.page===1?' disabled':''} onclick="setEditPage(${EF.page-1})">Prev</button>`;
+    buildPageNums(EF.page,pages).forEach(p=>{
+      if(p==='…') html+='<span style="padding:0 2px;color:var(--text-muted);font-size:13px;">…</span>';
+      else html+=`<button class="edit-page-btn${p===EF.page?' on':''}" onclick="setEditPage(${p})">${p}</button>`;
+    });
+    html+=`<button class="edit-page-btn"${EF.page===pages?' disabled':''} onclick="setEditPage(${EF.page+1})">Next</button>`;
+    html+='</div>';
+  }
+  html+='<div class="edit-card-grid">';
   if(!slice.length){
     html+='<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--text-muted);font-size:13px;">No cards found</div>';
   } else {
@@ -2888,17 +2900,6 @@ function _buildEditResultsHtml(d,slice,total,pages){
     });
   }
   html+='</div>';
-
-  if(pages>1){
-    html+='<div class="edit-pagination">';
-    html+=`<button class="edit-page-btn"${EF.page===1?' disabled':''} onclick="setEditPage(${EF.page-1})">Prev</button>`;
-    buildPageNums(EF.page,pages).forEach(p=>{
-      if(p==='…') html+='<span style="padding:0 2px;color:var(--text-muted);font-size:13px;">…</span>';
-      else html+=`<button class="edit-page-btn${p===EF.page?' on':''}" onclick="setEditPage(${p})">${p}</button>`;
-    });
-    html+=`<button class="edit-page-btn"${EF.page===pages?' disabled':''} onclick="setEditPage(${EF.page+1})">Next</button>`;
-    html+='</div>';
-  }
   return html;
 }
 
