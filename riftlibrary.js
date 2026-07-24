@@ -2778,7 +2778,7 @@ function renderEditSearch(){
   });
   html+='</div>';
 
-  const ESETS=['','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
+  const ESETS=['','VEN','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
   const ERARS=['','Epic','Rare','Uncommon','Common','Promo'];
   const ESUBTYPES=['','Action','Reaction','Champion','Token','Signature Card'];
   const EVARIANTS=['','Standard','Alt Art','Overnumbered','Promo','Artist Signed','Foil'];
@@ -4972,15 +4972,15 @@ const SCHEDULE_2026=[
   {month:'June 2026',events:[
     {dates:'Jun 12–14',name:'RQ Utrecht',desc:'Regional Qualifier in the Netherlands',type:'rq'},
     {dates:'Jun 19–21',name:'RQ Hartford',desc:'New England Regional Qualifier',type:'rq'},
-    {dates:'Jun 22',name:'Vandetta Previews Begin',desc:'First look at Riftbound Set 4',type:'preview'},
+    {dates:'Jun 22',name:'Vendetta Previews Begin',desc:'First look at Riftbound Set 4',type:'preview'},
     {dates:'Jun 22',name:'Summoner Skirmish July Window',desc:'July Skirmish events open',type:'skirmish'},
     {dates:'Jun 26',name:'LoL Mid-Season Invitational',desc:'Riftbound presence in Daejeon, South Korea',type:'special'},
   ]},
   {month:'July 2026',events:[
     {dates:'Mid-July',name:'China Major Tournament',desc:'Set 3 Major in northern China',type:'major'},
-    {dates:'Jul 24–30',name:'Vandetta Pre-Rift',desc:'Global Pre-Rift for Set 4',type:'pre-rift'},
+    {dates:'Jul 24–30',name:'Vendetta Pre-Rift',desc:'Global Pre-Rift for Set 4',type:'pre-rift'},
     {dates:'Jul 30–Aug 2',name:'Gen Con Indy',desc:'Riftbound events and panel',type:'special'},
-    {dates:'Jul 31',name:'Vandetta Release',desc:'Set 4 launches in English and Chinese',type:'release'},
+    {dates:'Jul 31',name:'Vendetta Release',desc:'Set 4 launches worldwide — first simultaneous global release',type:'release'},
   ]},
   {month:'August 2026',events:[
     {dates:'TBD',name:'State of the Game',desc:'Second State of the Game livestream',type:'special'},
@@ -5874,6 +5874,7 @@ function openAddToBinderModal(cardId){
 }
 
 const SET_META={
+  VEN:{label:'Vendetta',    grad:'linear-gradient(135deg,#7a1010 0%,#320505 60%,#0d0101 100%)',accent:'#f5544d',textShadow:'0 0 20px rgba(245,84,77,0.5)'},
   UNL:{label:'Unleashed',   grad:'linear-gradient(135deg,#c8006a 0%,#6a0030 60%,#1a000d 100%)',accent:'#f050a0',textShadow:'0 0 20px rgba(200,0,106,0.6)'},
   SFD:{label:'Spiritforged',grad:'linear-gradient(135deg,#4a5568 0%,#1a1f2e 60%,#0d0f14 100%)',accent:'#a0aec0',textShadow:'0 0 20px rgba(160,174,192,0.4)'},
   OGN:{label:'Origins',     grad:'linear-gradient(135deg,#b8860b 0%,#5a3e00 60%,#140e00 100%)',accent:'#f5c842',textShadow:'0 0 20px rgba(200,168,75,0.5)'},
@@ -5967,7 +5968,7 @@ function renderCollection(){
   const totalCopies=Object.values(collOwned).reduce((a,v)=>a+v,0);
 
   // build set progress cards
-  const SET_ORDER=['UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
+  const SET_ORDER=['VEN','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
   const orderedSets=[...SET_ORDER.filter(s=>setMap[s]),...Object.keys(setMap).filter(s=>!SET_ORDER.includes(s))];
 
   // ── Binder sidebar ──
