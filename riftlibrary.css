@@ -209,6 +209,33 @@ select option{background:#1e1e2a;}
 .deck-header-right{flex:1 1 auto;display:flex;align-items:center;justify-content:flex-end;gap:24px;min-width:0;}
 .deck-header-right #deck-curves-panel{flex:0 1 auto;}
 .deck-header-count{display:flex;gap:6px;align-items:baseline;}
+/* Curves+count block now lives inside the .dd-tabs row, pushed to the right
+   so the chart x-axis numbers sit on the same baseline as the tab labels. */
+.dd-tabs-curves{margin-left:auto;display:flex;align-items:flex-end;gap:24px;padding:6px 4px 10px 24px;flex-shrink:0;}
+.dd-tabs-curves #deck-curves-panel{display:flex;align-items:flex-end;}
+.dd-tabs-curves .deck-curves{padding:0;}
+/* Hide the redundant "ENERGY CURVE" / "POWER CURVE" subheader in this
+   compact placement — the bars are self-explanatory and the label was
+   the main culprit overlapping the bars. */
+.dd-tabs-curves .curve-chart-lbl{display:none;}
+.dd-tabs-curves .curve-pairs-row{gap:18px;align-items:flex-end;}
+.dd-tabs-curves .curve-pair{gap:6px;align-items:center;}
+.dd-tabs-curves .curve-stat{min-width:42px;align-items:center;}
+.dd-tabs-curves .curve-sv{font-size:15px;line-height:1;font-weight:700;}
+.dd-tabs-curves .curve-sl{font-size:8px;letter-spacing:0.06em;margin-top:3px;}
+.dd-tabs-curves .curve-chart-block{gap:3px;align-items:center;}
+/* Wrap must accommodate the full 44px-max bar plus the axis label below it
+   without the column overflowing upward into the row above. */
+.dd-tabs-curves .mc-wrap{height:52px;gap:2px;align-items:flex-end;overflow:visible;}
+.dd-tabs-curves .mc-col{gap:2px;}
+.dd-tabs-curves .mc-bar{width:9px;}
+.dd-tabs-curves .mc-lbl{font-size:8px;line-height:1;}
+.dd-tabs-curves .deck-header-count{white-space:nowrap;padding-bottom:2px;}
+.dd-tabs-curves .deck-header-count .dt-label{font-size:12px;color:var(--text-muted);}
+.dd-tabs-curves .deck-header-count .dt-count{font-size:12px;color:var(--accent);font-weight:600;}
+/* The tabs row's flexbox aligns children at their baseline by default; force
+   align-items here so the buttons sit at the bottom alongside the curves. */
+.dd-tabs{align-items:flex-end;}
 .legend-avatar{width:72px;height:72px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid rgba(255,255,255,0.18);background:var(--surface2);}
 .legend-avatar img{width:100%;height:100%;object-fit:cover;object-position:center 15%;}
 .legend-avatar-empty{display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:24px;}
@@ -484,6 +511,151 @@ select option{background:#1e1e2a;}
 .dd-tab.active svg{opacity:1;}
 .dd-panel{display:none;}
 .dd-panel.active{display:block;}
+
+/* ── SIDEBOARD GUIDE GRID ───────────────────────────────────── */
+.sbg-wrap{padding-top:4px;}
+.sbg-topbar{display:flex;align-items:stretch;gap:12px;margin-bottom:14px;}
+.sbg-topbar .sbg-help{flex:1;margin-bottom:0;}
+.sbg-topbar-actions{display:flex;flex-direction:column;gap:8px;flex-shrink:0;}
+.sbg-dl-btn{white-space:nowrap;}
+.sbg-help{font-size:12px;color:var(--text-muted);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;line-height:1.45;}
+.sbg-help em{color:var(--text-soft);font-style:italic;}
+.sbg-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface);}
+.sbg-table{border-collapse:separate;border-spacing:0;width:100%;font-family:'Inter',system-ui,sans-serif;font-size:12px;color:var(--text);}
+.sbg-table th,.sbg-table td{padding:0;border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
+.sbg-table th:last-child,.sbg-table td:last-child{border-right:none;}
+.sbg-table tbody tr:last-child td{border-bottom:none;}
+.sbg-hdr-row{background:var(--surface2);}
+.sbg-corner{font-weight:600;color:var(--text-muted);text-align:right;padding:8px 12px;letter-spacing:0.04em;background:var(--surface3);min-width:220px;position:sticky;left:0;z-index:2;}
+.sbg-mu-cell{min-width:130px;background:var(--surface2);}
+.sbg-mu-wrap{display:flex;align-items:center;gap:4px;padding:4px 6px;}
+input.sbg-mu-input{flex:1;min-width:0;background:transparent;border:1px solid transparent;border-radius:5px;color:var(--text);font-family:inherit;font-size:12px;font-weight:600;padding:5px 7px;text-align:center;width:auto;}
+.sbg-mu-input::placeholder{color:var(--text-muted);font-weight:500;}
+.sbg-mu-input:focus{outline:none;background:var(--surface);border-color:var(--accent);}
+.sbg-mu-eye{flex-shrink:0;width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-soft);font-size:12px;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;transition:background 0.15s,color 0.15s,border-color 0.15s;padding:0;}
+.sbg-mu-eye:hover{background:var(--accent);color:#000;border-color:var(--accent);}
+.sbg-mu-del{flex-shrink:0;width:18px;height:18px;border-radius:50%;border:none;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;line-height:1;opacity:0;transition:opacity 0.15s,background 0.15s,color 0.15s;}
+.sbg-mu-cell:hover .sbg-mu-del{opacity:1;}
+.sbg-mu-del:hover{background:rgba(255,107,74,0.18);color:var(--fury);}
+.sbg-add-col{width:40px;background:var(--surface2);}
+.sbg-add-btn{width:26px;height:26px;border-radius:50%;border:1px dashed var(--accent);background:transparent;color:var(--accent);font-size:15px;font-weight:700;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;transition:background 0.15s,color 0.15s;margin:4px;}
+.sbg-add-btn:hover{background:var(--accent);color:#000;}
+.sbg-section-row{background:linear-gradient(180deg,rgba(200,168,75,0.10),transparent);}
+.sbg-section-label{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:0.14em;text-transform:uppercase;padding:8px 12px;position:sticky;left:0;background:var(--surface2);z-index:2;}
+.sbg-section-extra{color:var(--text-muted);font-weight:500;font-family:'Inter',system-ui,sans-serif;font-size:10px;margin-left:6px;letter-spacing:0.04em;}
+.sbg-row-label{padding:6px 12px;color:var(--text-soft);background:var(--surface);position:sticky;left:0;z-index:1;font-weight:500;border-right:1px solid var(--border);}
+.sbg-row-label-wrap{display:flex;align-items:center;gap:8px;}
+.sbg-row-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sbg-row-cnt{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;background:var(--surface3);color:var(--text-muted);font-size:10px;font-weight:600;min-width:22px;height:18px;padding:0 6px;border-radius:9px;}
+.sbg-row-cnt-spacer{flex-shrink:0;width:22px;height:18px;}
+.sbg-champ-row .sbg-row-label{background:linear-gradient(90deg,rgba(200,168,75,0.14),var(--surface))!important;color:var(--accent);font-weight:600;}
+.sbg-champ-badge{color:var(--accent);font-size:11px;margin-right:2px;}
+.sbg-empty-row{color:var(--text-muted);opacity:0.4;}
+.sbg-cell-td{padding:0;background:var(--surface);}
+/* Stronger vertical divider between matchup columns so the eye can tell
+   one matchup block from the next. Sub-cells inside still use the lighter
+   dashed border. */
+.sbg-table .sbg-cell-td{border-right:2px solid rgba(255,255,255,0.22);}
+.sbg-table .sbg-cell-td:last-child{border-right:none;}
+.sbg-table .sbg-mu-cell{border-right:2px solid rgba(255,255,255,0.32);}
+input.sbg-cell{width:100%;height:30px;background:transparent!important;border:1px solid transparent;border-radius:0;color:var(--text);font-family:inherit;font-size:12px;text-align:center;padding:0 4px;box-sizing:border-box;}
+input.sbg-cell:focus{outline:none;background:var(--surface3)!important;border-color:var(--accent);}
+.sbg-cell-pad{width:40px;background:var(--surface);}
+/* Sub-divided cell: 2 or 3 inputs side-by-side, each with a tiny G2/G3/etc label */
+.sbg-cell-split{display:grid;width:100%;height:32px;}
+.sbg-cell-split-2{grid-template-columns:1fr 1fr;}
+.sbg-cell-split-3{grid-template-columns:1fr 1fr 1fr;}
+.sbg-sub{position:relative;display:flex;align-items:stretch;border-right:1px dashed rgba(255,255,255,0.08);min-width:0;}
+.sbg-sub:last-child{border-right:none;}
+.sbg-sub-lbl{position:absolute;top:2px;left:4px;font-size:8px;font-weight:700;color:var(--text-muted);letter-spacing:0.06em;pointer-events:none;line-height:1;opacity:0.7;z-index:1;}
+input.sbg-cell-sub{width:100%;height:100%;padding:10px 2px 1px;text-align:center;box-sizing:border-box;min-width:0;background:transparent!important;border:1px solid transparent;border-radius:0;font-size:12px;color:var(--text);}
+input.sbg-cell-sub:focus{outline:none;background:rgba(255,255,255,0.05)!important;border-color:var(--accent);}
+
+/* Zebra striping — alternate row background. Inputs are forced transparent
+   above so the row color shows through. Champion row's accent background
+   wins because its rule comes after these in source order. */
+.sbg-row-even .sbg-cell-td,
+.sbg-row-even .sbg-row-label{background:var(--surface);}
+.sbg-row-odd .sbg-cell-td,
+.sbg-row-odd .sbg-row-label{background:#1c222b;}
+.sbg-row-odd .sbg-sub-lbl,
+.sbg-row-even .sbg-sub-lbl{opacity:0.6;}
+
+/* ── Eyeball matchup modal ─────────────────────────────────── */
+.sbg-eye-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto;}
+/* User-resizable: drag the bottom-right corner to size the modal. The
+   browser's native resize handle appears because of resize:both + overflow.
+   Persisted via ResizeObserver → localStorage in _sbgRenderEyeModal. */
+.sbg-eye-box{background:var(--surface);border:1px solid var(--border-hover);border-radius:14px;width:min(1200px,100%);height:calc(100vh - 64px);box-shadow:0 24px 60px rgba(0,0,0,0.65);display:flex;flex-direction:column;overflow:hidden;resize:both;min-width:520px;min-height:420px;max-width:calc(100vw - 32px);max-height:calc(100vh - 64px);position:relative;}
+/* Visible grip in the bottom-right corner so users notice it's resizable. */
+.sbg-eye-box::after{content:'';position:absolute;right:2px;bottom:2px;width:14px;height:14px;background:linear-gradient(135deg,transparent 0%,transparent 45%,var(--text-muted) 45%,var(--text-muted) 55%,transparent 55%,transparent 70%,var(--text-muted) 70%,var(--text-muted) 80%,transparent 80%);pointer-events:none;opacity:0.55;border-radius:2px;z-index:6;}
+/* Custom edge resize handles: right + left for horizontal width changes,
+   bottom for height. (CSS resize:both only gives a single corner.) */
+.sbg-eye-resize{position:absolute;background:transparent;z-index:7;touch-action:none;}
+.sbg-eye-resize-right{top:0;bottom:14px;right:-2px;width:6px;cursor:ew-resize;}
+.sbg-eye-resize-left{top:0;bottom:14px;left:-2px;width:6px;cursor:ew-resize;}
+.sbg-eye-resize-bottom{left:0;right:14px;bottom:-2px;height:6px;cursor:ns-resize;}
+.sbg-eye-resize:hover{background:rgba(232,184,85,0.18);}
+.sbg-eye-hdr{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--border);background:var(--surface2);}
+.sbg-eye-title{display:flex;align-items:center;gap:10px;font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--text);flex:1;min-width:0;}
+.sbg-eye-eye{font-size:18px;color:var(--accent);}
+.sbg-eye-tabs{display:flex;background:var(--surface3);border-radius:8px;padding:2px;}
+.sbg-eye-tab{background:transparent;border:none;color:var(--text-muted);font-family:'Inter',system-ui,sans-serif;font-size:13px;font-weight:600;padding:6px 16px;border-radius:6px;cursor:pointer;transition:background 0.15s,color 0.15s;}
+.sbg-eye-tab.on{background:var(--accent);color:#000;}
+.sbg-eye-close{width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background 0.15s,color 0.15s,border-color 0.15s;}
+.sbg-eye-close:hover{background:rgba(255,107,74,0.18);border-color:var(--fury);color:var(--fury);}
+.sbg-eye-stat-row{display:flex;align-items:center;gap:14px;padding:10px 18px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.sbg-eye-stat{font-family:'Inter',system-ui,sans-serif;font-size:12px;color:var(--text-muted);}
+.sbg-eye-stat strong{color:var(--text);font-size:14px;font-weight:700;margin:0 4px;}
+.sbg-eye-bal-ok{color:var(--calm);font-weight:700;}
+.sbg-eye-bal-off{color:#f5a76a;font-weight:700;}
+.sbg-eye-hint{margin-left:auto;font-size:11px;color:var(--text-muted);font-style:italic;}
+/* Body uses the same .gallery-* classes as the Decklist Visual view so the
+   layout is identical. Only difference: interactive main/SB cards get a
+   swap badge overlay and a swap-out fade effect. */
+.sbg-eye-body{overflow-y:auto;padding:0 18px 18px;flex:1;}
+.gallery-card.sbg-eye-swap-card{cursor:pointer;}
+/* Small ribbon shown on a card that's currently visible in the OTHER zone
+   relative to where it originally lives in the deck.
+     IN  = card moved from SB → main (green)
+     OUT = card moved from main → SB (orange) */
+.sbg-eye-moved-tag{position:absolute;top:4px;left:4px;font-family:'Inter',system-ui,sans-serif;font-size:10px;font-weight:800;letter-spacing:0.08em;padding:2px 6px;border-radius:5px;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,0.55);z-index:2;}
+.sbg-eye-moved-in{background:rgba(112,194,124,0.92);color:#0a1f10;}
+.sbg-eye-moved-out{background:rgba(255,107,74,0.92);color:#fff;}
+/* Accent ring around every moved card — gallery (one tile per stack) and
+   visual (each individual tile in the overlapping fan). */
+.gallery-card.sbg-eye-moved{outline:2px solid rgba(232,184,85,0.7);outline-offset:-2px;}
+.sbg-eye-col-stack .deck-card-item.sbg-eye-moved-tile{box-shadow:0 0 0 2px rgba(232,184,85,0.7);border-radius:7px;}
+/* Champion + Battlefields side-by-side strip at the top of the modal. */
+.sbg-eye-top-strip{display:flex;gap:14px;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;}
+.sbg-eye-top-strip .sbg-eye-champ-section{flex:0 0 auto;width:180px;}
+.sbg-eye-top-strip .sbg-eye-bf-section{flex:1 1 360px;min-width:300px;}
+.sbg-eye-champ-section .cards-gallery-view{grid-template-columns:repeat(auto-fill,minmax(90px,1fr));}
+.sbg-eye-bf-section .cards-gallery-view-bf{justify-content:center;gap:18px;align-items:center;min-height:110px;width:100%;}
+.sbg-eye-bf-section .gallery-card-bf{width:185px;cursor:pointer;}
+.sbg-eye-bf-tile{transition:transform 0.15s,filter 0.15s,outline 0.15s,opacity 0.15s;}
+.sbg-eye-bf-tile:hover{transform:translateY(-2px);}
+.sbg-eye-bf-faded{filter:grayscale(1) brightness(0.45);opacity:0.45;}
+.sbg-eye-bf-selected{outline:2px solid var(--accent);outline-offset:-2px;box-shadow:0 0 16px rgba(232,184,85,0.45);}
+.sbg-eye-view-tabs{margin-left:4px;}
+.sbg-eye-view-tabs .sbg-eye-tab{padding:6px 12px;font-size:12px;}
+/* Visual mode — overlapping card stacks, type-grouped, matches the
+   Decklist Visual view in the deck detail. Each unique card becomes a
+   .deck-col-stack (a vertical fan of N copies); shared classes
+   .deck-type-auto-grid + .deck-col-stack + .deck-card-item handle the
+   flex-wrap layout and the heavy overlap. */
+.sbg-eye-type-grp{margin-bottom:22px;}
+.sbg-eye-type-grp:last-child{margin-bottom:0;}
+.sbg-eye-type-hdr{font-family:'Inter',system-ui,sans-serif;font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.12em;text-align:center;padding:8px 0 10px;}
+.sbg-eye-type-cnt{color:var(--text-muted);font-weight:500;margin-left:2px;}
+.sbg-eye-mode-visual .sbg-eye-visual-grid{gap:14px;justify-content:flex-start;padding:0 4px;}
+.sbg-eye-col-stack{position:relative;flex:0 0 auto;width:155px;display:flex;flex-direction:column;cursor:pointer;}
+.sbg-eye-col-stack .deck-card-item{margin-bottom:-180px;transition:transform 0.15s,box-shadow 0.15s;}
+.sbg-eye-col-stack .deck-card-item:last-child{margin-bottom:0;}
+.sbg-eye-col-stack:hover{z-index:30;}
+.sbg-eye-col-stack:hover .deck-card-item:last-child{transform:translateY(-2px);box-shadow:0 12px 28px rgba(0,0,0,0.55);}
+.sbg-eye-col-stack .deck-card-item.sbg-eye-card-gone img{filter:grayscale(1) brightness(0.5);opacity:0.6;}
+@media(max-width:780px){.sbg-eye-hint{display:none;}}
 .cards-view-bar{display:flex;gap:6px;margin-bottom:1.25rem;align-items:center;}
 .cvt-btn{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.15s;}
 .cvt-btn:hover:not(.on){background:var(--surface3);color:var(--text);}
@@ -763,6 +935,10 @@ select option{background:#1e1e2a;}
 .evt-tab.on{background:var(--accent);color:#fff;border-color:var(--accent);}
 .evt-tab:hover:not(.on){background:var(--surface3);color:var(--text);}
 .evt-tab-badge{background:rgba(255,255,255,0.25);border-radius:10px;padding:1px 6px;font-size:11px;font-weight:700;}
+/* "Show past / Hide past" pill embedded in the schedule title row. */
+.sched-past-toggle{padding:4px 12px;border-radius:14px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s;letter-spacing:0.02em;font-family:inherit;}
+.sched-past-toggle:hover{background:var(--surface3);color:var(--text);border-color:var(--accent);}
+.sched-past-toggle.on{background:var(--accent-dim);color:var(--accent);border-color:var(--accent);}
 .result-form{background:var(--surface2);border-radius:10px;padding:1rem;margin-bottom:1.25rem;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;}
 .result-form label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;display:block;margin-bottom:4px;}
 .result-form input,.result-form select{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;font-family:'Inter',system-ui,sans-serif;color:var(--text);outline:none;}
@@ -1173,14 +1349,41 @@ select option{background:#1e1e2a;}
 .forum-new textarea{padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface3);color:var(--text);font-size:13px;resize:vertical;min-height:64px;font-family:inherit;}
 .forum-new textarea:focus{outline:none;border-color:var(--accent);}
 .forum-new .btn{align-self:flex-start;}
-.forum-row{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color 0.15s,background 0.15s;}
-.forum-row:hover{border-color:var(--accent);background:var(--surface3);}
-.forum-row-main{flex:1;min-width:0;}
-.forum-row-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.forum-row-meta{font-size:11px;color:var(--text-muted);}
-.forum-row-count{display:flex;flex-direction:column;align-items:center;flex-shrink:0;min-width:48px;}
-.forum-row-num{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--accent);line-height:1;}
-.forum-row-lbl{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;}
+/* Classic phpBB-style two-column forum table. Left column lists each
+   thread (icon + blue title + description snippet); right column shows
+   last-post preview, author, timestamp, and a jump arrow. */
+.forum-table{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface2);}
+.forum-thead{display:grid;grid-template-columns:1fr 320px;background:linear-gradient(180deg,#3a4d7a,#2c3a5c);border-bottom:1px solid var(--border);}
+.forum-th{padding:9px 16px;font-size:12px;font-weight:700;color:#fff;letter-spacing:0.04em;}
+.forum-th-main{text-align:left;}
+.forum-th-last{text-align:center;border-left:1px solid rgba(255,255,255,0.12);}
+.forum-tbody{display:flex;flex-direction:column;}
+.forum-trow{position:relative;display:grid;grid-template-columns:36px 1fr 320px;align-items:center;gap:0;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s;}
+.forum-trow:last-child{border-bottom:none;}
+.forum-trow:nth-child(even){background:rgba(255,255,255,0.018);}
+.forum-trow:hover{background:var(--surface3);}
+.forum-td-icon{font-size:18px;opacity:0.55;line-height:1;display:flex;align-items:center;justify-content:center;}
+.forum-td-main{min-width:0;padding-right:14px;}
+.forum-td-title{display:inline-block;font-size:14px;font-weight:700;color:var(--accent);text-decoration:underline;text-decoration-color:rgba(88,166,255,0.45);text-underline-offset:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.forum-td-title:hover{color:#7fbcff;text-decoration-color:#7fbcff;}
+.forum-td-desc{font-size:11px;color:var(--text-muted);margin-top:3px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.forum-td-last{position:relative;border-left:1px solid var(--border);padding:0 30px 0 14px;min-width:0;}
+.forum-td-last-title{display:block;font-size:12px;font-weight:600;color:var(--accent);text-decoration:underline;text-decoration-color:rgba(88,166,255,0.45);text-underline-offset:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;line-height:1.35;}
+.forum-td-last-title:hover{color:#7fbcff;text-decoration-color:#7fbcff;}
+.forum-td-last-by{font-size:11px;color:var(--text-muted);margin-top:2px;}
+.forum-td-last-user{color:var(--accent);text-decoration:underline;text-decoration-color:rgba(88,166,255,0.4);text-underline-offset:2px;cursor:pointer;}
+.forum-td-last-user:hover{color:#7fbcff;}
+.forum-td-last-date{font-size:11px;color:var(--text);margin-top:2px;}
+.forum-td-last-time{color:var(--text-muted);}
+.forum-td-jump{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:22px;height:22px;border-radius:4px;border:1px solid var(--border);background:var(--surface3);color:var(--accent);font-size:14px;font-weight:700;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+.forum-td-jump:hover{background:var(--accent);color:#0b1220;border-color:var(--accent);}
+.forum-td-del{position:absolute;top:6px;right:6px;z-index:2;}
+.forum-trow:not(:hover) .forum-td-del{opacity:0;pointer-events:none;}
+@media (max-width:680px){
+  .forum-thead{grid-template-columns:1fr 180px;}
+  .forum-trow{grid-template-columns:28px 1fr 180px;padding:10px 12px;}
+  .forum-td-last{padding:0 26px 0 10px;}
+}
 .forum-thread-head{padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;}
 .forum-thread-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--text);line-height:1.3;}
 .forum-thread-meta{font-size:11px;color:var(--text-muted);margin-top:6px;}
@@ -1640,3 +1843,11 @@ body:not(.on-play-tab) #play-options-panel{display:none;}
 #discard-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:500;display:none;align-items:center;justify-content:center;}
 #discard-overlay.open{display:flex;}
 #discard-box{background:#0a1428;border:1px solid rgba(180,140,50,0.4);border-radius:10px;padding:1.25rem;max-width:620px;width:92%;max-height:80vh;overflow-y:auto;}
+
+/* ── Generic JS-injected modals (share-to-team, tournament, public deck viewer) ── */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9998;}
+.modal-box{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:14px;width:min(94vw,520px);max-height:88vh;overflow-y:auto;}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);}
+.modal-header h2{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin:0;}
+.modal-close{background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;line-height:1;padding:4px;}
+.modal-close:hover{color:var(--text);}

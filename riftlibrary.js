@@ -20,14 +20,45 @@ function isBannedCard(card){
   return BANNED_CARDS.has(baseName(card.name||''));
 }
 function baseName(n){return(n||'').replace(/\s*\([^)]*\)\s*$/,'').trim();}
+// Cards exempt from the 3-copy limit: a deck whose domains allow the card
+// may run any number of copies. Domain legality itself is unchanged.
+const UNLIMITED_COPY_CARDS=new Set(['Spiderling']);
+function isUnlimitedCard(n){return UNLIMITED_COPY_CARDS.has(baseName(n||''));}
 let myEvents=JSON.parse(localStorage.getItem('rl_myEvents')||'[]');
 let activeEvtTab='all';
 let myTeam=JSON.parse(localStorage.getItem('rl_team')||'null');
 let teamAnnouncements=JSON.parse(localStorage.getItem('rl_team_announcements')||'[]');
 let teamDecklists=JSON.parse(localStorage.getItem('rl_team_decklists')||'[]');
 let activeTeamTab='all';
-function setTeamCover(){const u=prompt('Cover photo URL:',myTeam&&myTeam.cover||'');if(u===null||!myTeam)return;myTeam.cover=u.trim();persistTeam();renderTeam();}
-function setTeamAvatar(){const u=prompt('Team profile picture URL:',myTeam&&myTeam.img||'');if(u===null||!myTeam)return;myTeam.img=u.trim();persistTeam();renderTeam();}
+// Image uploads for team cover + avatar. We use a hidden <input type="file">
+// element, read the chosen image as a data URL, and stash it on myTeam.
+// Data URLs persist fine in localStorage at small avatar/cover sizes.
+function _teamUploadImage(field,label){
+  if(!myTeam){toast('Create a team first');return;}
+  const inp=document.createElement('input');
+  inp.type='file';
+  inp.accept='image/*';
+  inp.style.display='none';
+  inp.onchange=()=>{
+    const f=inp.files&&inp.files[0];
+    if(!f){document.body.removeChild(inp);return;}
+    // Cap at ~3MB so localStorage doesn't blow up on huge photos. Users can
+    // resize before upload if needed.
+    if(f.size>3*1024*1024){toast('Image too large (max 3MB) — resize and try again');document.body.removeChild(inp);return;}
+    const r=new FileReader();
+    r.onload=e=>{
+      myTeam[field]=String(e.target.result||'');
+      persistTeam();renderTeam();
+    };
+    r.onerror=()=>{toast('Could not read file');};
+    r.readAsDataURL(f);
+    document.body.removeChild(inp);
+  };
+  document.body.appendChild(inp);
+  inp.click();
+}
+function setTeamCover(){_teamUploadImage('cover','Cover photo');}
+function setTeamAvatar(){_teamUploadImage('img','Team profile picture');}
 
 // ── Team discussion (forum) ──────────────────────────────
 // A thread = {id, title, author, ts, posts:[{id,author,text,ts}]}. The forum
@@ -82,6 +113,38 @@ function deleteThreadReply(threadId,postId){
 }
 function persistMyEvents(){localStorage.setItem('rl_myEvents',JSON.stringify(myEvents));saveEventsToCloud();}
 function switchEvtTab(t){activeEvtTab=t;renderEvents();}
+// Session-only toggle: when false (default) the Schedule and RQ lists hide
+// events whose end date is in the past. Resets to upcoming-only on reload.
+let showPastSchedule=false;
+function toggleSchedPast(){showPastSchedule=!showPastSchedule;renderEvents();}
+// Best-effort parser for SCHEDULE_2026 date strings. Returns the event's
+// LAST day so single-day, range, and cross-month entries all sort correctly.
+// Falls back to end-of-month for fuzzy values like "TBD" or "Mid-May" so
+// they don't expire prematurely.
+function _schedEventEnd(monthLabel,dates){
+  const MAP={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11,
+             January:0,February:1,March:2,April:3,June:5,July:6,August:7,September:8,October:9,November:10,December:11};
+  const parts=String(monthLabel).split(' ');
+  const parentIdx=MAP[parts[0]];
+  const year=parseInt(parts[1],10)||(new Date()).getFullYear();
+  if(parentIdx===undefined) return new Date(year,11,31);
+  const s=String(dates||'');
+  // "May 29–Jun 1" / "Jul 30–Aug 2" — explicit end-month after the dash
+  const cross=s.match(/[–—-]\s*([A-Za-z]{3,9})\s*(\d+)/);
+  if(cross&&MAP[cross[1]]!==undefined) return new Date(year,MAP[cross[1]],parseInt(cross[2],10));
+  // "May 1–7" — same-month range, take the second number
+  const same=s.match(/(\d+)\s*[–—-]\s*(\d+)/);
+  if(same) return new Date(year,parentIdx,parseInt(same[2],10));
+  // "May 8" or "8" — single day
+  const single=s.match(/(\d+)/);
+  if(single) return new Date(year,parentIdx,parseInt(single[1],10));
+  // Heuristics for "Early/Mid/Late <Month>"
+  if(/^Early/i.test(s)) return new Date(year,parentIdx,10);
+  if(/^Mid/i.test(s))   return new Date(year,parentIdx,20);
+  if(/^Late/i.test(s))  return new Date(year,parentIdx,28);
+  // TBD or unknown — never auto-hide; use the last day of the parent month.
+  return new Date(year,parentIdx+1,0);
+}
 function createMyEvent(){
   const name=(document.getElementById('mevt-name')||{}).value||'';
   const date=(document.getElementById('mevt-date')||{}).value||'';
@@ -92,21 +155,32 @@ function createMyEvent(){
   persistMyEvents();renderEvents();
 }
 function toggleMyEventProp(id,prop){
-  const e=myEvents.find(x=>x.id===id);if(!e)return;
+  // id arrives as either a number (local-only) or a UUID string (cloud) so
+  // we compare both ways instead of strict equality.
+  const e=myEvents.find(x=>String(x.id)===String(id));if(!e)return;
   e[prop]=!e[prop];persistMyEvents();renderEvents();
 }
 // Free-text notes (deck plans, packing reminders, anything). Saved on blur so
 // we don't churn localStorage / cloud on every keystroke, and don't re-render
 // — the textarea stays focused while the user keeps typing.
 function saveMyEventNotes(id,value){
-  const e=myEvents.find(x=>x.id===id);if(!e)return;
+  const e=myEvents.find(x=>String(x.id)===String(id));if(!e)return;
   if((e.notes||'')===value)return;
   e.notes=value;
   persistMyEvents();
   if(typeof saveEventsToCloud==='function') saveEventsToCloud();
 }
-function deleteMyEvent(id){
-  myEvents=myEvents.filter(x=>x.id!==id);persistMyEvents();renderEvents();
+async function deleteMyEvent(id){
+  const evt=myEvents.find(x=>String(x.id)===String(id));
+  myEvents=myEvents.filter(x=>String(x.id)!==String(id));
+  try{localStorage.setItem('rl_myEvents',JSON.stringify(myEvents));}catch(e){}
+  renderEvents();
+  // Also remove the row from Supabase so it doesn't come back on next load.
+  try{
+    if(evt&&evt.cloud_id&&typeof _sb!=='undefined'&&_sb.from){
+      await _sb.from('my_events').delete().eq('id',evt.cloud_id);
+    }
+  }catch(e){console.warn('Event cloud delete failed:',e);}
 }
 function addRQToMyEvents(idx){
   if(!currentUser){openAuthModal('login');toast('Please log in to save events.');return;}
@@ -127,6 +201,8 @@ function fillFromRQ(idx){
 let VIEW='cards';
 let activeDeckId=null;
 let activeDDTab='cards';
+let ddReadOnly=false; // true when a deck is opened from Public Deck Lists — hides all editing controls
+
 let currentUser=null;
 let cardsTabView='visual';
 let deckSortMode='alpha'; // 'alpha' or 'energy'
@@ -543,15 +619,15 @@ let activeDeckTab='mine';
 
 function setDeckTab(tab){
   activeDeckTab=tab;
-  ['mine','public','team','tournament'].forEach(t=>{
+  ['mine','public','team','team2','tournament'].forEach(t=>{
     const btn=document.getElementById('dst-'+t);
     const content=document.getElementById('dst-'+t+'-content');
     if(btn) btn.classList.toggle('on',t===tab);
     if(content) content.style.display=t===tab?'':'none';
   });
   if(tab==='mine') renderDecks();
-  if(tab==='public') renderPublicDecks();
   if(tab==='team') renderTeamDecksTab();
+  if(tab==='team2') renderTeam2DecksTab();
   if(tab==='tournament') renderTournamentDecks();
 }
 
@@ -591,7 +667,8 @@ function _setupHint(tableName){
 const _deckTabState={
   public:{q:'',hero:''},
   tournament:{q:'',hero:''},
-  team:{q:'',hero:''}
+  team:{q:'',hero:''},
+  team2:{q:'',hero:''}
 };
 function _uniqueHeroes(list,getHero){
   return [...new Set(list.map(getHero).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b)));
@@ -632,142 +709,6 @@ function _renderDeckGrid(tab){
 function onDeckSearch(tab,val){_deckTabState[tab].q=val;_renderDeckGrid(tab);}
 function onDeckHero(tab,val){_deckTabState[tab].hero=val;_renderDeckGrid(tab);}
 
-async function renderPublicDecks(){
-  const el=document.getElementById('public-decks-content');
-  if(!el) return;
-  el.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">Loading public decks…</div>`;
-  try{
-    const {data,error}=await _sb.from('public_decks').select('*').order('created_at',{ascending:false}).limit(50);
-    if(error) throw error;
-    if(!data||!data.length){
-      el.innerHTML=`<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Visible to everyone — anyone can browse and import these.</div>`
-        +`<div style="padding:3rem;text-align:center;"><h3 style="margin-bottom:8px;">No public decks yet</h3><p style="color:var(--text-muted);font-size:13px;">Be the first to publish a deck!</p>${_buildPublishBtn()}</div>`;
-      return;
-    }
-    const st=_deckTabState.public;
-    st.data=data;
-    st.gridId='public-deck-grid';
-    st.getName=d=>d.name||'';
-    st.getHero=d=>d.legend||'';
-    st.getAuthor=d=>d.author||'';
-    st.card=d=>{
-      const totalC=(d.cards||[]).reduce((a,c)=>a+c.cnt,0)||0;
-      const dcImg=d.legend_img||'';
-      const dcAvatar=dcImg
-        ?`<div class="dc-avatar"><img src="${dcImg}" alt="${d.legend}"></div>`
-        :`<div class="dc-avatar dc-avatar-empty"></div>`;
-      return `<div class="dc">
-        <div class="dt">
-          <div style="display:flex;align-items:center;gap:10px;">
-            ${dcAvatar}
-            <div>
-              <div class="dn">${d.name}</div>
-              <div class="dl">${d.legend||'—'}</div>
-            </div>
-          </div>
-          <span class="ftag">${d.format||''}</span>
-        </div>
-        ${d.domains&&d.domains.length?`<div class="dr">${pills(d.domains)}</div>`:''}
-        ${d.description?`<div style="font-size:12px;color:var(--text-muted);padding:4px 0;border-top:1px solid var(--border);margin-top:6px;">${d.description.slice(0,100)}${d.description.length>100?'…':''}</div>`:''}
-        <div class="df">
-          <span><strong>${totalC||d.card_count||'?'}</strong> cards</span>
-          <span style="font-size:11px;color:var(--text-muted);">by ${d.author||'Anonymous'}</span>
-        </div>
-        <div class="da">
-          <button class="btn btn-sm btn-g" onclick="importPublicDeck('${d.id}')">Add to my decks</button>
-        </div>
-      </div>`;
-    };
-    let html=`<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Visible to everyone — anyone can browse and import these.</div>`
-      +`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">`
-      +`<span style="font-size:13px;color:var(--text-muted);">${data.length} public deck${data.length!==1?'s':''}</span>`
-      +_buildPublishBtn()
-      +`</div>`;
-    html+=_deckSearchBar('public');
-    html+=`<div class="dg" id="public-deck-grid"></div>`;
-    el.innerHTML=html;
-    _renderDeckGrid('public');
-  }catch(e){
-    if(_isMissingTableError(e)){
-      el.innerHTML=`<div style="padding:2rem;text-align:center;"><h3 style="margin-bottom:6px;">Public decks aren't set up yet</h3></div>`+_setupHint('public_decks');
-    } else {
-      el.innerHTML=`<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:13px;">Could not load public decks: ${(e&&e.message)||'unknown error'}</div>`;
-    }
-  }
-}
-
-function _buildPublishBtn(){
-  return `<button class="btn btn-p" style="font-size:12px;padding:7px 16px;" onclick="openPublishDeckModal()">↑ Publish a Deck</button>`;
-}
-
-function openPublishDeckModal(){
-  if(!currentUser){toast('Log in to publish a deck');openAuthModal('login');return;}
-  if(!myDecks.length){toast('Create a deck first');return;}
-  const opts=myDecks.map(d=>`<option value="${d.id}">${d.name} (${d.legend})</option>`).join('');
-  const m=document.createElement('div');
-  m.id='publish-modal';
-  m.innerHTML=`<div class="modal-backdrop" onclick="document.getElementById('publish-modal').remove()"></div>
-  <div class="modal-box" style="max-width:440px;">
-    <div class="modal-header"><h2>Publish Deck</h2><button class="modal-close" onclick="document.getElementById('publish-modal').remove()">✕</button></div>
-    <div style="display:flex;flex-direction:column;gap:12px;padding:16px;">
-      <label style="font-size:13px;font-weight:600;">Select deck</label>
-      <select id="pub-deck-sel" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">${opts}</select>
-      <div style="font-size:12px;color:var(--text-muted);">Published as <b>${String(profileDisplayName()).replace(/</g,'&lt;')}</b></div>
-      <button class="btn btn-p" onclick="submitPublicDeck()">Publish</button>
-    </div>
-  </div>`;
-  document.body.appendChild(m);
-}
-
-async function submitPublicDeck(){
-  if(!currentUser){toast('Log in to publish a deck');openAuthModal('login');return;}
-  const deckId=document.getElementById('pub-deck-sel').value;
-  const author=profileDisplayName();
-  const description='';
-  const d=myDecks.find(x=>String(x.id)===String(deckId));
-  if(!d){toast('Deck not found');return;}
-  const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
-  const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
-  const payload={
-    user_id:currentUser.id,
-    local_deck_id:String(deckId),
-    name:d.name, legend:d.legend, legend_img:dcLegFull?dcLegFull.imageUrl:'',
-    format:d.format||'', domains:d.domains||[], cards:d.cards||[],
-    card_count:(d.cards||[]).reduce((a,c)=>a+c.cnt,0),
-    author, description, created_at:new Date().toISOString()
-  };
-  try{
-    const {error}=await _sb.from('public_decks').insert([payload]);
-    if(error) throw error;
-    document.getElementById('publish-modal').remove();
-    toast('Deck published!');
-    setDeckTab('public');
-  }catch(e){
-    if(_isMissingTableError(e)){
-      toast('Public decks table missing — run supabase-setup.sql in your Supabase SQL Editor');
-    } else {
-      toast('Could not publish: '+(e.message||'unknown error'));
-    }
-  }
-}
-
-async function importPublicDeck(pubId){
-  try{
-    const {data,error}=await _sb.from('public_decks').select('*').eq('id',pubId).single();
-    if(error||!data) throw error||new Error('not found');
-    const newDeck={
-      id:nextId++, name:data.name+' (imported)', legend:data.legend,
-      format:data.format||'', domains:data.domains||[], cards:data.cards||[],
-      wins:0, losses:0, sideboard:[], results:[], runes:[], battlefields:[]
-    };
-    myDecks.unshift(newDeck);
-    persist();
-    toast('Deck imported to My Decks!');
-    setDeckTab('mine');
-  }catch(e){
-    toast('Import failed');
-  }
-}
 
 /* ── TOURNAMENT DECKS ─────────────────────────────────────────
    A curated, site-wide showcase of competitive decklists. Everyone can browse
@@ -783,17 +724,20 @@ async function renderTournamentDecks(){
   try{
     const {data,error}=await _sb.from('tournament_decks').select('*').order('event_date',{ascending:false,nullsFirst:false}).limit(100);
     if(error) throw error;
-    if(!data||!data.length){
-      el.innerHTML=intro+`<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:1rem;">${adminBtn}</div>`
-        +`<div style="padding:3rem;text-align:center;"><h3 style="margin-bottom:8px;">No tournament decks yet</h3><p style="color:var(--text-muted);font-size:13px;">${admin?'Add the first one!':'Check back soon for featured tournament decks.'}</p></div>`;
-      return;
-    }
     const st=_deckTabState.tournament;
-    st.data=data;
+    st.data=data||[];
     st.gridId='tournament-deck-grid';
     st.getName=d=>d.name||'';
     st.getHero=d=>d.legend||'';
-    st.getAuthor=d=>[d.player,d.event_name].filter(Boolean).join(' ');
+    // Tournament-specific searchable fields: player + event name + placement,
+    // so e.g. "Worlds", "Top 8", "1st", or a player name all match.
+    st.getAuthor=d=>[d.player,d.event_name,d.placement].filter(Boolean).join(' ');
+    if(!data||!data.length){
+      el.innerHTML=intro+`<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:1rem;">${adminBtn}</div>`
+        +_deckSearchBar('tournament')
+        +`<div style="padding:3rem;text-align:center;"><h3 style="margin-bottom:8px;">No tournament decks yet</h3><p style="color:var(--text-muted);font-size:13px;">${admin?'Add the first one!':'Check back soon for featured tournament decks.'}</p></div>`;
+      return;
+    }
     st.card=d=>{
       const totalC=(d.cards||[]).reduce((a,c)=>a+(c.cnt||0),0)||d.card_count||0;
       const dcImg=d.legend_img||'';
@@ -1012,10 +956,7 @@ function openShareToTeamModal(){
   document.body.appendChild(m);
 }
 
-let publishedPublicSet=JSON.parse(localStorage.getItem('rl_published_public')||'[]');
-function isPublishedPublic(id){return publishedPublicSet.includes(String(id));}
 function isPublishedTeam(id){return !!teamDecklists.find(x=>String(x.deckId)===String(id));}
-function persistPublishedPublic(){localStorage.setItem('rl_published_public',JSON.stringify(publishedPublicSet));}
 
 function closeDeckMenus(){
   document.querySelectorAll('.dc-hmenu-pop.open').forEach(el=>el.classList.remove('open'));
@@ -1034,46 +975,6 @@ document.addEventListener('click',e=>{
   if(!e.target.closest('.dc-hmenu'))closeDeckMenus();
 });
 
-async function publishDeckToPublic(deckId){
-  if(!currentUser){toast('Log in to publish a deck');openAuthModal('login');return;}
-  const d=myDecks.find(x=>String(x.id)===String(deckId));
-  if(!d){toast('Deck not found');return;}
-  if(isPublishedPublic(deckId)){
-    if(!confirm(`"${d.name}" is already published to Public Decks. Unpublish it?`))return;
-    publishedPublicSet=publishedPublicSet.filter(x=>String(x)!==String(deckId));
-    persistPublishedPublic();
-    try{ await _sb.from('public_decks').delete().eq('local_deck_id',String(deckId)).eq('user_id',currentUser.id); }catch(e){}
-    toast('Removed from Public Decks');
-    renderDecks();
-    return;
-  }
-  if(!confirm(`Publish "${d.name}" to Public Decks as ${profileDisplayName()}? Anyone will be able to view and import it.`))return;
-  const author=profileDisplayName();
-  const description='';
-  const dcLegEntry=(d.cards||[]).find(c=>c.t==='Legend');
-  const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
-  const payload={
-    user_id:currentUser.id,
-    name:d.name, legend:d.legend, legend_img:dcLegFull?dcLegFull.imageUrl:'',
-    format:d.format||'', domains:d.domains||[], cards:d.cards||[],
-    card_count:(d.cards||[]).reduce((a,c)=>a+c.cnt,0),
-    author, description, local_deck_id:String(deckId), created_at:new Date().toISOString()
-  };
-  try{
-    const {error}=await _sb.from('public_decks').insert([payload]);
-    if(error) throw error;
-    publishedPublicSet.push(String(deckId));
-    persistPublishedPublic();
-    toast('Deck published to Public Decks!');
-    renderDecks();
-  }catch(e){
-    if(_isMissingTableError(e)){
-      toast('Public decks table missing — run supabase-setup.sql in your Supabase SQL Editor');
-    } else {
-      toast('Could not publish: '+(e.message||'unknown error'));
-    }
-  }
-}
 
 function publishDeckToTeam(deckId){
   const d=myDecks.find(x=>String(x.id)===String(deckId));
@@ -1104,6 +1005,118 @@ function _doShareToTeam(){
   document.getElementById('share-team-modal').remove();
   toast('Deck shared with team!');
   renderTeamDecksTab();
+}
+
+/* ── PUBLIC DECK LISTS (internally "team2") ───────────────────
+   A straight copy of the Team Decks tab with its own list, stored under
+   its own localStorage key ('rl_team2_decklists'). Same share modal,
+   same cards, same search bar — only the storage key and ids differ. */
+let team2Decklists=JSON.parse(localStorage.getItem('rl_team2_decklists')||'[]');
+
+function renderTeam2DecksTab(){
+  const el=document.getElementById('team2-decks-content');
+  if(!el) return;
+  const shared=team2Decklists||[];
+  let html=`<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Visible only to you.</div>`;
+  html+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">`;
+  html+=`<span style="font-size:13px;color:var(--text-muted);">${shared.length} deck${shared.length!==1?'s':''} shared</span>`;
+  html+=`<button class="btn btn-g" style="font-size:12px;padding:7px 16px;" onclick="openShareToTeam2Modal()">+ Share a Deck</button>`;
+  html+=`</div>`;
+  if(!shared.length){
+    html+=`<div style="padding:3rem;text-align:center;color:var(--text-muted);font-size:13px;">No decks yet. Share one of your decks!</div>`;
+    el.innerHTML=html; return;
+  }
+  const st=_deckTabState.team2;
+  st.data=shared;
+  st.gridId='team2-deck-grid';
+  st.getName=e=>e.name||'';
+  st.getHero=e=>e.legend||'';
+  st.getAuthor=()=>'';
+  st.card=entry=>{
+    const d=myDecks.find(x=>x.id===entry.deckId);
+    const dcLegEntry=d?(d.cards||[]).find(c=>c.t==='Legend'):null;
+    const dcLegFull=dcLegEntry?CARDS.find(x=>x.id===dcLegEntry.id):null;
+    const dcImg=dcLegFull?dcLegFull.imageUrl:'';
+    const dcAvatar=dcImg
+      ?`<div class="dc-avatar"><img src="${dcImg}" alt="${entry.legend}"></div>`
+      :`<div class="dc-avatar dc-avatar-empty"></div>`;
+    return `<div class="dc">
+      <div class="dt">
+        <div style="display:flex;align-items:center;gap:10px;">
+          ${dcAvatar}
+          <div>
+            <div class="dn">${entry.name}</div>
+            <div class="dl">${entry.legend||'—'}</div>
+          </div>
+        </div>
+      </div>
+      <div class="df">
+        <span style="font-size:11px;color:var(--text-muted);">Shared ${new Date(entry.ts).toLocaleDateString()}</span>
+      </div>
+      <div class="da">
+        ${d?`<button class="btn btn-sm btn-g" onclick="openDD('${d.id}',true)">View</button>`:'<span style="font-size:11px;color:var(--text-muted);">Deck not in your library</span>'}
+        <button class="btn btn-sm btn-d" onclick="unshareTeam2Decklist(${entry.id});renderTeam2DecksTab()">Remove</button>
+      </div>
+    </div>`;
+  };
+  html+=_deckSearchBar('team2');
+  html+=`<div class="dg" id="team2-deck-grid"></div>`;
+  el.innerHTML=html;
+  _renderDeckGrid('team2');
+}
+
+function openShareToTeam2Modal(){
+  if(!myDecks.length){toast('No decks to share');return;}
+  const opts=myDecks.map(d=>`<option value="${d.id}">${d.name} (${d.legend})</option>`).join('');
+  const m=document.createElement('div');
+  m.id='share-team2-modal';
+  m.innerHTML=`<div class="modal-backdrop" onclick="document.getElementById('share-team2-modal').remove()"></div>
+  <div class="modal-box" style="max-width:380px;">
+    <div class="modal-header"><h2>Share to Public Deck Lists</h2><button class="modal-close" onclick="document.getElementById('share-team2-modal').remove()">✕</button></div>
+    <div style="display:flex;flex-direction:column;gap:12px;padding:16px;">
+      <select id="share-team2-deck-sel" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);">${opts}</select>
+      <button class="btn btn-p" onclick="_doShareToTeam2()">Share</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+function isPublishedTeam2(id){return !!team2Decklists.find(x=>String(x.deckId)===String(id));}
+
+function publishDeckToTeam2(deckId){
+  const d=myDecks.find(x=>String(x.id)===String(deckId));
+  if(!d){toast('Deck not found');return;}
+  if(isPublishedTeam2(deckId)){
+    if(!confirm(`"${d.name}" is already on Public Deck Lists. Remove it?`))return;
+    team2Decklists=team2Decklists.filter(x=>String(x.deckId)!==String(deckId));
+    localStorage.setItem('rl_team2_decklists',JSON.stringify(team2Decklists));
+    toast('Removed from Public Deck Lists');
+    renderDecks();
+    return;
+  }
+  if(!confirm(`Share "${d.name}" to Public Deck Lists?`))return;
+  team2Decklists.unshift({id:Date.now(),deckId:d.id,name:d.name,legend:d.legend,ts:new Date().toISOString()});
+  localStorage.setItem('rl_team2_decklists',JSON.stringify(team2Decklists));
+  toast('Deck shared!');
+  renderDecks();
+}
+
+function _doShareToTeam2(){
+  const sel=document.getElementById('share-team2-deck-sel');
+  if(!sel) return;
+  const deckId=parseInt(sel.value);
+  const d=myDecks.find(x=>x.id===deckId);if(!d)return;
+  if(team2Decklists.find(x=>x.deckId===deckId)){toast('Already shared');return;}
+  team2Decklists.unshift({id:Date.now(),deckId,name:d.name,legend:d.legend,ts:new Date().toISOString()});
+  localStorage.setItem('rl_team2_decklists',JSON.stringify(team2Decklists));
+  document.getElementById('share-team2-modal').remove();
+  toast('Deck shared!');
+  renderTeam2DecksTab();
+}
+
+function unshareTeam2Decklist(id){
+  team2Decklists=team2Decklists.filter(x=>x.id!==id);
+  localStorage.setItem('rl_team2_decklists',JSON.stringify(team2Decklists));
 }
 
 function renderDecks(){
@@ -1169,8 +1182,8 @@ function renderDecks(){
               <svg viewBox="0 0 16 16" fill="none" width="14" height="14"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
             </button>
             <div class="dc-hmenu-pop" id="dc-hmenu-${d.id}">
-              <button class="dc-hmenu-item ${isPublishedPublic(d.id)?'is-on':''}" onclick="event.stopPropagation();closeDeckMenus();publishDeckToPublic('${d.id}')">${isPublishedPublic(d.id)?'✓ Published':'Publish to Public'}</button>
               <button class="dc-hmenu-item ${isPublishedTeam(d.id)?'is-on':''}" onclick="event.stopPropagation();closeDeckMenus();publishDeckToTeam('${d.id}')">${isPublishedTeam(d.id)?'✓ On Team':'Publish to Team'}</button>
+              <button class="dc-hmenu-item ${isPublishedTeam2(d.id)?'is-on':''}" onclick="event.stopPropagation();closeDeckMenus();publishDeckToTeam2('${d.id}')">${isPublishedTeam2(d.id)?'✓ On Public Lists':'Publish to Public Lists'}</button>
               <button class="dc-hmenu-item dc-hmenu-danger" onclick="event.stopPropagation();closeDeckMenus();delDeck('${d.id}')">Delete</button>
             </div>
           </div>
@@ -1194,8 +1207,10 @@ function populateDeckSelectors(){
   });
 }
 
-function openDD(id){
+function openDD(id,readOnly){
   const d=myDecks.find(x=>String(x.id)===String(id));if(!d)return;
+  ddReadOnly=!!readOnly;
+  if(ddReadOnly&&activeDDTab==='edit')activeDDTab='cards';
   activeDeckId=d.id;
   if(!d.sideboard) d.sideboard=[];
   if(!d.results)   d.results=[];
@@ -1270,18 +1285,14 @@ function renderDeckDetail(){
       <div class="deck-header-left">
         ${avatarHtml}
         <div class="deck-header-title-col">
-          <div class="dtitle" id="deck-title-display" onclick="startEditDeckTitle(${d.id})" title="Click to edit">${d.name}<span class="dtitle-edit-icon">✎</span></div>
+          ${ddReadOnly
+            ?`<div class="dtitle" id="deck-title-display">${d.name}</div>`
+            :`<div class="dtitle" id="deck-title-display" onclick="startEditDeckTitle(${d.id})" title="Click to edit">${d.name}<span class="dtitle-edit-icon">✎</span></div>`}
           <div class="dmeta">
             <span>${d.legend}</span><span>·</span>
             <div class="dr" style="margin:0;">${pills(d.domains)}</div>
             <span>·</span><span>${d.format}</span>
           </div>
-        </div>
-      </div>
-      <div class="deck-header-right">
-        <div id="deck-curves-panel">${buildDeckCurves(d)}</div>
-        <div class="deck-header-count">
-          <span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">${totalCards} / 40 cards</span>
         </div>
       </div>
     </div>
@@ -1293,18 +1304,28 @@ function renderDeckDetail(){
         <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="9" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 5h3M5 8h3M5 11h1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><rect x="6" y="1" width="9" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/></svg>
         Decklist
       </button>
-      <button class="dd-tab${activeDDTab==='edit'?' active':''}" onclick="switchDDTab('edit')">
+      ${ddReadOnly?'':`<button class="dd-tab${activeDDTab==='edit'?' active':''}" onclick="switchDDTab('edit')">
         <svg viewBox="0 0 16 16" fill="none"><path d="M11 2.5l2.5 2.5-7 7H4V9.5l7-7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.5 4l2.5 2.5" stroke="currentColor" stroke-width="1.2"/></svg>
         Edit
-      </button>
-      <button class="dd-tab${activeDDTab==='stats'?' active':''}" onclick="switchDDTab('stats')">
-        <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="3" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="6" y="5" width="3" height="10" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="11" y="2" width="3" height="13" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
-        Decklist Data
+      </button>`}
+      <button class="dd-tab${activeDDTab==='sbguide'?' active':''}" onclick="switchDDTab('sbguide')">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M1.5 5.5h13M1.5 9.5h13M5.5 1.5v13M10 1.5v13" stroke="currentColor" stroke-width="1.2"/></svg>
+        Sideboard Guide
       </button>
       <button class="dd-tab${activeDDTab==='results'?' active':''}" onclick="switchDDTab('results')">
         <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Results
       </button>
+      <button class="dd-tab${activeDDTab==='stats'?' active':''}" onclick="switchDDTab('stats')">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="3" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="6" y="5" width="3" height="10" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="11" y="2" width="3" height="13" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
+        Decklist Data
+      </button>
+      <div class="dd-tabs-curves">
+        <div id="deck-curves-panel">${buildDeckCurves(d)}</div>
+        <div class="deck-header-count">
+          <span class="dt-label">Deck</span><span class="dt-count" id="deck-count-badge">${totalCards} / 40 cards</span>
+        </div>
+      </div>
     </div>
 
     <!-- PANEL: CARDS -->
@@ -1341,7 +1362,7 @@ function renderDeckDetail(){
       </div>
       <div id="cards-visual-view" style="${cardsTabView==='visual'?'':'display:none'}"></div>
       <div id="cards-gallery-view" style="${cardsTabView==='gallery'?'':'display:none'}"></div>
-      <button class="btn btn-d" style="margin-top:1rem;" onclick="delDeck(${d.id});closeDeckDetail()">Delete deck</button>
+      ${ddReadOnly?'':`<button class="btn btn-d" style="margin-top:1rem;" onclick="delDeck(${d.id});closeDeckDetail()">Delete deck</button>`}
     </div>
 
     <!-- PANEL: EDIT -->
@@ -1357,9 +1378,14 @@ function renderDeckDetail(){
       ${buildStatsPanel(d)}
     </div>
 
+    <!-- PANEL: SIDEBOARD GUIDE -->
+    <div class="dd-panel${activeDDTab==='sbguide'?' active':''}" id="ddp-sbguide">
+      ${buildSideboardGuide(d)}
+    </div>
+
     <!-- PANEL: RESULTS -->
     <div class="dd-panel${activeDDTab==='results'?' active':''}" id="ddp-results">
-      <div class="result-form">
+      ${ddReadOnly?'':`<div class="result-form">
         <div>
           <label>Outcome</label>
           <select id="r-outcome"><option value="win">Win</option><option value="loss">Loss</option></select>
@@ -1381,7 +1407,7 @@ function renderDeckDetail(){
           <input type="text" id="r-notes" placeholder="Optional" style="width:160px;">
         </div>
         <button class="btn btn-g" onclick="addResult(${d.id})" style="align-self:flex-end;">+ Add</button>
-      </div>
+      </div>`}
       <div class="result-list" id="result-list">
         ${renderResultsList(d)}
       </div>
@@ -1481,6 +1507,7 @@ function buildCardsListView(d){
 }
 
 function switchDDTab(tab){
+  if(ddReadOnly&&tab==='edit')return;
   if(tab!=='edit'){EF.type='';EF.dom='';EF.set='';EF.subtype='';EF.variant='';EF.rar='';EF.energy=[0,12];EF.power=[0,4];EF.might=[0,12];EF.page=1;EF.showAllVersions=false;const hzb=document.getElementById('hero-zone-bar');if(hzb)hzb.innerHTML='';}
   activeDDTab=tab;
   renderDeckDetail();
@@ -1490,7 +1517,7 @@ function switchDDTab(tab){
   if(tab==='stats'){setTimeout(calcHG,20);}
 }
 function buildCardsGalleryView(d){
-  const d2=myDecks.find(x=>x.id===activeDeckId);if(!d2)return'';
+  const d2=d||myDecks.find(x=>x.id===activeDeckId);if(!d2)return'';
   // compact=true: render ONE tile per unique entry with an "×N" badge
   // (used for runes so 8 Calm + 4 Mind shows as two stacks, not 12 tiles).
   // compact=false (default): render entry.cnt tiles in a row.
@@ -1613,6 +1640,725 @@ function calcHG(){
     '<div class="hg-prob"><div class="hg-prob-val">'+pct(pExact)+'</div><div class="hg-prob-lbl">Exactly '+k+'</div></div>'+
     '<div class="hg-prob"><div class="hg-prob-val">'+pct(pAtLeast)+'</div><div class="hg-prob-lbl">'+k+' or more</div></div>';
 }
+/* ── SIDEBOARD GUIDE ─────────────────────────────────────────
+   Matchup planning grid. Y-axis: champion (always first), then every
+   unique main-deck card, then every unique sideboard card — no padding.
+   X-axis: user-defined matchup column titles. Each cell holds a small
+   string the user types — usually a number of copies to side in/out.
+   All state lives on d.sbGuide so it persists with the deck. */
+const SBG_DEFAULT_COLS = 6;
+function _sbgEnsure(d){
+  if(!d.sbGuide) d.sbGuide={matchups:Array(SBG_DEFAULT_COLS).fill(''),cells:{}};
+  if(!Array.isArray(d.sbGuide.matchups)) d.sbGuide.matchups=Array(SBG_DEFAULT_COLS).fill('');
+  if(!d.sbGuide.cells||typeof d.sbGuide.cells!=='object') d.sbGuide.cells={};
+  return d.sbGuide;
+}
+function _sbgRowLabels(d){
+  // Champion always sits at the top of the main-deck section.
+  // (Legend rows live in d.cards with t==='Legend' OR the Riftbound legend
+  // sits in d.champion — handle both. The Legend itself stays out of the
+  // grid since it's not a card you can side in/out.)
+  const mainRows=[];
+  if(d.champion&&d.champion.n) mainRows.push({name:d.champion.n,cnt:1,role:'champion'});
+  const champBaseName=d.champion?d.champion.n:'';
+  (d.cards||[])
+    .filter(c=>c.t!=='Legend'&&c.t!=='Champion'&&c.n!==champBaseName)
+    .slice().sort((a,b)=>(a.n||'').localeCompare(b.n||''))
+    .forEach(c=>mainRows.push({name:c.n,cnt:c.cnt}));
+  const sbRows=[];
+  (d.sideboard||[]).slice().sort((a,b)=>(a.n||'').localeCompare(b.n||''))
+    .forEach(c=>sbRows.push({name:c.n,cnt:c.cnt}));
+  // Battlefields live in d.battlefields as a length-3 array; each slot is
+  // {id, n} or null. Show every filled slot.
+  const bfRows=[];
+  (d.battlefields||[]).filter(Boolean).forEach(bf=>{
+    if(bf&&bf.n) bfRows.push({name:bf.n,cnt:1});
+  });
+  // Main deck total (counts all copies + the 1 champion). Matches the same
+  // 40-card definition used elsewhere in the deck detail view.
+  const mainTotal=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+(c.cnt||0),0)+(d.champion?1:0);
+  const sbTotal=(d.sideboard||[]).reduce((a,c)=>a+(c.cnt||0),0);
+  const bfTotal=bfRows.length;
+  return {mainRows,sbRows,bfRows,mainTotal,sbTotal,bfTotal};
+}
+function _sbgEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function buildSideboardGuide(d){
+  const g=_sbgEnsure(d);
+  const cols=g.matchups.length;
+  const {mainRows,sbRows,bfRows,mainTotal,sbTotal,bfTotal}=_sbgRowLabels(d);
+  // Each matchup cell is sub-divided so users can plan per-game decisions.
+  // Main + sideboard → 2 sub-cells (G2, G3). Battlefields → 3 sub-cells
+  // (G1, G2, G3 — battlefields are picked every game). The sub-index is
+  // appended to the cell key so old single-cell data is auto-migrated to
+  // the first sub-cell.
+  function subsFor(section){return section==='b'?['G1','PB - 1st','PB - 2nd']:['PB - 1st','PB - 2nd'];}
+  function cellKey(section,r,c,sub){return `${section}|${r}|${c}|${sub}`;}
+  function cellSubInput(section,r,c,sub,label){
+    const key=cellKey(section,r,c,sub);
+    // Fall back to the legacy un-subbed key on first read (one-time migration
+    // path so any data typed before the split shows up under G2 / G1).
+    let v=g.cells[key];
+    if(v===undefined&&sub===0){
+      const legacy=g.cells[`${section}|${r}|${c}`];
+      if(legacy!==undefined) v=legacy;
+    }
+    v=v||'';
+    return `<div class="sbg-sub"><span class="sbg-sub-lbl">${label}</span><input class="sbg-cell sbg-cell-sub" type="text" maxlength="6" value="${_sbgEsc(v)}" ${ddReadOnly?'disabled':`oninput="sbgSetCell('${section}',${r},${c},${sub},this.value)"`}></div>`;
+  }
+  function cellSplit(section,r,c){
+    const subs=subsFor(section);
+    return `<div class="sbg-cell-split sbg-cell-split-${subs.length}">${subs.map((lbl,si)=>cellSubInput(section,r,c,si,lbl)).join('')}</div>`;
+  }
+  function headerRow(){
+    return `<tr class="sbg-hdr-row">
+      <th class="sbg-row-label sbg-corner">Matchup →</th>
+      ${g.matchups.map((t,i)=>`<th class="sbg-mu-cell"><div class="sbg-mu-wrap">
+        <input class="sbg-mu-input" type="text" placeholder="Matchup ${i+1}" value="${_sbgEsc(t)}" ${ddReadOnly?'disabled':`oninput="sbgSetMatchup(${i},this.value)"`}>
+        <button class="sbg-mu-eye" title="View matchup details" onclick="sbgEyeClick(${i})">👁</button>
+        ${ddReadOnly?'':`<button class="sbg-mu-del" title="Remove column" onclick="sbgRemoveCol(${i})">✕</button>`}
+      </div></th>`).join('')}
+    </tr>`;
+  }
+  function dataRow(section,r,row){
+    const isChamp=row.role==='champion';
+    const champBadge=isChamp?'<span class="sbg-champ-badge">★</span> ':'';
+    const cntBadge=row.cnt?`<span class="sbg-row-cnt">${row.cnt}</span>`:'<span class="sbg-row-cnt-spacer"></span>';
+    // Alternate row stripe so the eye can track across long horizontal rows.
+    const stripe=r%2===0?' sbg-row-even':' sbg-row-odd';
+    const cls=`${stripe}${isChamp?' sbg-champ-row':''}`.trim();
+    return `<tr class="${cls}">
+      <td class="sbg-row-label"><div class="sbg-row-label-wrap"><span class="sbg-row-name">${champBadge}${_sbgEsc(row.name)}</span>${cntBadge}</div></td>
+      ${Array.from({length:cols},(_,c)=>`<td class="sbg-cell-td">${cellSplit(section,r,c)}</td>`).join('')}
+    </tr>`;
+  }
+  function emptyRow(msg){
+    return `<tr><td class="sbg-row-label"><span class="sbg-empty-row">${msg}</span></td><td colspan="${cols}"></td></tr>`;
+  }
+  function sectionHdr(label,extra){
+    return `<tr class="sbg-section-row">
+      <td class="sbg-section-label">${label}${extra?` <span class="sbg-section-extra">${extra}</span>`:''}</td>
+      <td colspan="${cols}"></td>
+    </tr>`;
+  }
+  return `<div class="sbg-wrap">
+    <div class="sbg-topbar">
+      <div class="sbg-help">${ddReadOnly
+        ?'Read-only view of this deck’s sideboard plan for each matchup.'
+        :'Use this grid to plan your sideboard swaps for each matchup. Edit a column header to name the matchup, then type the number of copies to side <em>in</em> (positive) or <em>out</em> (negative) of each card.'}</div>
+      <div class="sbg-topbar-actions">
+        ${ddReadOnly?'':`<button class="btn btn-sm btn-p sbg-dl-btn" onclick="sbgAddCol()" title="Add a matchup column">＋ Add Matchup</button>`}
+        <button class="btn btn-sm btn-g sbg-dl-btn" onclick="downloadSideboardGuide()" title="Export a printable sideboard guide">⬇ Download SB Guide</button>
+      </div>
+    </div>
+    <div class="sbg-scroll">
+      <table class="sbg-table">
+        <thead>${headerRow()}</thead>
+        <tbody>
+          ${sectionHdr('MAIN DECK',`${mainTotal}/40`)}
+          ${mainRows.length?mainRows.map((row,r)=>dataRow('m',r,row)).join(''):emptyRow('No cards in main deck yet.')}
+          ${sectionHdr('SIDEBOARD',`${sbTotal}/8`)}
+          ${sbRows.length?sbRows.map((row,r)=>dataRow('s',r,row)).join(''):emptyRow('No cards in sideboard yet.')}
+          ${sectionHdr('BATTLEFIELDS',`${bfTotal}/3`)}
+          ${bfRows.length?bfRows.map((row,r)=>dataRow('b',r,row)).join(''):emptyRow('No battlefields in deck yet.')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+/* ── PRINTABLE SIDEBOARD GUIDE EXPORT ──────────────────────
+   Opens a print-friendly window with a compact, Excel-style swap grid.
+   To minimise wasted space on the printout we drop every empty matchup
+   column and every card row with no swaps, collapse a matchup's two
+   per-game sub-cells into one cell (only splitting "1st"/"2nd" when they
+   actually differ), and colour sided-out cells red / sided-in green. */
+function downloadSideboardGuide(){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d){toast('No deck selected');return;}
+  const g=_sbgEnsure(d);
+  const {mainRows,sbRows,bfRows,mainTotal,sbTotal,bfTotal}=_sbgRowLabels(d);
+  const esc=_sbgEsc;
+  // Read one cell, falling back to the pre-split legacy key for sub 0.
+  function rd(section,r,c,sub){
+    let v=g.cells[`${section}|${r}|${c}|${sub}`];
+    if(v===undefined&&sub===0){const lg=g.cells[`${section}|${r}|${c}`];if(lg!==undefined)v=lg;}
+    return (v==null?'':String(v)).trim();
+  }
+  const subsFor=section=>section==='b'?[[0,'G1'],[1,'PB 1st'],[2,'PB 2nd']]:[[0,'1st'],[1,'2nd']];
+  // Keep a matchup column if it has a name or any data anywhere in the grid.
+  function colHasData(c){
+    const scan=(rows,section)=>rows.some((row,r)=>subsFor(section).some(([s])=>rd(section,r,c,s)!==''));
+    return scan(mainRows,'m')||scan(sbRows,'s')||scan(bfRows,'b');
+  }
+  const cols=g.matchups.map((name,c)=>({name:(name||'').trim(),c}))
+                       .filter(o=>o.name!==''||colHasData(o.c));
+  if(!cols.length){toast('Add a matchup and some swaps first');return;}
+
+  // Build the display for one card/matchup cell.
+  function cellHtml(section,r,c){
+    const vals=subsFor(section).map(([s,lbl])=>({lbl,v:rd(section,r,c,s)})).filter(o=>o.v!=='');
+    if(!vals.length)return{html:'',cls:''};
+    if(section==='b'){
+      // Battlefields aren't sided in/out — they're a per-game pick. Show which
+      // box was marked (PB 1st / PB 2nd / G1) instead of a bare ✕.
+      const html=vals.map(o=>o.v==='✕'?esc(o.lbl):`${esc(o.lbl)}: ${esc(o.v)}`).join('<br>');
+      return{html,cls:'bf'};
+    }
+    const rep=vals[0].v,n=parseInt(rep,10);
+    let cls='';
+    if(/^-/.test(rep))cls='out';
+    else if(/^\+/.test(rep)||(!isNaN(n)&&n>0))cls='in';
+    const uniq=[...new Set(vals.map(o=>o.v))];
+    const html=uniq.length===1
+      ? esc(uniq[0])
+      : vals.map(o=>`<span class="mini"><b>${o.lbl}</b> ${esc(o.v)}</span>`).join('');
+    return{html,cls};
+  }
+  // Render every card row in the section (empty cells included — the user
+  // wants the full deck + sideboard list on the printout).
+  function sectionRows(rows,section){
+    const lblCls=section==='m'?'lbl-m':section==='s'?'lbl-s':'lbl-b';
+    return rows.map((row,r)=>{
+      const cells=cols.map(o=>cellHtml(section,r,o.c));
+      const champ=row.role==='champion'?'★ ':'';
+      const cnt=row.cnt?`<span class="cnt">${row.cnt}</span>`:'';
+      const tds=cells.map(cl=>`<td class="${cl.cls}">${cl.html}</td>`).join('');
+      return `<tr><th class="rowlbl ${lblCls}">${champ}${esc(row.name)}${cnt}</th>${tds}</tr>`;
+    }).join('');
+  }
+  // In / Out checksum per matchup (main + sideboard, representative value).
+  function totalsRow(label,kind){
+    const cells=cols.map(o=>{
+      let inc=0,out=0;
+      const add=(rows,section)=>rows.forEach((row,r)=>{
+        let rep='';for(const[s]of subsFor(section)){const v=rd(section,r,o.c,s);if(v!==''){rep=v;break;}}
+        const n=parseInt(rep,10);if(!isNaN(n)){if(n>0)inc+=n;else if(n<0)out+=-n;}
+      });
+      add(mainRows,'m');add(sbRows,'s');
+      const val=kind==='in'?inc:out;
+      return `<td>${val||''}</td>`;
+    }).join('');
+    return `<tr class="tot"><th>${label}</th>${cells}</tr>`;
+  }
+
+  const mainHtml=sectionRows(mainRows,'m');
+  const sbHtml=sectionRows(sbRows,'s');
+  const bfHtml=sectionRows(bfRows,'b');
+  const span=cols.length+1;
+  const colgroup=`<colgroup><col class="lblcol">${cols.map(()=>'<col class="mucol">').join('')}</colgroup>`;
+  const headRow=`<tr class="muhdr"><th class="corner">Card</th>${cols.map(o=>`<th class="mu"><span>${esc(o.name||('Matchup '+(o.c+1)))}</span></th>`).join('')}</tr>`;
+  // Size the diagonal-header band to the longest matchup name so short names
+  // don't leave a tall dead zone and long names don't get clipped.
+  const maxLbl=cols.reduce((m,o)=>Math.max(m,(o.name||('Matchup '+(o.c+1))).length),0);
+  const hdrH=Math.max(44,Math.min(170,Math.round(maxLbl*4.4)+16));
+  const sec=(cls,label,extra)=>`<tr class="sec ${cls}"><th colspan="${span}">${label}${extra?` <small>${extra}</small>`:''}</th></tr>`;
+
+  let body='';
+  if(mainHtml)body+=sec('main','Main Deck',`${mainTotal}/40`)+mainHtml;
+  if(sbHtml)body+=sec('sb','Sideboard',`${sbTotal}/8`)+sbHtml;
+  if(bfHtml)body+=sec('bf','Battlefields',`${bfTotal}/3`)+bfHtml;
+  if(!body){toast('Add cards to the deck first');return;}
+  if(mainHtml||sbHtml)body+=totalsRow('In ▸','in')+totalsRow('Out ▸','out');
+
+  const deckName=d.name||'My Deck';
+  const legend=(d.cards||[]).filter(c=>c.t==='Legend')[0];
+  const sub=[legend?legend.n:'',d.champion?('★ '+d.champion.n):''].filter(Boolean).join('  ·  ');
+  const w=window.open('','_blank');
+  if(!w){toast('Allow popups to download the guide');return;}
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(deckName)} — Sideboard Guide</title><style>
+    @page{size:landscape;margin:8mm;}
+    *{box-sizing:border-box;}
+    body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:10px;}
+    h1{font-size:15px;margin:0 0 1px;}
+    .meta{font-size:10px;color:#555;margin:0 0 8px;}
+    table{border-collapse:collapse;table-layout:fixed;}
+    col.lblcol{width:160px;}
+    col.mucol{width:30px;}
+    th,td{border:1px solid #9a9a9a;padding:2px 3px;font-size:9px;text-align:center;vertical-align:middle;line-height:1.15;}
+    /* Diagonal matchup headers — labels rise up and out to the right.
+       No cell background so a long label can overflow over its neighbours
+       (rather than being painted over and clipped). */
+    .muhdr th.mu{height:${hdrH}px;border:none;padding:0;background:transparent;vertical-align:bottom;position:relative;}
+    .muhdr th.mu span{position:absolute;left:4px;bottom:3px;transform-origin:left bottom;transform:rotate(-45deg);white-space:nowrap;font-size:9px;font-weight:bold;border-bottom:1px solid #9a9a9a;padding:2px 7px 2px 2px;}
+    th.corner{background:#cfe2f3;text-align:left;vertical-align:bottom;}
+    th.rowlbl{text-align:left;font-weight:normal;background:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    th.rowlbl.lbl-m{background:#dce6f1;}
+    th.rowlbl.lbl-s{background:#e2efda;}
+    th.rowlbl.lbl-b{background:#fff2cc;}
+    th.rowlbl .cnt{color:#666;margin-left:5px;font-size:8px;}
+    tr.sec th{text-align:left;font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.04em;}
+    tr.sec.main th{background:#9fc5e8;}
+    tr.sec.sb th{background:#b6d7a8;}
+    tr.sec.bf th{background:#ffe599;}
+    tr.sec small{font-weight:normal;color:#333;text-transform:none;letter-spacing:0;}
+    td.out{background:#f4cccc;font-weight:bold;}
+    td.in{background:#d9ead3;font-weight:bold;}
+    td.bf{background:#fff2cc;font-weight:bold;font-size:7px;line-height:1.2;}
+    .mini{display:block;font-size:7px;}
+    .mini b{color:#555;}
+    tr.tot th{background:#fce4d6;text-align:right;font-weight:bold;}
+    tr.tot td{background:#fde9d9;font-weight:bold;}
+    .foot{margin-top:8px;font-size:8px;color:#aaa;}
+    @media print{body{padding:0;}}
+  </style></head><body>
+    <h1>${esc(deckName)} — Sideboard Guide</h1>
+    ${sub?`<div class="meta">${esc(sub)}</div>`:''}
+    <table>${colgroup}<thead>${headRow}</thead><tbody>${body}</tbody></table>
+    <div class="foot">Generated by RiftLibrary · ${new Date().toLocaleDateString()}</div>
+  </body></html>`;
+  w.document.write(html);w.document.close();
+  setTimeout(()=>w.print(),400);
+}
+/* ── EYEBALL MATCHUP MODAL ─────────────────────────────────
+   Opens a deck-visualization overlay scoped to one matchup column. Each
+   main-deck card click sides one copy out (writes "-N" into that card's
+   cell); each sideboard card click sides one copy in (writes "+N"). The
+   G2/G3 toggle picks which sub-cell gets updated. Right-click / shift-
+   click on a card undoes one tick. All state lives in d.sbGuide.cells so
+   it stays in sync with the manual entries in the grid. */
+let _sbgEye={col:0,sub:0,view:'gallery'};
+let _sbgEyeScroll=0; // remembered between re-renders so a click on a card
+                     // doesn't yank the body scrollTop back to 0
+function _sbgLoadEyeSize(){
+  try{const s=JSON.parse(localStorage.getItem('rl_sbg_eye_size')||'null');if(s&&s.w&&s.h)return s;}catch(e){}
+  return null;
+}
+function _sbgSaveEyeSize(w,h){
+  try{localStorage.setItem('rl_sbg_eye_size',JSON.stringify({w,h}));}catch(e){}
+}
+function sbgEyeClick(idx){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  _sbgEnsure(d);
+  _sbgEye.col=idx;
+  _sbgEye.sub=0;
+  _sbgRenderEyeModal();
+}
+function sbgEyeSetView(v){_sbgEye.view=v;_sbgRenderEyeModal();}
+function _sbgEyeBfClick(name){
+  if(ddReadOnly)return;
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const g=_sbgEnsure(d);
+  const {bfRows}=_sbgRowLabels(d);
+  const sub=_sbgEye.sub===0?1:2; // modal G2 → BF sub 1, G3 → BF sub 2
+  const r=bfRows.findIndex(row=>row.name===name);
+  if(r<0)return;
+  const key=`b|${r}|${_sbgEye.col}|${sub}`;
+  if(g.cells[key]){
+    delete g.cells[key];
+  } else {
+    // Only one BF per game — clear other BF picks in this sub first.
+    bfRows.forEach((_,i)=>{delete g.cells[`b|${i}|${_sbgEye.col}|${sub}`];});
+    g.cells[key]='✕';
+  }
+  persist();
+  _sbgRenderEyeModal();
+}
+function sbgEyeClose(){
+  const m=document.getElementById('sbg-eye-modal');if(m)m.remove();
+  // The grid in the background needs to refresh so any cell values the user
+  // touched in the modal show up in the table.
+  const d=myDecks.find(x=>x.id===activeDeckId);
+  if(d&&document.getElementById('ddp-sbguide'))
+    document.getElementById('ddp-sbguide').innerHTML=buildSideboardGuide(d);
+}
+function sbgEyeSetSub(sub){
+  _sbgEye.sub=sub;
+  _sbgRenderEyeModal();
+}
+function _sbgRowIndexFor(rows,name){return rows.findIndex(r=>r.name===name);}
+function _sbgParseDelta(v){
+  // Cell stores either '' (untouched), '+N' / 'N', or '-N'. Return the
+  // signed integer represented by it; 0 if unparseable.
+  if(!v)return 0;
+  const m=String(v).trim().match(/^([+-]?)(\d+)/);
+  return m?(m[1]==='-'?-1:1)*parseInt(m[2],10):0;
+}
+function _sbgFormatDelta(n,positiveSign){
+  if(!n)return '';
+  return positiveSign&&n>0?`+${n}`:String(n);
+}
+function _sbgEyeAdjust(section,name,direction){
+  if(ddReadOnly)return;
+  // direction: +1 or -1 added to current signed value, then clamped.
+  // section: 'm' (main) or 's' (sideboard).
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const g=_sbgEnsure(d);
+  const {mainRows,sbRows}=_sbgRowLabels(d);
+  const rows=section==='m'?mainRows:sbRows;
+  const r=_sbgRowIndexFor(rows,name);
+  if(r<0)return;
+  const key=`${section}|${r}|${_sbgEye.col}|${_sbgEye.sub}`;
+  const cur=_sbgParseDelta(g.cells[key]);
+  let next=cur+direction;
+  // Clamps:
+  //   Main deck card: only negative (siding out). Cap by how many copies exist.
+  //   Sideboard card: only positive (siding in). Cap by sideboard count.
+  const row=rows[r];
+  const max=row.cnt||0;
+  if(section==='m') next=Math.min(0,Math.max(-max,next));
+  else              next=Math.max(0,Math.min(max,next));
+  if(next===0) delete g.cells[key];
+  else g.cells[key]=section==='s'?_sbgFormatDelta(next,true):String(next);
+  persist();
+  _sbgRenderEyeModal();
+}
+function _sbgEyeCellValue(section,name){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return 0;
+  const g=_sbgEnsure(d);
+  const {mainRows,sbRows}=_sbgRowLabels(d);
+  const rows=section==='m'?mainRows:sbRows;
+  const r=_sbgRowIndexFor(rows,name);
+  if(r<0)return 0;
+  return _sbgParseDelta(g.cells[`${section}|${r}|${_sbgEye.col}|${_sbgEye.sub}`]);
+}
+function _sbgRenderEyeModal(){
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const g=_sbgEnsure(d);
+  const muName=(g.matchups[_sbgEye.col]||'').trim()||`Matchup ${_sbgEye.col+1}`;
+  const TYPE_ORDER=['Unit','Spell','Gear'];
+  function _tSort(a,b){const ai=TYPE_ORDER.indexOf(a.t),bi=TYPE_ORDER.indexOf(b.t);return(ai<0?99:ai)-(bi<0?99:bi)||(a.n||'').localeCompare(b.n||'');}
+  function _eSort(a,b){const ca=CARDS.find(x=>x.id===a.id);const cb=CARDS.find(x=>x.id===b.id);const ea=ca&&ca.cost!=null?ca.cost:999;const eb=cb&&cb.cost!=null?cb.cost:999;return ea!==eb?ea-eb:(a.n||'').localeCompare(b.n||'');}
+  const cmp=deckSortMode==='energy'?_eSort:_tSort;
+  const champion=d.champion?[{...d.champion,cnt:1}]:[];
+  const mainDeck=(d.cards||[]).filter(c=>c.t!=='Legend').slice().sort(cmp);
+  const sb=(d.sideboard||[]).slice().sort(cmp);
+  const battlefields=(d.battlefields||[]).filter(Boolean);
+  // Build the "effective" deck state: each main card's count is reduced by
+  // its side-out delta; the missing copies move to the SB display. Each SB
+  // card's count is reduced by its side-in delta; the missing copies move
+  // to the main display. Cards in either section carry their origin so
+  // click handlers know which row's delta to adjust.
+  function buildEffective(){
+    const effMain=[],effSb=[];
+    mainDeck.forEach(c=>{
+      const delta=_sbgEyeCellValue('m',c.n); // <=0
+      const remain=(c.cnt||1)+delta;
+      const moved=-delta;
+      if(remain>0) effMain.push({...c,cnt:remain,origin:'m',moved:false});
+      if(moved>0) effSb.push({...c,cnt:moved,origin:'m',moved:true});
+    });
+    sb.forEach(c=>{
+      const delta=_sbgEyeCellValue('s',c.n); // >=0
+      const remain=(c.cnt||1)-delta;
+      const moved=delta;
+      if(remain>0) effSb.push({...c,cnt:remain,origin:'s',moved:false});
+      if(moved>0) effMain.push({...c,cnt:moved,origin:'s',moved:true});
+    });
+    effMain.sort(cmp);effSb.sort(cmp);
+    return {effMain,effSb};
+  }
+  const {effMain,effSb}=buildEffective();
+  // Static (read-only) tile — only used for Champion in this modal.
+  function gcards(entries){
+    return entries.map(entry=>{
+      const full=CARDS.find(c=>c.id===entry.id);
+      const img=full?full.imageUrl:'';
+      const imgInner=img
+        ?`<img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy">`
+        :`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${_sbgEsc(entry.n)}</div>`;
+      const cntBadge=(entry.cnt||1)>1?`<div class="gallery-card-cnt">×${entry.cnt}</div>`:'';
+      return `<div class="gallery-card" title="${_sbgEsc(entry.n)}">${imgInner}${cntBadge}</div>`;
+    }).join('');
+  }
+  // Click direction for an "effective" entry:
+  //   Entry's `origin` is which row the cell delta lives on.
+  //   `displaySection` is which side of the modal the card is currently on.
+  //   Clicking always moves one copy from the current side to the other side.
+  //   Origin 'm' uses negative-delta convention; origin 's' uses positive.
+  //   So the math:
+  //     display 'm', origin 'm' → delta -= 1 (side it out)        → dir -1 for 'm' row
+  //     display 's', origin 'm' → delta += 1 (return to main)     → dir +1 for 'm' row
+  //     display 's', origin 's' → delta += 1 (side it in)         → dir +1 for 's' row
+  //     display 'm', origin 's' → delta -= 1 (return to SB)       → dir -1 for 's' row
+  function _clickAttrs(entry,displaySection){
+    if(ddReadOnly)return'';
+    const safeName=_sbgEsc(entry.n).replace(/'/g,"\\'");
+    const o=entry.origin;
+    let dir,rowSection=o;
+    if(o==='m') dir=(displaySection==='m')?-1:1;
+    else        dir=(displaySection==='s')?1:-1;
+    return `onclick="_sbgEyeAdjust('${rowSection}','${safeName}',${dir})" oncontextmenu="event.preventDefault();_sbgEyeAdjust('${rowSection}','${safeName}',${-dir})"`;
+  }
+  // Interactive gallery tile — ONE tile per unique card with a stack badge.
+  function gcardsSwap(entries,displaySection){
+    return entries.map(entry=>{
+      const full=CARDS.find(c=>c.id===entry.id);
+      const img=full?full.imageUrl:'';
+      const imgInner=img
+        ?`<img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy">`
+        :`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${_sbgEsc(entry.n)}</div>`;
+      const total=entry.cnt||1;
+      const stackBadge=total>1?`<div class="gallery-card-cnt">×${total}</div>`:'';
+      // Subtle indicator that this stack came from the other zone.
+      const movedDir=displaySection==='s'?'OUT':'IN';
+      const movedBadge=entry.moved?`<div class="sbg-eye-moved-tag sbg-eye-moved-${movedDir.toLowerCase()}">${movedDir}</div>`:'';
+      const title=ddReadOnly?entry.n:(displaySection==='m'?`${entry.n} — click to side out · right-click to undo`:`${entry.n} — click to side in · right-click to undo`);
+      return `<div class="gallery-card sbg-eye-swap-card${entry.moved?' sbg-eye-moved':''}" title="${_sbgEsc(title)}" ${_clickAttrs(entry,displaySection)}>${imgInner}${stackBadge}${movedBadge}</div>`;
+    }).join('');
+  }
+  function section(label,tally,html,extraClass){
+    const tallyHtml=tally!=null?`<span class="gallery-section-tally">${tally}</span>`:'';
+    return`<div class="gallery-section${extraClass?' '+extraClass:''}"><div class="gallery-section-hdr">${label}${tallyHtml}</div><div class="cards-gallery-view">${html}</div></div>`;
+  }
+  // Group cards by type for the Visual layout.
+  function groupByType(list){
+    const groups={};
+    list.forEach(c=>{const t=(c.t||'Other');if(!groups[t])groups[t]=[];groups[t].push(c);});
+    return TYPE_ORDER.filter(t=>groups[t]).map(t=>({type:t,cards:groups[t]}))
+      .concat(Object.keys(groups).filter(t=>!TYPE_ORDER.includes(t)).map(t=>({type:t,cards:groups[t]})));
+  }
+  // Visual mode — renders each unique card as a vertical stack of N tiles
+  // (one .deck-card-item per copy) so they overlap like a fan. This mirrors
+  // the decklist Visual layout exactly. Click handler / swap badge live on
+  // the .deck-col-stack wrapper so all copies act as one swap target.
+  function colStack(entry,displaySection){
+    const full=CARDS.find(c=>c.id===entry.id);
+    const img=full?full.imageUrl:'';
+    const total=entry.cnt||1;
+    const title=ddReadOnly?entry.n:(displaySection==='m'?`${entry.n} — click to side out · right-click to undo`:`${entry.n} — click to side in · right-click to undo`);
+    // Each individual stacked tile carries its own OUT/IN tag and accent
+    // outline when this group represents copies moved from the other zone.
+    const movedDir=displaySection==='s'?'OUT':'IN';
+    const tileMovedTag=entry.moved?`<div class="sbg-eye-moved-tag sbg-eye-moved-${movedDir.toLowerCase()}">${movedDir}</div>`:'';
+    const tileExtraCls=entry.moved?' sbg-eye-moved-tile':'';
+    const tiles=[];
+    for(let i=0;i<total;i++){
+      const inner=img
+        ?`<img src="${img}" alt="${_sbgEsc(entry.n)}" loading="lazy">`
+        :`<div class="deck-card-no-img"><div class="dcni-name">${_sbgEsc(entry.n)}</div></div>`;
+      tiles.push(`<div class="deck-card-item${tileExtraCls}">${inner}${tileMovedTag}</div>`);
+    }
+    return `<div class="deck-col-stack sbg-eye-col-stack${entry.moved?' sbg-eye-moved':''}" title="${_sbgEsc(title)}" ${_clickAttrs(entry,displaySection)}>
+      ${tiles.join('')}
+    </div>`;
+  }
+  // Visual section renderer. For main: Unit gets its own subheader, then
+  // Spell + Gear are merged under "Spell/Gear". For sideboard: no type
+  // subheaders at all — one flat grid.
+  function typeGroupedSection(label,tally,list,displaySection){
+    let inner='';
+    if(displaySection==='s'){
+      // Sideboard — single flat grid, no type subheaders.
+      if(list.length){
+        inner=`<div class="deck-type-auto-grid sbg-eye-visual-grid">${list.map(c=>colStack(c,displaySection)).join('')}</div>`;
+      }
+    } else {
+      // Main deck — Unit first, then a merged Spell/Gear bucket.
+      const groups=groupByType(list);
+      const merged=[];
+      let mergedCards=[];
+      groups.forEach(g=>{
+        if(g.type==='Unit'){merged.push({label:'UNIT',cards:g.cards});}
+        else if(g.type==='Spell'||g.type==='Gear'){mergedCards=mergedCards.concat(g.cards);}
+        else merged.push({label:g.type.toUpperCase(),cards:g.cards});
+      });
+      if(mergedCards.length){
+        mergedCards.sort(cmp);
+        merged.push({label:'SPELL/GEAR',cards:mergedCards});
+      }
+      merged.forEach(grp=>{
+        const cnt=grp.cards.reduce((a,c)=>a+(c.cnt||1),0);
+        inner+=`<div class="sbg-eye-type-grp">
+          <div class="sbg-eye-type-hdr">${grp.label} <span class="sbg-eye-type-cnt">(${cnt})</span></div>
+          <div class="deck-type-auto-grid sbg-eye-visual-grid">${grp.cards.map(c=>colStack(c,displaySection)).join('')}</div>
+        </div>`;
+      });
+    }
+    if(!inner) inner=`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:12px;opacity:0.6;">No cards in ${label.toLowerCase()} after this matchup's swaps.</div>`;
+    const tallyHtml=tally!=null?`<span class="gallery-section-tally">${tally}</span>`:'';
+    return `<div class="gallery-section"><div class="gallery-section-hdr">${label}${tallyHtml}</div>${inner}</div>`;
+  }
+  const champCnt=champion.length;
+  // Effective totals — reflect copies after the planned swaps are applied,
+  // so the "X/40" tally moves with the user's clicks. Sideboard tally also
+  // moves and can exceed 8 (per spec: ignore the 8-card cap in this view).
+  const mainCnt=effMain.reduce((a,c)=>a+(c.cnt||1),0)+(d.champion?1:0);
+  const sbCnt=effSb.reduce((a,c)=>a+(c.cnt||1),0);
+  // BF picks live in the BATTLEFIELDS section of d.sbGuide.cells. The modal
+  // sub maps to the BF sub-cell: G2 (sub 0) → BF sub 1, G3 (sub 1) → BF
+  // sub 2 (BF cells are split G1/G2/G3, indices 0/1/2).
+  const bfSubIdx=_sbgEye.sub===0?1:2;
+  const {bfRows}=_sbgRowLabels(d);
+  function _bfTile(bf){
+    const full=CARDS.find(c=>c.id===bf.id);
+    const img=full?(full.imageUrl||''):'';
+    const rowIdx=bfRows.findIndex(r=>r.name===bf.n);
+    const isSelected=rowIdx>=0&&!!g.cells[`b|${rowIdx}|${_sbgEye.col}|${bfSubIdx}`];
+    const anySelected=bfRows.some((_,i)=>!!g.cells[`b|${i}|${_sbgEye.col}|${bfSubIdx}`]);
+    const isFaded=anySelected&&!isSelected;
+    const safeName=_sbgEsc(bf.n).replace(/'/g,"\\'");
+    const cls=`gallery-card gallery-card-bf sbg-eye-bf-tile${isSelected?' sbg-eye-bf-selected':''}${isFaded?' sbg-eye-bf-faded':''}`;
+    const inner=img?`<img src="${img}" alt="${_sbgEsc(bf.n)}" loading="lazy">`:`<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text-muted);padding:4px;text-align:center;">${_sbgEsc(bf.n)}</div>`;
+    return `<div class="${cls}" title="${ddReadOnly?_sbgEsc(bf.n):`${_sbgEsc(bf.n)} — click to ${isSelected?'unpick':'pick for this game'}`}" ${ddReadOnly?'':`onclick="_sbgEyeBfClick('${safeName}')"`}>${inner}</div>`;
+  }
+  let bodyHtml='';
+  // Top read-only strip: Champion + Battlefields side by side. Battlefield
+  // tiles are interactive — click to set/unset the BF pick for this game.
+  let topStripHtml=`<div class="gallery-section gallery-section-compact sbg-eye-champ-section"><div class="gallery-section-hdr">Champion<span class="gallery-section-tally">${champCnt}/1</span></div><div class="cards-gallery-view">${gcards(champion)}</div></div>`;
+  topStripHtml+=`<div class="gallery-section gallery-section-compact sbg-eye-bf-section"><div class="gallery-section-hdr">Battlefields<span class="gallery-section-tally">${battlefields.length}/3</span></div><div class="cards-gallery-view-bf">${battlefields.length?battlefields.map(_bfTile).join(''):'<div style="font-size:11px;color:var(--text-muted);opacity:0.5;padding:8px;">No battlefields in this deck.</div>'}</div></div>`;
+  bodyHtml+=`<div class="sbg-eye-top-strip">${topStripHtml}</div>`;
+  if(_sbgEye.view==='visual'){
+    bodyHtml+=typeGroupedSection('Main Deck',`${mainCnt}/40`,effMain,'m');
+    bodyHtml+=typeGroupedSection('Sideboard',`${sbCnt}/8`,effSb,'s');
+  } else {
+    bodyHtml+=section('Main Deck',`${mainCnt}/40`,gcardsSwap(effMain,'m'));
+    bodyHtml+=section('Sideboard',`${sbCnt}/8`,gcardsSwap(effSb,'s'));
+  }
+  const galleryBody=`<div class="gallery-all-sections${_sbgEye.view==='visual'?' sbg-eye-mode-visual':''}">${bodyHtml}</div>`;
+  // Running totals for header — total copies that have been moved out of
+  // each original zone for this matchup/sub combination.
+  let totalOut=0,totalIn=0;
+  mainDeck.forEach(c=>{const v=_sbgEyeCellValue('m',c.n);if(v<0)totalOut+=-v;});
+  sb.forEach(c=>{const v=_sbgEyeCellValue('s',c.n);if(v>0)totalIn+=v;});
+  const balance=totalIn-totalOut;
+  const balanceCls=balance===0?'sbg-eye-bal-ok':'sbg-eye-bal-off';
+  const balanceText=balance===0?'Balanced':(balance>0?`+${balance} in`:`${balance} (over-sided out)`);
+  let modal=document.getElementById('sbg-eye-modal');
+  const firstOpen=!modal;
+  if(firstOpen){
+    modal=document.createElement('div');
+    modal.id='sbg-eye-modal';
+    modal.className='sbg-eye-backdrop';
+    modal.addEventListener('click',e=>{if(e.target===modal)sbgEyeClose();});
+    document.body.appendChild(modal);
+  }
+  // Preserve scrollTop across the rebuild so clicking a card doesn't jump
+  // the user back to the top.
+  const oldBody=modal.querySelector('.sbg-eye-body');
+  if(oldBody) _sbgEyeScroll=oldBody.scrollTop;
+  // Persisted resize: read once on first open, persist via observer on the
+  // .sbg-eye-box after we render.
+  const savedSize=firstOpen?_sbgLoadEyeSize():null;
+  const sizeStyle=savedSize?`style="width:${savedSize.w}px;height:${savedSize.h}px;"`:'';
+  modal.innerHTML=`<div class="sbg-eye-box" ${sizeStyle}>
+    <div class="sbg-eye-hdr">
+      <div class="sbg-eye-title">
+        <span class="sbg-eye-eye">👁</span>
+        <span>${_sbgEsc(muName)}</span>
+      </div>
+      <div class="sbg-eye-tabs">
+        <button class="sbg-eye-tab${_sbgEye.sub===0?' on':''}" onclick="sbgEyeSetSub(0)" title="First post-board game">Post Board - 1st</button>
+        <button class="sbg-eye-tab${_sbgEye.sub===1?' on':''}" onclick="sbgEyeSetSub(1)" title="Second post-board game">Post Board - 2nd</button>
+      </div>
+      <div class="sbg-eye-tabs sbg-eye-view-tabs" title="Switch layout">
+        <button class="sbg-eye-tab${_sbgEye.view==='gallery'?' on':''}" onclick="sbgEyeSetView('gallery')" title="Gallery view">⊞ Gallery</button>
+        <button class="sbg-eye-tab${_sbgEye.view==='visual'?' on':''}" onclick="sbgEyeSetView('visual')" title="Visual view">▦ Visual</button>
+      </div>
+      <button class="sbg-eye-close" onclick="sbgEyeClose()" title="Close">✕</button>
+    </div>
+    <div class="sbg-eye-stat-row">
+      <span class="sbg-eye-stat">In <strong>${totalIn}</strong></span>
+      <span class="sbg-eye-stat">Out <strong>${totalOut}</strong></span>
+      <span class="sbg-eye-stat ${balanceCls}">${balanceText}</span>
+      <span class="sbg-eye-hint">${ddReadOnly?'Read-only view of this matchup’s post-board plan.':'Click a card in the main deck to side it out · click a sideboard card to side it in · right-click to undo.'}</span>
+    </div>
+    <div class="sbg-eye-body">${galleryBody}</div>
+    <div class="sbg-eye-resize sbg-eye-resize-right" title="Drag to resize width"></div>
+    <div class="sbg-eye-resize sbg-eye-resize-left" title="Drag to resize width"></div>
+    <div class="sbg-eye-resize sbg-eye-resize-bottom" title="Drag to resize height"></div>
+  </div>`;
+  // Restore scroll and wire the resize observer (only attach once per box
+  // lifetime — the box element is recreated every innerHTML rebuild).
+  const newBody=modal.querySelector('.sbg-eye-body');
+  if(newBody&&_sbgEyeScroll) newBody.scrollTop=_sbgEyeScroll;
+  const box=modal.querySelector('.sbg-eye-box');
+  if(box&&typeof ResizeObserver!=='undefined'){
+    if(_sbgEye._ro){try{_sbgEye._ro.disconnect();}catch(e){}}
+    _sbgEye._ro=new ResizeObserver(entries=>{
+      for(const ent of entries){
+        const cr=ent.contentRect;
+        // Skip tiny / first-frame measurements that fire during layout.
+        if(cr.width>200&&cr.height>200) _sbgSaveEyeSize(Math.round(cr.width),Math.round(cr.height));
+      }
+    });
+    _sbgEye._ro.observe(box);
+  }
+  if(box) _attachSbgEyeEdgeHandles(box);
+}
+
+function _attachSbgEyeEdgeHandles(box){
+  const minW=520,minH=420;
+  function maxW(){return Math.max(minW,window.innerWidth-32);}
+  function maxH(){return Math.max(minH,window.innerHeight-64);}
+  function startDrag(handle,axis,direction){
+    handle.addEventListener('pointerdown',e=>{
+      e.preventDefault();e.stopPropagation();
+      handle.setPointerCapture(e.pointerId);
+      const startX=e.clientX,startY=e.clientY;
+      const startW=box.offsetWidth,startH=box.offsetHeight;
+      function move(ev){
+        if(axis==='x'){
+          const dx=(ev.clientX-startX)*direction;
+          const w=Math.max(minW,Math.min(maxW(),startW+dx));
+          box.style.width=w+'px';
+        } else {
+          const dy=(ev.clientY-startY)*direction;
+          const h=Math.max(minH,Math.min(maxH(),startH+dy));
+          box.style.height=h+'px';
+        }
+      }
+      function up(){
+        try{handle.releasePointerCapture(e.pointerId);}catch(_){}
+        handle.removeEventListener('pointermove',move);
+        handle.removeEventListener('pointerup',up);
+        _sbgSaveEyeSize(box.offsetWidth,box.offsetHeight);
+      }
+      handle.addEventListener('pointermove',move);
+      handle.addEventListener('pointerup',up);
+    });
+  }
+  const r=box.querySelector('.sbg-eye-resize-right');if(r)  startDrag(r,'x', 1);
+  const l=box.querySelector('.sbg-eye-resize-left'); if(l)  startDrag(l,'x',-1);
+  const b=box.querySelector('.sbg-eye-resize-bottom');if(b) startDrag(b,'y', 1);
+}
+function sbgSetCell(section,row,col,sub,val){
+  if(ddReadOnly)return;
+  // Back-compat shim: pre-split callers passed (section,row,col,val) without
+  // sub — treat that as sub=0.
+  if(val===undefined){val=sub;sub=0;}
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const g=_sbgEnsure(d);
+  const k=`${section}|${row}|${col}|${sub}`;
+  if(val==='') delete g.cells[k]; else g.cells[k]=String(val);
+  persist();
+}
+function sbgSetMatchup(idx,val){
+  if(ddReadOnly)return;
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const g=_sbgEnsure(d);
+  g.matchups[idx]=String(val);
+  persist();
+}
+function sbgAddCol(){
+  if(ddReadOnly)return;
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const g=_sbgEnsure(d);
+  g.matchups.push('');
+  persist();
+  document.getElementById('ddp-sbguide').innerHTML=buildSideboardGuide(d);
+}
+function sbgRemoveCol(idx){
+  if(ddReadOnly)return;
+  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
+  const g=_sbgEnsure(d);
+  if(g.matchups.length<=1){toast('Keep at least one matchup column');return;}
+  g.matchups.splice(idx,1);
+  // Shift cells: drop column idx, slide higher columns down by one. Keys
+  // are now `section|row|col|sub` (sub optional for legacy entries) — pass
+  // through whatever extra parts came after the column index.
+  const fresh={};
+  Object.keys(g.cells).forEach(k=>{
+    const parts=k.split('|');
+    const sec=parts[0],r=parts[1];
+    const ci=parseInt(parts[2],10);
+    if(ci===idx) return;
+    const nc=ci>idx?ci-1:ci;
+    const tail=parts.slice(3).join('|');
+    fresh[`${sec}|${r}|${nc}${tail?'|'+tail:''}`]=g.cells[k];
+  });
+  g.cells=fresh;
+  persist();
+  document.getElementById('ddp-sbguide').innerHTML=buildSideboardGuide(d);
+}
+
 function buildStatsPanel(d){
   const cards=d.cards||[];
   const total=cards.reduce((a,c)=>a+c.cnt,0);
@@ -1717,12 +2463,13 @@ function renderResultsList(d){
       +(r.bf?'<span class="result-notes" style="color:var(--text-muted);">🌍 '+r.bf+'</span>':'')
       +'<span class="result-opp">vs '+(r.opp||'Unknown')+'</span>'
       +(r.notes?'<span class="result-notes">'+r.notes+'</span>':'')
-      +'<button class="result-del" onclick="deleteResult('+d.id+','+realIdx+')" title="Remove">×</button>'
+      +(ddReadOnly?'':'<button class="result-del" onclick="deleteResult('+d.id+','+realIdx+')" title="Remove">×</button>')
       +'</div>';
   }).join('');
 }
 
 function addResult(deckId){
+  if(ddReadOnly)return;
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   const outcome=document.getElementById('r-outcome').value;
   const turn=document.getElementById('r-turn').value;
@@ -1744,6 +2491,7 @@ function addResult(deckId){
 }
 
 function deleteResult(deckId,idx){
+  if(ddReadOnly)return;
   const d=myDecks.find(x=>x.id===deckId);if(!d||!d.results)return;
   const r=d.results[idx];
   if(r.outcome==='win'&&d.wins>0) d.wins--;
@@ -1795,7 +2543,7 @@ function adjustSB(deckId,cardId,delta){
   if(!d.sideboard) d.sideboard=[];
   const entry=d.sideboard.find(c=>c.id===cardId);
   if(entry){
-    if(delta>0&&entry.cnt>=3){toast('Max 3 copies');return;}
+    if(delta>0&&entry.cnt>=3&&!isUnlimitedCard(entry.n)){toast('Max 3 copies');return;}
     if(delta>0){const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}}
     entry.cnt=Math.max(0,entry.cnt+delta);
     if(entry.cnt===0) d.sideboard=d.sideboard.filter(c=>c.id!==cardId);
@@ -1867,7 +2615,7 @@ function addToSB(deckId,cardId,cardName,cardType){
   d.cards[deckIdx].cnt--;
   if(d.cards[deckIdx].cnt<=0) d.cards.splice(deckIdx,1);
   const existing=d.sideboard.find(c=>c.id===cardId);
-  if(existing){if(existing.cnt>=3){toast('Max 3 copies');return;}existing.cnt++;}
+  if(existing){if(existing.cnt>=3&&!isUnlimitedCard(cardName)){toast('Max 3 copies');return;}existing.cnt++;}
   else d.sideboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
   persist();
   renderEditSearch();
@@ -1889,7 +2637,7 @@ function addDirectToSB(deckId,cardId,cardName,cardType){
   const sbCnt=(d.sideboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const mbCnt=(d.maybeboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const zoneCnt=(d.champion&&baseName(d.champion.n)===bn)?1:0;
-  if(deckCnt+sbCnt+mbCnt+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
+  if(deckCnt+sbCnt+mbCnt+zoneCnt>=3&&!isUnlimitedCard(cardName)){toast('Max 3 copies (including variants)');return;}
   const existing=d.sideboard.find(c=>c.id===cardId);
   if(existing) existing.cnt++;
   else d.sideboard.push({id:cardId,n:cardName,t:cardType,cnt:1});
@@ -1914,7 +2662,7 @@ function addDirectToMB(deckId,cardId,cardName,cardType){
   const _sC=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const _mC=d.maybeboard.filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const _zC=(d.champion&&baseName(d.champion.n)===_bn)?1:0;
-  if(_dC+_sC+_mC+_zC>=3){toast('Max 3 copies (including variants)');return;}
+  if(_dC+_sC+_mC+_zC>=3&&!isUnlimitedCard(cardName)){toast('Max 3 copies (including variants)');return;}
   const existing=d.maybeboard.find(c=>c.id===cardId);
   if(existing){
     if(existing.cnt>=MAYBE_PER_CARD_MAX){toast('Max '+MAYBE_PER_CARD_MAX+' copies of any one card in the maybe board');return;}
@@ -2034,7 +2782,7 @@ function renderEditSearch(){
   });
   html+='</div>';
 
-  const ESETS=['','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
+  const ESETS=['','VEN','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
   const ERARS=['','Epic','Rare','Uncommon','Common','Promo'];
   const ESUBTYPES=['','Action','Reaction','Champion','Token','Signature Card'];
   const EVARIANTS=['','Standard','Alt Art','Overnumbered','Promo','Artist Signed','Foil'];
@@ -2090,7 +2838,19 @@ function renderEditSearch(){
 }
 
 function _buildEditResultsHtml(d,slice,total,pages){
-  let html='<div class="edit-card-grid">';
+  // Pagination renders above the card grid, right under the stat sliders
+  let html='';
+  if(pages>1){
+    html+='<div class="edit-pagination">';
+    html+=`<button class="edit-page-btn"${EF.page===1?' disabled':''} onclick="setEditPage(${EF.page-1})">Prev</button>`;
+    buildPageNums(EF.page,pages).forEach(p=>{
+      if(p==='…') html+='<span style="padding:0 2px;color:var(--text-muted);font-size:13px;">…</span>';
+      else html+=`<button class="edit-page-btn${p===EF.page?' on':''}" onclick="setEditPage(${p})">${p}</button>`;
+    });
+    html+=`<button class="edit-page-btn"${EF.page===pages?' disabled':''} onclick="setEditPage(${EF.page+1})">Next</button>`;
+    html+='</div>';
+  }
+  html+='<div class="edit-card-grid">';
   if(!slice.length){
     html+='<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--text-muted);font-size:13px;">No cards found</div>';
   } else {
@@ -2119,7 +2879,7 @@ function _buildEditResultsHtml(d,slice,total,pages){
       // Maxed = at the per-card cap for this deck slot. Battlefields cap at 1
       // copy of each, regular cards at 3. Runes don't grey out here (their
       // own counts panel handles limits).
-      const isMaxed=!isBanned&&(isBF?bfInDeck:(!isRune&&variantTotal>=3));
+      const isMaxed=!isBanned&&(isBF?bfInDeck:(!isRune&&variantTotal>=3&&!isUnlimitedCard(c.name)));
       const addFn=isBanned?`toast('This card is banned')`:isMaxed?`toast('Already at max for this card')`:(isRune?`addRune('${si}','${sn}')`:isBF?`addBattlefield(-1,'${si}','${sn}')`:`editDeckCard('${si}','${sn}','${at}',1)`);
       const dragAttrs=(isBanned||isMaxed)?'draggable="false"':`draggable="true" ondragstart="editLibDragStart('${si}','${sn}','${st}')"`;
       html+=`<div class="ct ct-img lib-card${isBF?' lib-card-bf':''}${isBanned?' lib-card-banned':''}${isMaxed?' lib-card-maxed':''}" ${dragAttrs} title="${c.name}" onclick="${addFn}">`;
@@ -2140,17 +2900,6 @@ function _buildEditResultsHtml(d,slice,total,pages){
     });
   }
   html+='</div>';
-
-  if(pages>1){
-    html+='<div class="edit-pagination">';
-    html+=`<button class="edit-page-btn"${EF.page===1?' disabled':''} onclick="setEditPage(${EF.page-1})">Prev</button>`;
-    buildPageNums(EF.page,pages).forEach(p=>{
-      if(p==='…') html+='<span style="padding:0 2px;color:var(--text-muted);font-size:13px;">…</span>';
-      else html+=`<button class="edit-page-btn${p===EF.page?' on':''}" onclick="setEditPage(${p})">${p}</button>`;
-    });
-    html+=`<button class="edit-page-btn"${EF.page===pages?' disabled':''} onclick="setEditPage(${EF.page+1})">Next</button>`;
-    html+='</div>';
-  }
   return html;
 }
 
@@ -2249,7 +2998,7 @@ function addToMaybeboard(deckId,cardId,cardName,cardType){
   const _sC=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const _mC=d.maybeboard.filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const _zC=(d.champion&&baseName(d.champion.n)===_bn)?1:0;
-  if(_dC+_sC+_mC+_zC>=3){toast('Max 3 copies (including variants)');return;}
+  if(_dC+_sC+_mC+_zC>=3&&!isUnlimitedCard(cardName)){toast('Max 3 copies (including variants)');return;}
   const existing=d.maybeboard.find(c=>c.id===cardId);
   if(existing){
     if(existing.cnt>=MAYBE_PER_CARD_MAX){toast('Max '+MAYBE_PER_CARD_MAX+' copies of any one card in the maybe board');return;}
@@ -2290,7 +3039,7 @@ function maybeboardToDeck(deckId,cardId,cardName,cardType){
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const zoneCnt=(d.champion&&baseName(d.champion.n)===bn)?1:0;
-  if(deckCntBN+sbCntBN+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
+  if(deckCntBN+sbCntBN+zoneCnt>=3&&!isUnlimitedCard(cardName)){toast('Max 3 copies (including variants)');return;}
   const mIdx=d.maybeboard.findIndex(c=>c.id===cardId);
   if(mIdx<0)return;
   d.maybeboard[mIdx].cnt--;
@@ -2315,7 +3064,7 @@ function maybeboardToSideboard(deckId,cardId,cardName,cardType){
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const sbCntBN=d.sideboard.filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const zoneCnt=(d.champion&&baseName(d.champion.n)===bn)?1:0;
-  if(deckCntBN+sbCntBN+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
+  if(deckCntBN+sbCntBN+zoneCnt>=3&&!isUnlimitedCard(cardName)){toast('Max 3 copies (including variants)');return;}
   const mIdx=d.maybeboard.findIndex(c=>c.id===cardId);
   if(mIdx<0)return;
   d.maybeboard[mIdx].cnt--;
@@ -2353,7 +3102,7 @@ function _moveMaybeboardToDeck(){
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const zoneCnt=(d.champion&&baseName(d.champion.n)===_bn)?1:0;
-  if(deckCntBN+sbCntBN+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
+  if(deckCntBN+sbCntBN+zoneCnt>=3&&!isUnlimitedCard(_DRAG.n)){toast('Max 3 copies (including variants)');return;}
   const mIdx=d.maybeboard.findIndex(c=>c.id===_DRAG.id);
   if(mIdx<0)return;
   d.maybeboard[mIdx].cnt--;
@@ -2372,7 +3121,7 @@ function _moveMaybeboardToSideboard(){
   const _bn=baseName(_DRAG.n);
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
-  if(deckCntBN+sbCntBN>=3){toast('Max 3 copies (including variants)');return;}
+  if(deckCntBN+sbCntBN>=3&&!isUnlimitedCard(_DRAG.n)){toast('Max 3 copies (including variants)');return;}
   const mIdx=d.maybeboard.findIndex(c=>c.id===_DRAG.id);
   if(mIdx<0)return;
   d.maybeboard[mIdx].cnt--;
@@ -2403,7 +3152,7 @@ function _moveSideboardToDeck(){
   const _bn=baseName(_DRAG.n);
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
-  if((deckCntBN+sbCntBN)>3){toast('Max 3 copies (including variants)');return;}
+  if((deckCntBN+sbCntBN)>3&&!isUnlimitedCard(_DRAG.n)){toast('Max 3 copies (including variants)');return;}
   // Decrement sideboard
   d.sideboard[sbIdx].cnt--;
   if(d.sideboard[sbIdx].cnt<=0) d.sideboard.splice(sbIdx,1);
@@ -2534,7 +3283,7 @@ function renderEditPreview(targetEl){
     const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const st=c.t.replace(/'/g,"\\'");
     const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    const canAdd=c.cnt<3;
+    const canAdd=c.cnt<3||isUnlimitedCard(c.n);
     let h=`<div class="deck-card-item ${cls}" title="${c.n}" draggable="true" ondragstart="editDeckDragStart('${si}','${sn}','${st}')" data-hover-img="${img||''}">`;
     if(img) h+=`<img src="${img}" alt="" loading="lazy">`;
     else h+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
@@ -2701,9 +3450,12 @@ function renderEditPreview(targetEl){
         if(type==='Gear'){
           h+=_renderGearItem(c);
         } else {
-          h+='<div class="deck-col-stack">';
-          for(let i=0;i<c.cnt;i++) h+=cardItem(c,'deck-card-main');
-          h+='</div>';
+          // Unlimited-copy cards can exceed 3 — start a new column every 3 copies
+          for(let k=0;k<c.cnt;k+=3){
+            h+='<div class="deck-col-stack">';
+            for(let i=k;i<Math.min(k+3,c.cnt);i++) h+=cardItem(c,'deck-card-main');
+            h+='</div>';
+          }
         }
       });
       h+='</div>';
@@ -2793,8 +3545,9 @@ function renderEditPreview(targetEl){
       const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const st=(c.t||'').replace(/'/g,"\\'");
+      for(let k=0;k<c.cnt;k+=3){
       html+='<div class="deck-col-stack">';
-      for(let i=0;i<c.cnt;i++){
+      for(let i=k;i<Math.min(k+3,c.cnt);i++){
         html+=`<div class="deck-card-item deck-card-main" title="${c.n}" draggable="true" ondragstart="editSideboardDragStart('${si}','${sn}','${st}')" data-hover-img="${img||''}">`;
         if(img) html+=`<img src="${img}" alt="" loading="lazy">`;
         else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
@@ -2808,6 +3561,7 @@ function renderEditPreview(targetEl){
         html+='</div>';
       }
       html+='</div>';
+      }
     });
     html+='</div>';
   }
@@ -2828,8 +3582,9 @@ function renderEditPreview(targetEl){
       const si=c.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const sn=c.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       const st=(c.t||'').replace(/'/g,"\\'");
+      for(let k=0;k<c.cnt;k+=3){
       html+='<div class="deck-col-stack">';
-      for(let i=0;i<c.cnt;i++){
+      for(let i=k;i<Math.min(k+3,c.cnt);i++){
         html+=`<div class="deck-card-item deck-card-main" title="${c.n}" draggable="true" ondragstart="editMaybeboardDragStart('${si}','${sn}','${st}')" data-hover-img="${img||''}">`;
         if(img) html+=`<img src="${img}" alt="" loading="lazy">`;
         else html+=`<div class="deck-card-no-img"><div class="dcni-name">${c.n}</div></div>`;
@@ -2844,6 +3599,7 @@ function renderEditPreview(targetEl){
         html+='</div>';
       }
       html+='</div>';
+      }
     });
     html+='</div>';
   }
@@ -2866,7 +3622,7 @@ function editDeckCard(cardId,cardName,cardType,delta){
     const sbCnt=(d.sideboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
     const mbCnt=(d.maybeboard||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
     const zoneCnt=(d.champion&&baseName(d.champion.n)===bn)?1:0;
-    if(deckCnt+sbCnt+mbCnt+zoneCnt>=3){toast('Max 3 copies (including variants)');return;}
+    if(deckCnt+sbCnt+mbCnt+zoneCnt>=3&&!isUnlimitedCard(cardName)){toast('Max 3 copies (including variants)');return;}
   }
   if(idx>=0){
     d.cards[idx].cnt=Math.max(0,d.cards[idx].cnt+delta);
@@ -2901,7 +3657,7 @@ function showDeckCardMenu(e,cardId,cardName,cardType){
     (img?`<div class="dcm-preview"><img src="${img}" alt=""></div>`:'')
     +`<div class="dcm-item" onclick="dcmZoom()"><span class="dcm-icon">🔍</span>Zoom</div>`
     +`<div class="dcm-item dcm-danger" onclick="dcmRemove()"><span class="dcm-icon">✕</span>Remove</div>`
-    +`<div class="dcm-item${cnt>=3?' dcm-disabled':''}" onclick="dcmAdd()"><span class="dcm-icon">＋</span>1 copy</div>`
+    +`<div class="dcm-item${cnt>=3&&!isUnlimitedCard(cardName)?' dcm-disabled':''}" onclick="dcmAdd()"><span class="dcm-icon">＋</span>1 copy</div>`
     +`<div class="dcm-item" onclick="dcmSideboard()"><span class="dcm-icon">→</span>Sideboard</div>`
     +`<div class="dcm-item" onclick="dcmMaybeboard()"><span class="dcm-icon">?</span>Maybe Board</div>`;
   document.body.appendChild(menu);
@@ -4228,15 +4984,15 @@ const SCHEDULE_2026=[
   {month:'June 2026',events:[
     {dates:'Jun 12–14',name:'RQ Utrecht',desc:'Regional Qualifier in the Netherlands',type:'rq'},
     {dates:'Jun 19–21',name:'RQ Hartford',desc:'New England Regional Qualifier',type:'rq'},
-    {dates:'Jun 22',name:'Vandetta Previews Begin',desc:'First look at Riftbound Set 4',type:'preview'},
+    {dates:'Jun 22',name:'Vendetta Previews Begin',desc:'First look at Riftbound Set 4',type:'preview'},
     {dates:'Jun 22',name:'Summoner Skirmish July Window',desc:'July Skirmish events open',type:'skirmish'},
     {dates:'Jun 26',name:'LoL Mid-Season Invitational',desc:'Riftbound presence in Daejeon, South Korea',type:'special'},
   ]},
   {month:'July 2026',events:[
     {dates:'Mid-July',name:'China Major Tournament',desc:'Set 3 Major in northern China',type:'major'},
-    {dates:'Jul 24–30',name:'Vandetta Pre-Rift',desc:'Global Pre-Rift for Set 4',type:'pre-rift'},
+    {dates:'Jul 24–30',name:'Vendetta Pre-Rift',desc:'Global Pre-Rift for Set 4',type:'pre-rift'},
     {dates:'Jul 30–Aug 2',name:'Gen Con Indy',desc:'Riftbound events and panel',type:'special'},
-    {dates:'Jul 31',name:'Vandetta Release',desc:'Set 4 launches in English and Chinese',type:'release'},
+    {dates:'Jul 31',name:'Vendetta Release',desc:'Set 4 launches worldwide — first simultaneous global release',type:'release'},
   ]},
   {month:'August 2026',events:[
     {dates:'TBD',name:'State of the Game',desc:'Second State of the Game livestream',type:'special'},
@@ -4261,12 +5017,31 @@ const SCHEDULE_2026=[
 /* ── TEAM ───────────────────────────────────────── */
 function persistTeam(){localStorage.setItem('rl_team',JSON.stringify(myTeam));}
 function switchTeamTab(t){activeTeamTab=t;renderTeam();}
-function createTeam(){
-  const name=(document.getElementById('tm-name')||{}).value||'';
-  const img=(document.getElementById('tm-img')||{}).value||'';
-  if(!name.trim()){toast('Team name required');return;}
-  myTeam={name:name.trim(),img:img.trim(),members:[],created:Date.now()};
-  persistTeam();renderTeam();
+async function createTeam(){
+  const name=(document.getElementById('tm-name')||{}).value.trim()||'';
+  if(!name){toast('Team name required');return;}
+  // Enforce a globally-unique team name. The check runs against the
+  // Supabase `teams` table (case-insensitive). If the table is unreachable
+  // (no project / offline / not configured) we fall back to allowing the
+  // name — the local user can still proceed without the global check.
+  try{
+    if(_sb&&_sb.from){
+      const {data,error}=await _sb.from('teams').select('id,name').ilike('name',name).limit(1);
+      if(!error && data && data.length){
+        toast('That team name is already taken — pick another');
+        return;
+      }
+    }
+  }catch(e){/* offline / table missing — fall through */}
+  myTeam={name,img:'',members:[],created:Date.now()};
+  persistTeam();
+  // Best-effort cloud insert so the name claims its slot for future checks.
+  try{
+    if(_sb&&_sb.from&&currentUser){
+      await _sb.from('teams').insert([{name,owner_id:currentUser.id}]);
+    }
+  }catch(e){}
+  renderTeam();
 }
 function addTeamMember(){
   if(!myTeam)return;
@@ -4320,8 +5095,8 @@ function renderTeam(){
     <div style="max-width:480px;margin:2rem auto;">
       <div class="dc" style="padding:2rem;display:flex;flex-direction:column;gap:12px;">
         <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">Create a Team</div>
-        <input id="tm-name" type="text" placeholder="Team name" style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;">
-        <input id="tm-img" type="text" placeholder="Profile image URL (optional)" style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;">
+        <input id="tm-name" type="text" placeholder="Team name (must be unique)" style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;">
+        <div style="font-size:11px;color:var(--text-muted);line-height:1.4;">You can upload a profile picture and cover photo after the team is created.</div>
         <button class="btn btn-p" onclick="createTeam()" style="padding:10px;font-size:14px;">Create Team</button>
       </div>
     </div>`;
@@ -4467,21 +5242,41 @@ function renderTeam(){
       if(!teamThreads.length){
         html+=`<div class="team-empty">No discussions yet. Start a topic above!</div>`;
       }else{
+        // Classic phpBB-style two-column table: forum description on the
+        // left, last-post snippet on the right. One row per thread.
+        const isToday=(ts)=>{const d=new Date(ts),n=new Date();return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate();};
+        const fmtDate=(ts)=>{const d=new Date(ts);return isToday(ts)?'Today':(String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'-'+d.getFullYear());};
+        const fmtTime=(ts)=>new Date(ts).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+        const snip=(s,n)=>{if(!s)return '';s=s.replace(/\s+/g,' ').trim();return s.length>n?s.slice(0,n-1)+'…':s;};
+        html+=`<div class="forum-table">
+          <div class="forum-thead">
+            <div class="forum-th forum-th-main">Forum</div>
+            <div class="forum-th forum-th-last">Last Post</div>
+          </div>
+          <div class="forum-tbody">`;
         teamThreads.forEach(t=>{
           const posts=t.posts||[];
-          const replies=posts.length;
           const last=posts[posts.length-1];
-          const dt=new Date((last&&last.ts)||t.ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-          const info=last?`Last reply by ${_teamEsc(last.author||'Member')}`:`Started by ${_teamEsc(t.author||'Member')}`;
-          html+=`<div class="forum-row" onclick="openTeamThread(${t.id})">
-            <div class="forum-row-main">
-              <div class="forum-row-title">${_teamEsc(t.title)}</div>
-              <div class="forum-row-meta">${info} · ${dt}</div>
+          const desc=snip((posts[0]&&posts[0].text)||'(no description)',110);
+          const lastSnip=last?snip(last.text,28):snip(t.title,28);
+          const lastAuthor=_teamEsc((last&&last.author)||t.author||'Member');
+          const lastTs=(last&&last.ts)||t.ts;
+          html+=`<div class="forum-trow" onclick="openTeamThread(${t.id})">
+            <div class="forum-td-icon" aria-hidden="true">📄</div>
+            <div class="forum-td-main">
+              <a class="forum-td-title" onclick="event.stopPropagation();openTeamThread(${t.id})">${_teamEsc(t.title)}</a>
+              <div class="forum-td-desc">${desc}</div>
             </div>
-            <div class="forum-row-count"><span class="forum-row-num">${replies}</span><span class="forum-row-lbl">repl${replies===1?'y':'ies'}</span></div>
-            <button class="team-post-del" onclick="event.stopPropagation();deleteTeamThread(${t.id})" title="Delete topic">×</button>
+            <div class="forum-td-last">
+              <a class="forum-td-last-title" onclick="event.stopPropagation();openTeamThread(${t.id})" title="Jump to thread">${lastSnip}</a>
+              <div class="forum-td-last-by">by <a class="forum-td-last-user" onclick="event.stopPropagation()">${lastAuthor}</a></div>
+              <div class="forum-td-last-date">${fmtDate(lastTs)} <span class="forum-td-last-time">${fmtTime(lastTs)}</span></div>
+              <button class="forum-td-jump" onclick="event.stopPropagation();openTeamThread(${t.id})" title="Go to thread">›</button>
+            </div>
+            <button class="team-post-del forum-td-del" onclick="event.stopPropagation();deleteTeamThread(${t.id})" title="Delete topic">×</button>
           </div>`;
         });
+        html+=`</div></div>`;
       }
       html+=`</div>`;
     }
@@ -4505,8 +5300,9 @@ function renderEvents(){
   };
   function typeBadge(t){const s=typeStyle[t]||typeStyle.special;return`<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${s.bg};color:${s.color};white-space:nowrap;">${s.label}</span>`;}
   function allEventsHTML(){
-    const rqHTML=RQ_EVENTS.map((rq,idx)=>{
-      const isPast=new Date(rq.sortDate)<today;
+    const rqVisible=RQ_EVENTS.map((rq,idx)=>({rq,idx,isPast:new Date(rq.sortDate)<today}))
+      .filter(x=>showPastSchedule||!x.isPast);
+    const rqHTML=rqVisible.map(({rq,idx,isPast})=>{
       const alreadyAdded=myEvents.some(e=>e.name===rq.city+' Regional Qualifier');
       return`<div style="background:var(--surface2);border:1px solid ${isPast?'var(--border)':'rgba(200,168,75,0.3)'};border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden;">
         ${!isPast?`<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);"></div>`:''}
@@ -4522,6 +5318,7 @@ function renderEvents(){
         </button>
       </div>`;
     }).join('');
+    const rqEmpty=!rqVisible.length?`<div style="padding:1rem;text-align:center;color:var(--text-muted);font-size:13px;background:var(--surface2);border:1px dashed var(--border);border-radius:10px;">No upcoming Regional Qualifiers. Click <em>Show past</em> in the schedule header to see earlier RQs.</div>`:'';
     function schedFlag(ev){
       const t=(ev.name+' '+ev.desc).toLowerCase();
       const fi=(code)=>`<img src="https://flagcdn.com/w20/${code}.png" style="width:20px;height:14px;object-fit:cover;border-radius:2px;vertical-align:middle;box-shadow:0 1px 2px rgba(0,0,0,0.35);" alt="${code}">`;
@@ -4538,13 +5335,27 @@ function renderEvents(){
       if(t.includes('atlanta')||t.includes('hartford')||t.includes('los angeles')||t.includes('indianapolis')||t.includes('philadelphia')||t.includes('indy')||t.includes('pax')||t.includes('gen con')||t.includes('momocon')||t.includes('usa')||t.includes('united states')||t.includes('america')) return fi('us');
       return'';
     }
-    const schedHTML=SCHEDULE_2026.map(month=>{
+    // Filter past events out by default; "Show past" toggle restores them.
+    // Months with no visible events after filtering collapse out entirely.
+    let pastEventsHidden=0;
+    const visibleMonths=SCHEDULE_2026.map(month=>{
+      const visEvents=month.events.filter(ev=>{
+        const end=_schedEventEnd(month.month,ev.dates);
+        const isPast=end<today&&end.toDateString()!==today.toDateString();
+        if(isPast&&!showPastSchedule){pastEventsHidden++;return false;}
+        return true;
+      });
+      return {month:month.month,events:visEvents};
+    }).filter(m=>m.events.length>0);
+    const schedHTML=visibleMonths.map(month=>{
       const rows=month.events.map(ev=>{
         const flag=schedFlag(ev);
-        return`<div style="display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:8px;transition:background 0.12s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='transparent'">
-          <div style="min-width:90px;font-size:12px;font-weight:600;color:var(--accent);font-family:'Syne',sans-serif;">${ev.dates}</div>
+        const end=_schedEventEnd(month.month,ev.dates);
+        const isPast=end<today&&end.toDateString()!==today.toDateString();
+        return`<div style="display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:8px;transition:background 0.12s;${isPast?'opacity:0.55;':''}" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='transparent'">
+          <div style="min-width:90px;font-size:12px;font-weight:600;color:${isPast?'var(--text-muted)':'var(--accent)'};font-family:'Syne',sans-serif;">${ev.dates}</div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;">${flag?flag+' ':''} ${ev.name}</div>
+            <div style="font-size:13px;font-weight:600;color:${isPast?'var(--text-muted)':'var(--text)'};margin-bottom:2px;">${flag?flag+' ':''} ${ev.name}</div>
             <div style="font-size:12px;color:var(--text-muted);">${ev.desc}</div>
           </div>
           ${typeBadge(ev.type)}
@@ -4555,27 +5366,35 @@ function renderEvents(){
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;">${rows}</div>
       </div>`;
     }).join('');
+    const schedEmpty=!visibleMonths.length?`<div style="padding:1.25rem;text-align:center;color:var(--text-muted);font-size:13px;background:var(--surface2);border:1px dashed var(--border);border-radius:10px;">No upcoming events on the schedule. Click <em>Show past</em> to see earlier 2026 events.</div>`:'';
     return`
       <div style="margin-bottom:2rem;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;">
           <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;">🏆 Regional Qualifiers 2025–2026</div>
           <span style="font-size:12px;color:var(--text-muted);">${RQ_EVENTS.filter(r=>new Date(r.sortDate)>=today).length} upcoming</span>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;">${rqHTML}</div>
+        ${rqEmpty||`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;">${rqHTML}</div>`}
       </div>
       <div>
-        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:1rem;">📅 2026 Schedule</div>
-        ${schedHTML}
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap;">
+          <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;">📅 2026 Schedule</div>
+        </div>
+        ${schedEmpty||schedHTML}
       </div>`;
   }
   function myEventsHTML(){
-    const checks=(e,prop,label)=>`<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:${e[prop]?'var(--calm)':'var(--text-muted)'};"><input type="checkbox" ${e[prop]?'checked':''} onchange="toggleMyEventProp(${e.id},'${prop}')" style="accent-color:var(--calm);"> ${label}</label>`;
+    // Event ids can be numbers (local-only) or UUID strings (cloud), so
+    // every interpolated id has to be quoted as a string literal to survive
+    // HTML rendering — otherwise UUIDs like b8775439-… get parsed as a
+    // subtraction expression and the click handler throws.
+    const idLit=e=>`'${String(e.id).replace(/'/g,"\\'")}'`;
+    const checks=(e,prop,label)=>`<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:${e[prop]?'var(--calm)':'var(--text-muted)'};"><input type="checkbox" ${e[prop]?'checked':''} onchange="toggleMyEventProp(${idLit(e)},'${prop}')" style="accent-color:var(--calm);"> ${label}</label>`;
     const myList=myEvents.length?myEvents.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(e=>{
       const ds=new Date(e.date).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
       const notes=(e.notes||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       return`<div class="dc" style="cursor:default;">
         <div class="dt"><div><div class="dn">${e.name}</div><div class="dl">${ds}${e.time?' · '+e.time:''}${e.location?' · '+e.location:''}</div></div>
-        <button class="result-del" onclick="deleteMyEvent(${e.id})" title="Remove event" style="flex-shrink:0;">×</button></div>
+        <button class="result-del" onclick="deleteMyEvent(${idLit(e)})" title="Remove event" style="flex-shrink:0;">×</button></div>
         <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;">
           ${checks(e,'paidEntry','Registered')}
           ${checks(e,'hotelBooked','Hotel booked')}
@@ -4587,7 +5406,7 @@ function renderEvents(){
             class="evt-notes"
             placeholder="Deck plans, travel reminders, anything…"
             rows="2"
-            onblur="saveMyEventNotes(${e.id},this.value)"
+            onblur="saveMyEventNotes(${idLit(e)},this.value)"
             style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-family:inherit;resize:vertical;min-height:38px;">${notes}</textarea>
         </div>
       </div>`;
@@ -4611,9 +5430,11 @@ function renderEvents(){
     </div>
     <div style="display:flex;flex-direction:column;gap:12px;">${myList}</div>`;
   }
+  const pastLabel=showPastSchedule?'Hide past':`Show past${(()=>{let n=0;const today=new Date();today.setHours(0,0,0,0);SCHEDULE_2026.forEach(m=>m.events.forEach(ev=>{const end=_schedEventEnd(m.month,ev.dates);if(end<today&&end.toDateString()!==today.toDateString())n++;}));return n?` (${n})`:''})()}`;
   const tabs=`<div class="evt-tab-bar">
     <button class="evt-tab${activeEvtTab==='all'?' on':''}" onclick="switchEvtTab('all')">Schedule</button>
     <button class="evt-tab${activeEvtTab==='mine'?' on':''}" onclick="switchEvtTab('mine')">My Events${myEvents.length?` <span class="evt-tab-badge">${myEvents.length}</span>`:''}</button>
+    ${activeEvtTab==='all'?`<button class="sched-past-toggle${showPastSchedule?' on':''}" onclick="toggleSchedPast()" style="margin-left:auto;" title="${showPastSchedule?'Hide past events':'Show past events'}">${pastLabel}</button>`:''}
   </div>`;
   el.innerHTML=tabs+(activeEvtTab==='all'?allEventsHTML():myEventsHTML());
 }
@@ -5065,6 +5886,7 @@ function openAddToBinderModal(cardId){
 }
 
 const SET_META={
+  VEN:{label:'Vendetta',    grad:'linear-gradient(135deg,#7a1010 0%,#320505 60%,#0d0101 100%)',accent:'#f5544d',textShadow:'0 0 20px rgba(245,84,77,0.5)'},
   UNL:{label:'Unleashed',   grad:'linear-gradient(135deg,#c8006a 0%,#6a0030 60%,#1a000d 100%)',accent:'#f050a0',textShadow:'0 0 20px rgba(200,0,106,0.6)'},
   SFD:{label:'Spiritforged',grad:'linear-gradient(135deg,#4a5568 0%,#1a1f2e 60%,#0d0f14 100%)',accent:'#a0aec0',textShadow:'0 0 20px rgba(160,174,192,0.4)'},
   OGN:{label:'Origins',     grad:'linear-gradient(135deg,#b8860b 0%,#5a3e00 60%,#140e00 100%)',accent:'#f5c842',textShadow:'0 0 20px rgba(200,168,75,0.5)'},
@@ -5158,7 +5980,7 @@ function renderCollection(){
   const totalCopies=Object.values(collOwned).reduce((a,v)=>a+v,0);
 
   // build set progress cards
-  const SET_ORDER=['UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
+  const SET_ORDER=['VEN','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
   const orderedSets=[...SET_ORDER.filter(s=>setMap[s]),...Object.keys(setMap).filter(s=>!SET_ORDER.includes(s))];
 
   // ── Binder sidebar ──
@@ -5179,7 +6001,7 @@ function renderCollection(){
     <div class="cbs-header">
       <span>Binders</span>
       <div class="cbs-header-btns">
-        <button class="cbs-new-btn" onclick="openImportBinderModal()" title="Import binder from text">⤓</button>
+        <button class="cbs-new-btn" onclick="openImportBinderModal()" title="Import binder from text">↑</button>
         <button class="cbs-new-btn" onclick="createBinder()" title="New binder">+</button>
       </div>
     </div>
@@ -5818,19 +6640,19 @@ function renderAuthNav(user) {
     var b1 = document.createElement('button');
     b1.textContent = 'My Decks';
     b1.onclick = function(){ goto('decks', null); closeUserDrop(); };
+    var bMyEvents = document.createElement('button');
+    bMyEvents.textContent = 'My Events';
+    bMyEvents.onclick = function(){ goto('events', null); activeEvtTab='mine'; renderEvents(); closeUserDrop(); };
     var bProfile = document.createElement('button');
-    bProfile.textContent = '👤 My Profile';
+    bProfile.textContent = 'My Profile';
     bProfile.onclick = function(){ goto('profile', null); closeUserDrop(); };
-    var b2 = document.createElement('button');
-    b2.textContent = '☁ Sync decks';
-    b2.onclick = function(){ syncCloudDecks(); closeUserDrop(); };
     var b3 = document.createElement('button');
     b3.textContent = 'Log out';
     b3.style.color = 'var(--fury)';
     b3.onclick = logOut;
     drop.appendChild(b1);
+    drop.appendChild(bMyEvents);
     drop.appendChild(bProfile);
-    drop.appendChild(b2);
     drop.appendChild(b3);
     wrap.appendChild(drop);
     area.appendChild(wrap);
@@ -6044,9 +6866,9 @@ function renderProfilePage(){
     </div>
 
     <div class="pf-card">
-      <label class="pf-lbl">Avatar URL</label>
-      <input id="pf-avatar" type="text" class="pf-input" value="${esc(meta.avatar_url||'')}" placeholder="https://…">
-      <button class="btn btn-g" style="padding:8px 14px;font-size:12px;margin-top:10px;" onclick="saveProfileExtras()">Save avatar</button>
+      <label class="pf-lbl">Avatar</label>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">${avatarBlock}<label class="btn btn-g" style="padding:8px 14px;font-size:12px;cursor:pointer;">Upload photo<input id="pf-avatar-file" type="file" accept="image/*" style="display:none;" onchange="uploadAvatar(this)"></label></div>
+      <div id="pf-avatar-status" style="font-size:11px;color:var(--text-muted);"></div>
     </div>
 
     <div class="pf-card">
@@ -6102,16 +6924,28 @@ function _pfMsg(text,kind){
   else{el.style.background='rgba(239,68,68,0.12)';el.style.color='#f87171';el.style.border='1px solid #ef4444';}
 }
 
-async function saveProfileExtras(){
-  const avatar_url=(document.getElementById('pf-avatar').value||'').trim();
+async function uploadAvatar(input){
+  const file=input.files&&input.files[0];
+  if(!file) return;
+  const st=document.getElementById('pf-avatar-status');
+  if(st) st.textContent='Uploading…';
   try{
+    const ext=file.name.split('.').pop();
+    const path=`avatars/${currentUser.id}.${ext}`;
+    const {error:upErr}=await _sb.storage.from('avatars').upload(path,file,{upsert:true,contentType:file.type});
+    if(upErr) throw upErr;
+    const {data:urlData}=_sb.storage.from('avatars').getPublicUrl(path);
+    const avatar_url=urlData.publicUrl;
     const {data,error}=await _sb.auth.updateUser({data:{avatar_url}});
     if(error) throw error;
     currentUser=data.user;
     renderAuthNav(currentUser);
-    _pfMsg('Avatar saved!','ok');
+    if(st) st.textContent='';
     renderProfilePage();
-  }catch(e){_pfMsg(e.message||'Could not save avatar','err');}
+  }catch(e){
+    if(st) st.textContent=e.message||'Upload failed';
+    _pfMsg(e.message||'Could not upload avatar','err');
+  }
 }
 
 async function updateProfileEmail(){

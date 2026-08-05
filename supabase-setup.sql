@@ -83,11 +83,21 @@ create table if not exists public.public_decks (
   format          text,
   domains         jsonb default '[]'::jsonb,
   cards           jsonb default '[]'::jsonb,
+  champion        jsonb default null,
+  sideboard       jsonb default '[]'::jsonb,
+  runes           jsonb default '[]'::jsonb,
+  battlefields    jsonb default '[]'::jsonb,
   card_count      integer default 0,
   author          text,
   description     text,
   created_at      timestamptz default now()
 );
+
+-- Add missing columns to existing public_decks tables (safe to re-run)
+alter table public.public_decks add column if not exists champion     jsonb default null;
+alter table public.public_decks add column if not exists sideboard    jsonb default '[]'::jsonb;
+alter table public.public_decks add column if not exists runes        jsonb default '[]'::jsonb;
+alter table public.public_decks add column if not exists battlefields jsonb default '[]'::jsonb;
 
 alter table public.public_decks enable row level security;
 
