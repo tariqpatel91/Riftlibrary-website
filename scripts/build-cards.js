@@ -113,6 +113,38 @@ function mapCard(c) {
   };
 }
 
+// --- name reconciliation ---------------------------------------------------
+// Riftcodex names are messy for newer sets: some records prefix a tag into the
+// name ("Yordle, Kennen - Heart of the Tempest"), some carry only the title
+// ("Heart of the Tempest"), and Vendetta uses "Champ, Title" where every other
+// set uses "Champ - Title". DotGG names are the clean reference, but DotGG also
+// appends promo descriptors ("(Origins Nexus Night Promo)") we don't want, so
+// only borrow DotGG's base name for the specific breakages above.
+function stripParenSuffix(n) { return String(n || '').replace(/\s*\([^)]*\)\s*$/, '').trim(); }
+function parenSuffix(n) { const m = String(n || '').match(/\s*(\([^)]*\))\s*$/); return m ? ' ' + m[1] : ''; }
+function normName(n) { return stripParenSuffix(n).toLowerCase().split(/ - |, /).join('|'); }
+// Used to sanity-check the collector-number fallback match: special collector
+// numbers (sp1, r01…) collide with regular ones and pair unrelated cards.
+function namesCompatible(rcName, dgName) {
+  const a = normName(rcName), b = normName(dgName);
+  return a === b ||
+    a.endsWith('|' + b) || b.endsWith('|' + a) ||
+    a.startsWith(b + '|') || b.startsWith(a + '|');
+}
+function reconcileName(rcName, dgName) {
+  const rcBase = stripParenSuffix(rcName);
+  const dgBase = stripParenSuffix(dgName);
+  const a = normName(rcName), b = normName(dgName);
+  if (a !== b) {
+    // Tag prefix ("Yordle, Kennen - X") or title-only ("X") → take DotGG's name
+    if (a.endsWith('|' + b) || b.endsWith('|' + a)) return dgBase + parenSuffix(rcName);
+    return rcName;
+  }
+  // Same words, comma instead of dash ("Kennen, Keeper of Balance") → DotGG's
+  if (rcBase !== dgBase && rcBase.replace(', ', ' - ') === dgBase) return dgBase + parenSuffix(rcName);
+  return rcName;
+}
+
 function num(s) {
   if (s === null || s === undefined || s === '') return null;
   const n = parseFloat(s);
@@ -145,20 +177,37 @@ function bool01(s) {
 
   let hits = 0;
   let misses = 0;
-  const merged = [];
+  let merged = [];
   const usedDotGGIds = new Set();
   for (const raw of rcItems) {
     const m = mapCard(raw);
     if (!m) continue;
     // 1) match by tcgplayer_id
     let dg = m.tcgplayerId && dgByTcg.get(String(m.tcgplayerId));
-    // 2) fallback: match by reconstructed DotGG id "<SET>-<padded collector>"
-    if (!dg && m.set && raw.collector_number != null) {
-      const pad = String(raw.collector_number).padStart(3, '0');
-      dg = dgById.get(`${m.set}-${pad}`);
+    // 2) fallback: derive the DotGG id from riftbound_id ("ven-113a-166" →
+    //    "VEN-113A"). More precise than collector_number, which drops the
+    //    alt-art letter suffix.
+    if (!dg && m.riftboundId) {
+      const parts = m.riftboundId.split('-');
+      if (parts.length >= 2) {
+        const cand = dgById.get(`${parts[0]}-${parts[1]}`.toUpperCase());
+        if (cand && namesCompatible(m.name, cand.name)) dg = cand;
+      }
     }
+    // 3) last resort: "<SET>-<padded collector>".
+    //    Name-check it: special collector numbers (sp1, r01…) collide with
+    //    regular ones and would pair unrelated cards (wrong prices/images).
+    if (!dg && m.set && raw.collector_number != null) {
+      const pad = String(raw.collector_number).padStart(3, '0').toUpperCase();
+      const cand = dgById.get(`${m.set}-${pad}`);
+      if (cand && namesCompatible(m.name, cand.name)) dg = cand;
+    }
+    // Rank duplicate Riftcodex records for the same physical card: prefer one
+    // with DotGG data, then one whose original name is the full "X - Y" form.
+    m._score = (dg ? 2 : 0) + (m.name.includes(' - ') ? 1 : 0);
     if (dg) {
       hits++;
+      m.name = reconcileName(m.name, dg.name);
       usedDotGGIds.add(dg.id);
       m.price = num(dg.price);
       m.foilPrice = num(dg.foilPrice);
@@ -186,6 +235,24 @@ function bool01(s) {
     }
     merged.push(m);
   }
+
+  // Riftcodex sometimes ships several records for one physical card (VEN
+  // legends appear once with a full name and once title-only). Collapse by
+  // riftbound_id, keeping the highest-ranked record.
+  let dupesDropped = 0;
+  const byRid = new Map();
+  for (const m of merged) {
+    if (!m.riftboundId) continue;
+    const prev = byRid.get(m.riftboundId);
+    if (!prev || (m._score || 0) > (prev._score || 0)) byRid.set(m.riftboundId, m);
+  }
+  merged = merged.filter(m => {
+    if (!m.riftboundId) return true;
+    if (byRid.get(m.riftboundId) === m) return true;
+    dupesDropped++;
+    return false;
+  });
+  for (const m of merged) delete m._score;
 
   // Now add DotGG-only cards (alt-art versions / additions Riftcodex hasn't
   // indexed yet). Construct a card object from DotGG fields with the same
@@ -288,6 +355,7 @@ function bool01(s) {
 
   console.log(`\nMerged ${merged.length} cards`);
   console.log(`  Riftcodex: ${rcItems.length} cards (${hits} matched DotGG, ${misses} no DotGG match)`);
+  console.log(`  Duplicate Riftcodex records dropped: ${dupesDropped}`);
   console.log(`  DotGG-only additions: ${dotggOnly}`);
   console.log(`  Foil entries generated: ${foilCount}`);
   console.log(`Wrote ${outPath} (${sizeKb} KB) in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
