@@ -478,7 +478,8 @@ function loadStorage(){
 }
 function persist(){
   if(activeDeckId){const d=myDecks.find(x=>String(x.id)===String(activeDeckId));if(d)d.updated_at=new Date().toISOString();}
-  try{localStorage.setItem('rl_decks',JSON.stringify(myDecks));localStorage.setItem('rl_nid',String(nextId));}catch(e){}
+  // Decks opened via a #deck=… share link live only in memory — never save them
+  try{localStorage.setItem('rl_decks',JSON.stringify(myDecks.filter(d=>!d.__shared)));localStorage.setItem('rl_nid',String(nextId));}catch(e){}
 }
 function wr(d){return d.wins+d.losses>0?Math.round(d.wins/(d.wins+d.losses)*100):0;}
 function wrc(w){return w>=55?'wg':w>=45?'wm':'wb';}
@@ -510,6 +511,7 @@ async function fetchAllCards(){
     // If the page was opened via a shared #binder=... link, the viewer was
     // showing a "Loading…" placeholder. Re-render now that CARDS is ready.
     if(typeof _checkPublicBinderHash==='function') _checkPublicBinderHash();
+    if(typeof _checkPublicDeckHash==='function') _checkPublicDeckHash();
     if(activeDeckId&&activeDDTab==='edit'){renderEditSearch();renderEditPreview();}
     if(activeDeckId&&activeDDTab==='sideboard'){
       const panel=document.getElementById('ddp-sideboard');
@@ -1054,7 +1056,8 @@ function renderTeam2DecksTab(){
         <span style="font-size:11px;color:var(--text-muted);">Shared ${new Date(entry.ts).toLocaleDateString()}</span>
       </div>
       <div class="da">
-        ${d?`<button class="btn btn-sm btn-g" onclick="openDD('${d.id}',true)">View</button>`:'<span style="font-size:11px;color:var(--text-muted);">Deck not in your library</span>'}
+        ${d?`<button class="btn btn-sm btn-g" onclick="openDD('${d.id}',true)">View</button>
+        <button class="btn btn-sm btn-g" onclick="shareDeckLink('${d.id}')" title="Copy a public link anyone can open — no account needed">🔗 Copy Link</button>`:'<span style="font-size:11px;color:var(--text-muted);">Deck not in your library</span>'}
         <button class="btn btn-sm btn-d" onclick="unshareTeam2Decklist(${entry.id});renderTeam2DecksTab()">Remove</button>
       </div>
     </div>`;
@@ -1142,7 +1145,7 @@ function renderDecks(){
       :`<div class="dc-avatar dc-avatar-empty"></div>`;
     // Legality check: Riftbound legal deck = 40 main-deck cards (the
     // Champion in d.champion + 39 non-legend entries in d.cards), 12 runes,
-    // and sideboard of either 0 or 8. The Legend lives in its own slot and
+    // and sideboard of at most 10. The Legend lives in its own slot and
     // does NOT count toward the 40. Maybeboard is also not counted.
     const _mainCount=(d.cards||[]).filter(c=>c.t!=='Legend').reduce((a,c)=>a+(c.cnt||1),0)+(d.champion?1:0);
     // d.runes is a flat array — each entry is a single rune (no `cnt` field),
@@ -1150,11 +1153,11 @@ function renderDecks(){
     // produced NaN and made every legal deck flag as illegal.
     const _runeCount=(d.runes||[]).length;
     const _sbCount=(d.sideboard||[]).reduce((a,c)=>a+(c.cnt||1),0);
-    const _illegal=(_mainCount!==40)||(_runeCount!==12)||(_sbCount!==0&&_sbCount!==8);
+    const _illegal=(_mainCount!==40)||(_runeCount!==12)||(_sbCount>10);
     const _illegalReasons=[];
     if(_mainCount!==40)_illegalReasons.push(`Main deck: ${_mainCount}/40`);
     if(_runeCount!==12)_illegalReasons.push(`Runes: ${_runeCount}/12`);
-    if(_sbCount!==0&&_sbCount!==8)_illegalReasons.push(`Sideboard: ${_sbCount} (must be 0 or 8)`);
+    if(_sbCount>10)_illegalReasons.push(`Sideboard: ${_sbCount}/10 (max 10)`);
     const illegalOverlay=_illegal
       ?`<div class="dc-illegal" title="Not a legal decklist:\n${_illegalReasons.join('\n')}">!</div>`
       :'';
@@ -1184,6 +1187,7 @@ function renderDecks(){
             <div class="dc-hmenu-pop" id="dc-hmenu-${d.id}">
               <button class="dc-hmenu-item ${isPublishedTeam(d.id)?'is-on':''}" onclick="event.stopPropagation();closeDeckMenus();publishDeckToTeam('${d.id}')">${isPublishedTeam(d.id)?'✓ On Team':'Publish to Team'}</button>
               <button class="dc-hmenu-item ${isPublishedTeam2(d.id)?'is-on':''}" onclick="event.stopPropagation();closeDeckMenus();publishDeckToTeam2('${d.id}')">${isPublishedTeam2(d.id)?'✓ On Public Lists':'Publish to Public Lists'}</button>
+              <button class="dc-hmenu-item" onclick="event.stopPropagation();closeDeckMenus();shareDeckLink('${d.id}')">Copy Share Link</button>
               <button class="dc-hmenu-item dc-hmenu-danger" onclick="event.stopPropagation();closeDeckMenus();delDeck('${d.id}')">Delete</button>
             </div>
           </div>
@@ -1295,6 +1299,7 @@ function renderDeckDetail(){
           </div>
         </div>
       </div>
+      <button class="btn btn-sm btn-g" style="margin-left:auto;align-self:flex-start;" onclick="shareDeckLink('${d.id}')" title="Copy a public link anyone can open — no account needed">🔗 Share</button>
     </div>
     <div class="hero-zone-bar" id="hero-zone-bar" style="display:none;"></div>
 
@@ -1502,7 +1507,7 @@ function buildCardsListView(d){
     +section('BATTLEFIELDS',`${bfCards.length}/3`,bfBody)
     +section('MAIN DECK',`${totalMain}/40`,mainBody)
     +section('RUNES',`${runes.length}/12`,runeBody)
-    +section('SIDEBOARD',`${sbTotal}/8`,sbBody)
+    +section('SIDEBOARD',`${sbTotal}/10`,sbBody)
     +`</div>`;
 }
 
@@ -1580,7 +1585,7 @@ function buildCardsGalleryView(d){
   topRow+=section('Runes',`${runeCnt}/12`,gcards(runesCompact,false,true),false,'gallery-section-compact');
   let html=`<div class="gallery-top-row">${topRow}</div>`;
   if(mainDeck.length) html+=section('Main Deck',`${mainCnt}/40`,gcards(mainDeck,false));
-  if(sb.length) html+=section('Sideboard',`${sbCnt}/8`,gcards(sb,false));
+  if(sb.length) html+=section('Sideboard',`${sbCnt}/10`,gcards(sb,false));
   return`<div class="gallery-all-sections">${html}</div>`;
 }
 function toggleDeckSort(){
@@ -1756,7 +1761,7 @@ function buildSideboardGuide(d){
         <tbody>
           ${sectionHdr('MAIN DECK',`${mainTotal}/40`)}
           ${mainRows.length?mainRows.map((row,r)=>dataRow('m',r,row)).join(''):emptyRow('No cards in main deck yet.')}
-          ${sectionHdr('SIDEBOARD',`${sbTotal}/8`)}
+          ${sectionHdr('SIDEBOARD',`${sbTotal}/10`)}
           ${sbRows.length?sbRows.map((row,r)=>dataRow('s',r,row)).join(''):emptyRow('No cards in sideboard yet.')}
           ${sectionHdr('BATTLEFIELDS',`${bfTotal}/3`)}
           ${bfRows.length?bfRows.map((row,r)=>dataRow('b',r,row)).join(''):emptyRow('No battlefields in deck yet.')}
@@ -1853,7 +1858,7 @@ function downloadSideboardGuide(){
 
   let body='';
   if(mainHtml)body+=sec('main','Main Deck',`${mainTotal}/40`)+mainHtml;
-  if(sbHtml)body+=sec('sb','Sideboard',`${sbTotal}/8`)+sbHtml;
+  if(sbHtml)body+=sec('sb','Sideboard',`${sbTotal}/10`)+sbHtml;
   if(bfHtml)body+=sec('bf','Battlefields',`${bfTotal}/3`)+bfHtml;
   if(!body){toast('Add cards to the deck first');return;}
   if(mainHtml||sbHtml)body+=totalsRow('In ▸','in')+totalsRow('Out ▸','out');
@@ -2197,10 +2202,10 @@ function _sbgRenderEyeModal(){
   bodyHtml+=`<div class="sbg-eye-top-strip">${topStripHtml}</div>`;
   if(_sbgEye.view==='visual'){
     bodyHtml+=typeGroupedSection('Main Deck',`${mainCnt}/40`,effMain,'m');
-    bodyHtml+=typeGroupedSection('Sideboard',`${sbCnt}/8`,effSb,'s');
+    bodyHtml+=typeGroupedSection('Sideboard',`${sbCnt}/10`,effSb,'s');
   } else {
     bodyHtml+=section('Main Deck',`${mainCnt}/40`,gcardsSwap(effMain,'m'));
-    bodyHtml+=section('Sideboard',`${sbCnt}/8`,gcardsSwap(effSb,'s'));
+    bodyHtml+=section('Sideboard',`${sbCnt}/10`,gcardsSwap(effSb,'s'));
   }
   const galleryBody=`<div class="gallery-all-sections${_sbgEye.view==='visual'?' sbg-eye-mode-visual':''}">${bodyHtml}</div>`;
   // Running totals for header — total copies that have been moved out of
@@ -2523,7 +2528,7 @@ function buildSideboardPanel(d){
   var clearBtn=sb.length?'<button class="btn btn-sm btn-d" onclick="clearSideboard('+d.id+')">Clear</button>':'';
   return '<div class="sb-layout">'
     +'<div><div class="sb-panel">'
-    +'<div class="sb-panel-title"><span>Sideboard <span style="color:var(--text-muted);font-weight:400;font-size:12px;">('+sbTotal+'/8)</span></span>'+clearBtn+'</div>'
+    +'<div class="sb-panel-title"><span>Sideboard <span style="color:var(--text-muted);font-weight:400;font-size:12px;">('+sbTotal+'/10)</span></span>'+clearBtn+'</div>'
     +rows
     +'<div class="sb-add-wrap">'
     +'<div class="sb-add-search"><span class="sb-add-si">⌕</span>'
@@ -2544,7 +2549,7 @@ function adjustSB(deckId,cardId,delta){
   const entry=d.sideboard.find(c=>c.id===cardId);
   if(entry){
     if(delta>0&&entry.cnt>=3&&!isUnlimitedCard(entry.n)){toast('Max 3 copies');return;}
-    if(delta>0){const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}}
+    if(delta>0){const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);if(sbTotal>=10){toast('Sideboard is full (10 cards max)');return;}}
     entry.cnt=Math.max(0,entry.cnt+delta);
     if(entry.cnt===0) d.sideboard=d.sideboard.filter(c=>c.id!==cardId);
   }
@@ -2609,7 +2614,7 @@ function addToSB(deckId,cardId,cardName,cardType){
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   if(!d.sideboard) d.sideboard=[];
   const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
-  if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}
+  if(sbTotal>=10){toast('Sideboard is full (10 cards max)');return;}
   const deckIdx=(d.cards||[]).findIndex(c=>c.id===cardId);
   if(deckIdx<0){toast('Card not found in main deck');return;}
   d.cards[deckIdx].cnt--;
@@ -2630,7 +2635,7 @@ function addDirectToSB(deckId,cardId,cardName,cardType){
   const d=myDecks.find(x=>x.id===deckId);if(!d)return;
   if(!d.sideboard) d.sideboard=[];
   const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
-  if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}
+  if(sbTotal>=10){toast('Sideboard is full (10 cards max)');return;}
   // Enforce combined 3-copy cap across deck + sideboard + champion zone + maybeboard (variants share the cap by base name)
   const bn=baseName(cardName);
   const deckCnt=(d.cards||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
@@ -3059,7 +3064,7 @@ function maybeboardToSideboard(deckId,cardId,cardName,cardType){
   const d=myDecks.find(x=>x.id===deckId);if(!d||!d.maybeboard)return;
   if(!d.sideboard) d.sideboard=[];
   const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
-  if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}
+  if(sbTotal>=10){toast('Sideboard is full (10 cards max)');return;}
   const bn=baseName(cardName);
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
   const sbCntBN=d.sideboard.filter(c=>baseName(c.n)===bn).reduce((a,c)=>a+c.cnt,0);
@@ -3117,7 +3122,7 @@ function _moveMaybeboardToSideboard(){
   if(!d.maybeboard) return;
   if(_DRAG.t==='Legend'||_DRAG.t==='Battlefield'){toast('Only deck cards go in the sideboard');return;}
   const sbTotal=(d.sideboard||[]).reduce((a,c)=>a+c.cnt,0);
-  if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}
+  if(sbTotal>=10){toast('Sideboard is full (10 cards max)');return;}
   const _bn=baseName(_DRAG.n);
   const deckCntBN=(d.cards||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
   const sbCntBN=(d.sideboard||[]).filter(c=>baseName(c.n)===_bn).reduce((a,c)=>a+c.cnt,0);
@@ -3166,7 +3171,7 @@ function _moveDeckToSideboard(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d||!_DRAG)return;
   if(_DRAG.t==='Legend'){toast('Legend cards cannot go to the sideboard');return;}
   const sbTotal=(d.sideboard||[]).reduce((a,c)=>a+c.cnt,0);
-  if(sbTotal>=8){toast('Sideboard is full (8 cards max)');return;}
+  if(sbTotal>=10){toast('Sideboard is full (10 cards max)');return;}
   const dIdx=(d.cards||[]).findIndex(c=>c.id===_DRAG.id);
   if(dIdx<0)return;
   // Decrement deck
@@ -3533,7 +3538,7 @@ function renderEditPreview(targetEl){
   // Sideboard section — card image grid like main deck (drop zone for deck → sideboard)
   const sb=d.sideboard||[];
   const sbTotal=sb.reduce((a,c)=>a+c.cnt,0);
-  html+=`<div class="deck-section deck-sb-section drop-zone"${isEdit?' ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,\'sideboard\')"':''}><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">Sideboard <span class="ds-count">(${sbTotal}/8)</span></div>`;
+  html+=`<div class="deck-section deck-sb-section drop-zone"${isEdit?' ondragover="editZoneDragOver(event)" ondragleave="editZoneDragLeave(event)" ondrop="editZoneDrop(event,\'sideboard\')"':''}><div class="deck-section-hdr" style="display:flex;align-items:center;gap:6px;">Sideboard <span class="ds-count">(${sbTotal}/10)</span></div>`;
   if(!sb.length){
     html+=`<div style="font-size:12px;color:var(--text-muted);">${isEdit?'None — drag a deck card here, or hover a card and use "Sideboard"':'Add cards in the Edit tab'}</div>`;
   } else {
@@ -3683,7 +3688,7 @@ function dcmSideboard(){
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
   if(!d.sideboard) d.sideboard=[];
   const sbTotal=d.sideboard.reduce((a,c)=>a+c.cnt,0);
-  if(sbTotal>=8){toast('Sideboard is full (8 cards max)');closeDeckCardMenu();return;}
+  if(sbTotal>=10){toast('Sideboard is full (10 cards max)');closeDeckCardMenu();return;}
   const deckIdx=(d.cards||[]).findIndex(c=>c.id===_DCM.id);
   if(deckIdx<0){closeDeckCardMenu();return;}
   d.cards[deckIdx].cnt--;
@@ -4066,7 +4071,7 @@ function renderExportCanvas(d){
       ctx.beginPath();ctx.moveTo(RIGHT_X,dy);ctx.lineTo(RIGHT_X+RIGHT_W,dy);ctx.stroke();
       // SIDEBOARD chip overlaying the divider
       ctx.font="bold 10px 'Syne',sans-serif";
-      const t=`SIDEBOARD  ·  ${sbTotal}/8`;const tw=ctx.measureText(t).width;
+      const t=`SIDEBOARD  ·  ${sbTotal}/10`;const tw=ctx.measureText(t).width;
       const cx=RIGHT_X+(RIGHT_W-tw)/2-10;
       ctx.fillStyle='#0c0b08';ctx.fillRect(cx-4,dy-7,tw+18,14);
       ctx.fillStyle='#c8a84b';ctx.fillText(t,cx+5,dy+4);
@@ -4235,7 +4240,7 @@ function exportDeck(type){
       ${champRow?`<div class="section-title">Champion Zone</div><table><thead><tr><th>#</th><th>Card Name</th></tr></thead><tbody>${champRow}</tbody></table>`:''}
       ${runeRows?`<div class="section-title">Runes (${runes.length}/12)</div><table><thead><tr><th>#</th><th>Card Name</th></tr></thead><tbody>${runeRows}</tbody></table>`:''}
       ${bfRows?`<div class="section-title">Battlefields</div><table><thead><tr><th>#</th><th>Card Name</th></tr></thead><tbody>${bfRows}</tbody></table>`:''}
-      ${sbRows?`<div class="section-title">Sideboard (${sbCnt}/8)</div><table><thead><tr><th>#</th><th>Card Name</th></tr></thead><tbody>${sbRows}</tbody></table>`:''}
+      ${sbRows?`<div class="section-title">Sideboard (${sbCnt}/10)</div><table><thead><tr><th>#</th><th>Card Name</th></tr></thead><tbody>${sbRows}</tbody></table>`:''}
       <div style="margin-top:24px;font-size:11px;color:#999;">Generated by RiftLibrary</div>
     </body></html>`;
     w.document.write(html);w.document.close();
@@ -5795,6 +5800,96 @@ function _checkPublicBinderHash(){
 }
 window.addEventListener('hashchange',_checkPublicBinderHash);
 
+/* ── Public deck share link ─────────────────────────
+ * Same idea as the binder link: the whole decklist (cards, champion, runes,
+ * battlefields, sideboard + notes) is base64-encoded into the URL hash, so
+ * anyone opening the link sees a read-only deck view — no account, no
+ * database row, nothing stored server-side.
+ */
+function shareDeckLink(deckId){
+  const d=myDecks.find(x=>String(x.id)===String(deckId));if(!d){toast('Deck not found');return;}
+  try{
+    const payload={
+      n:d.name,l:d.legend,dm:d.domains||[],f:d.format||'Constructed',
+      c:(d.cards||[]).map(e=>({id:e.id,n:e.n,t:e.t,cnt:e.cnt})),
+      ch:d.champion||null,
+      r:(d.runes||[]).map(e=>({id:e.id,n:e.n})),
+      b:(d.battlefields||[]).map(e=>e?{id:e.id,n:e.n}:null),
+      s:(d.sideboard||[]).map(e=>({id:e.id,n:e.n,t:e.t,cnt:e.cnt})),
+      sn:d.sideboardNotes||''
+    };
+    const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    const url=window.location.origin+window.location.pathname+'#deck='+encoded;
+    navigator.clipboard.writeText(url).then(()=>toast('Deck link copied — anyone can view it, no account needed')).catch(()=>prompt('Copy this link:',url));
+  }catch(e){toast('Could not generate link');}
+}
+
+function _decodePublicDeck(hash){
+  try{
+    const m=/(?:^|#|&)deck=([^&]+)/.exec(hash||'');
+    if(!m) return null;
+    const json=decodeURIComponent(escape(atob(decodeURIComponent(m[1]))));
+    const data=JSON.parse(json);
+    if(!data||!Array.isArray(data.c)) return null;
+    return data;
+  }catch(e){ return null; }
+}
+
+function renderPublicDeck(data){
+  // Hide the app chrome and open the normal deck-detail view in read-only
+  // mode. The deck lives only in memory, flagged __shared so persist() and
+  // cloud sync never pick it up.
+  const nav=document.querySelector('nav');if(nav)nav.style.display='none';
+  myDecks=myDecks.filter(x=>!x.__shared);
+  const deck={
+    id:'__shared',__shared:true,
+    name:data.n||'Shared Deck',legend:data.l||'',domains:data.dm||[],
+    format:data.f||'Constructed',wins:0,losses:0,desc:'',
+    cards:data.c||[],champion:data.ch||null,runes:data.r||[],
+    battlefields:(data.b&&data.b.length?data.b:[null,null,null]),
+    sideboard:data.s||[],sideboardNotes:data.sn||'',results:[]
+  };
+  myDecks.push(deck);
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nl').forEach(x=>x.classList.remove('active'));
+  document.getElementById('page-decks').classList.add('active');
+  const bb=document.querySelector('#dd .bb');if(bb)bb.style.display='none';
+  let ban=document.getElementById('shared-deck-banner');
+  if(!ban){
+    ban=document.createElement('div');
+    ban.id='shared-deck-banner';
+    const dd=document.getElementById('dd');
+    dd.insertBefore(ban,dd.firstChild);
+  }
+  ban.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:160px;">
+      <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--accent);">RiftLibrary</div>
+      <div style="font-size:12px;color:var(--text-muted);">Shared decklist • Read-only view</div>
+    </div>
+    <a href="${window.location.origin+window.location.pathname}" class="btn btn-g" style="font-size:12px;text-decoration:none;">Open RiftLibrary</a>
+  </div>`;
+  activeDDTab='cards';
+  openDD('__shared',true);
+}
+
+// Run on script load, on hashchange, and again once CARDS arrives (so card
+// art resolves). Leaving the hash restores the normal app chrome.
+function _checkPublicDeckHash(){
+  const data=_decodePublicDeck(window.location.hash);
+  if(data){
+    renderPublicDeck(data);
+  } else if(myDecks.some(x=>x.__shared)){
+    myDecks=myDecks.filter(x=>!x.__shared);
+    activeDeckId=null;
+    const nav=document.querySelector('nav');if(nav)nav.style.display='';
+    const bb=document.querySelector('#dd .bb');if(bb)bb.style.display='';
+    const ban=document.getElementById('shared-deck-banner');if(ban)ban.remove();
+    const dd=document.getElementById('dd');if(dd)dd.style.display='none';
+    const dl=document.getElementById('dl');if(dl)dl.style.display='';
+  }
+}
+window.addEventListener('hashchange',_checkPublicDeckHash);
+
 /* ── Binder drag-and-drop ────────────────────────── */
 // Drag a card thumb from the bottom collection grid into the top binder slot.
 // Only owned cards are draggable (the cards-grid filters to owned in edit mode),
@@ -6415,9 +6510,10 @@ function renderStatistics(){
 /* ── INIT ────────────────────────────────────────── */
 loadStorage();
 ['energy','power','might'].forEach(n=>{document.getElementById('rf-'+n).style.cssText='left:0%;width:100%;';});
-// Show the public-binder placeholder right away if the URL has #binder=…;
-// fetchAllCards re-renders it once CARDS is populated.
+// Show the public-binder / shared-deck view right away if the URL has
+// #binder=… or #deck=…; fetchAllCards re-renders once CARDS is populated.
 if(typeof _checkPublicBinderHash==='function') _checkPublicBinderHash();
+if(typeof _checkPublicDeckHash==='function') _checkPublicDeckHash();
 fetchAllCards();
 
 let _resizeTimer;
@@ -7006,7 +7102,7 @@ async function syncCloudDecks() {
         myDecks.unshift(merged);
       }
     });
-    const localOnlyDecks = myDecks.filter(d => !d.cloud_id);
+    const localOnlyDecks = myDecks.filter(d => !d.cloud_id && !d.__shared);
     for (const local of localOnlyDecks) {
       try {
         const { data: created, error: e2 } = await _sb.from('decks').insert(localToCloud(local)).select().single();
