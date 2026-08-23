@@ -4151,14 +4151,23 @@ function exportDeck(type){
   const legend=(d.cards||[]).filter(c=>c.t==='Legend');
 
   if(type==='text'){
+    // Sectioned deck list — same shape the importer parses back in.
     const lines=[];
-    legend.forEach(c=>lines.push(`${c.cnt}x ${c.n}`));
-    champion.forEach(c=>lines.push(`1x ${c.n}`));
-    const nonLeg=mainCards.filter(c=>c.t!=='Legend');
-    nonLeg.forEach(c=>lines.push(`${c.cnt}x ${c.n}`));
-    if(runes.length){const rg={};runes.forEach(r=>{if(!rg[r.n])rg[r.n]=0;rg[r.n]++;});Object.entries(rg).forEach(([n,cnt])=>lines.push(`${cnt}x ${n}`));}
-    bfs.forEach(b=>lines.push(`1x ${b.n}`));
-    if(sb.length){lines.push('Sideboard:');sb.forEach(c=>lines.push(`${c.cnt}x ${c.n}`));}
+    const sec=(title,rows)=>{
+      if(!rows.length)return;
+      if(lines.length)lines.push('');
+      lines.push(title+':');
+      rows.forEach(r=>lines.push(`${r.cnt} ${r.n}`));
+    };
+    // Highest counts first, ties keep deck order.
+    const byCnt=arr=>arr.map((r,i)=>[r,i]).sort((a,b)=>b[0].cnt-a[0].cnt||a[1]-b[1]).map(p=>p[0]);
+    const runeRows=Object.entries(runes.reduce((a,r)=>{a[r.n]=(a[r.n]||0)+1;return a;},{})).map(([n,cnt])=>({n,cnt}));
+    sec('Legend',legend.map(c=>({n:c.n,cnt:1})));
+    sec('Champion',champion.map(c=>({n:c.n,cnt:1})));
+    sec('MainDeck',byCnt(mainCards.filter(c=>c.t!=='Legend').map(c=>({n:c.n,cnt:c.cnt}))));
+    sec('Battlefields',bfs.map(b=>({n:b.n,cnt:1})));
+    sec('Runes',byCnt(runeRows));
+    sec('Sideboard',byCnt(sb.map(c=>({n:c.n,cnt:c.cnt}))));
     const text=lines.join('\n');
     navigator.clipboard.writeText(text).then(()=>toast('Text list copied!')).catch(()=>prompt('Copy this list:',text));
 
