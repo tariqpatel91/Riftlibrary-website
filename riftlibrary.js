@@ -1303,8 +1303,9 @@ function renderDeckDetail(){
     </div>
     <div class="hero-zone-bar" id="hero-zone-bar" style="display:none;"></div>
 
-    <!-- TABS -->
-    <div class="dd-tabs">
+    <!-- TABS (non-sticky in the shared no-nav view: sticky top:54px assumes
+         the nav bar above, and without it the strip floats mid-air) -->
+    <div class="dd-tabs${d.__shared?' dd-tabs-nonav':''}">
       <button class="dd-tab${activeDDTab==='cards'?' active':''}" onclick="switchDDTab('cards')">
         <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="9" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 5h3M5 8h3M5 11h1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><rect x="6" y="1" width="9" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/></svg>
         Decklist
