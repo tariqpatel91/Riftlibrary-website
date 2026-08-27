@@ -5835,16 +5835,20 @@ async function shareDeckLink(deckId){
   try{
     let encoded;
     if(typeof CompressionStream!=='undefined'){
-      const grp=list=>{const m=new Map();(list||[]).forEach(e=>{if(e)m.set(e.id,(m.get(e.id)||0)+(e.cnt||1));});return[...m.entries()];};
+      const grp=list=>{const m=new Map();(list||[]).forEach(e=>{if(e)m.set(e.id,(m.get(e.id)||0)+(e.cnt||1));});return[...m.entries()].map(([id,cnt])=>[_shareCardKey(id),cnt]);};
       const payload={
-        v:2,n:d.name,l:d.legend,dm:d.domains||[],f:d.format||'Constructed',
-        c:(d.cards||[]).map(e=>[e.id,e.cnt||1]),
-        ch:d.champion?d.champion.id:null,
-        r:grp(d.runes),
-        b:(d.battlefields||[]).map(e=>e?e.id:null),
-        s:(d.sideboard||[]).map(e=>[e.id,e.cnt||1]),
-        sn:d.sideboardNotes||''
+        v:2,n:d.name,l:d.legend,
+        c:(d.cards||[]).map(e=>[_shareCardKey(e.id),e.cnt||1])
       };
+      // Optional fields are omitted when empty/default — the decoder
+      // falls back to the same defaults, and every byte counts here.
+      if((d.domains||[]).length)payload.dm=d.domains;
+      if(d.format&&d.format!=='Constructed')payload.f=d.format;
+      if(d.champion)payload.ch=_shareCardKey(d.champion.id);
+      const rr=grp(d.runes);if(rr.length)payload.r=rr;
+      const bb=(d.battlefields||[]).map(e=>e?_shareCardKey(e.id):null);if(bb.some(Boolean))payload.b=bb;
+      const ss=(d.sideboard||[]).map(e=>[_shareCardKey(e.id),e.cnt||1]);if(ss.length)payload.s=ss;
+      if(d.sideboardNotes)payload.sn=d.sideboardNotes;
       const bytes=new TextEncoder().encode(JSON.stringify(payload));
       encoded='z:'+_b64urlFromBytes(await _deflateBytes(bytes));
     }else{
@@ -5865,13 +5869,36 @@ async function shareDeckLink(deckId){
   }catch(e){toast('Could not generate link');}
 }
 
+// Shortest stable key for a card in a share link: the riftboundId
+// ("ogn-102-298", 11 chars, unique + survives cards.json rebuilds) with a
+// ".f" suffix for foil printings, falling back to the raw id when the card
+// has no riftboundId (those ids are already short, e.g. "OGN-275").
+function _shareCardKey(id){
+  const c=Array.isArray(CARDS)?CARDS.find(x=>x.id===id):null;
+  if(!c||!c.riftboundId)return id;
+  return c.riftboundId+(/-foil$/.test(id)?'.f':'');
+}
+let _shareKeyMap=null,_shareKeyMapSrc=null;
+function _cardFromShareKey(key){
+  if(!Array.isArray(CARDS)||!CARDS.length)return null;
+  // Raw-id match first — covers no-riftboundId fallbacks and older z: links
+  // that stored full hex ids.
+  const direct=CARDS.find(x=>x.id===key);
+  if(direct)return direct;
+  if(_shareKeyMapSrc!==CARDS){
+    _shareKeyMap=new Map();_shareKeyMapSrc=CARDS;
+    CARDS.forEach(c=>{if(c.riftboundId)_shareKeyMap.set(c.riftboundId+(/-foil$/.test(c.id)?'.f':''),c);});
+  }
+  return _shareKeyMap.get(key)||null;
+}
+
 // Expand a compact v2 payload back to the shape renderPublicDeck expects,
 // looking names/types up in CARDS. Runs again once CARDS loads (the hash
 // is re-decoded), so an early pre-cards render self-heals.
 function _expandDeckV2(data){
-  const hyd=(id,cnt)=>{
-    const f=Array.isArray(CARDS)?CARDS.find(x=>x.id===id):null;
-    return{id,n:f?f.name:'',t:f?f.type:'',cnt:cnt||1};
+  const hyd=(key,cnt)=>{
+    const f=_cardFromShareKey(key);
+    return{id:f?f.id:key,n:f?f.name:'',t:f?f.type:'',cnt:cnt||1};
   };
   return{
     n:data.n,l:data.l,dm:data.dm||[],f:data.f||'Constructed',
