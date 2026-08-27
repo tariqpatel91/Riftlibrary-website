@@ -650,7 +650,7 @@ input.sbg-cell-sub:focus{outline:none;background:rgba(255,255,255,0.05)!importan
 .sbg-eye-type-cnt{color:var(--text-muted);font-weight:500;margin-left:2px;}
 .sbg-eye-mode-visual .sbg-eye-visual-grid{gap:14px;justify-content:flex-start;padding:0 4px;}
 .sbg-eye-col-stack{position:relative;flex:0 0 auto;width:155px;display:flex;flex-direction:column;cursor:pointer;}
-.sbg-eye-col-stack .deck-card-item{margin-bottom:-180px;transition:transform 0.15s,box-shadow 0.15s;}
+.sbg-eye-col-stack .deck-card-item{margin-bottom:-116%;transition:transform 0.15s,box-shadow 0.15s;}
 .sbg-eye-col-stack .deck-card-item:last-child{margin-bottom:0;}
 .sbg-eye-col-stack:hover{z-index:30;}
 .sbg-eye-col-stack:hover .deck-card-item:last-child{transform:translateY(-2px);box-shadow:0 12px 28px rgba(0,0,0,0.55);}
@@ -847,6 +847,7 @@ input.sbg-cell-sub:focus{outline:none;background:rgba(255,255,255,0.05)!importan
    Edit-tab rows use _splitIntoRows() to pre-balance, so each individual
    .deck-type-auto-grid in that path stays small enough to fit one row. */
 .deck-type-auto-grid{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;width:100%;min-width:0;row-gap:10px;}
+.deck-type-rows{width:100%;min-width:0;display:flex;flex-direction:column;gap:10px;}
 .deck-col-stack{display:flex;flex-direction:column;flex:1 1 0;min-width:60px;max-width:130px;}
 /* Curves + deck count row moved below the stats bar into the cards panel */
 .deck-info-bar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:0 0 12px;border-bottom:1px solid var(--border);margin-bottom:12px;}
@@ -854,7 +855,10 @@ input.sbg-cell-sub:focus{outline:none;background:rgba(255,255,255,0.05)!importan
 .cvt-bar-sep{display:inline-block;width:1px;height:18px;background:var(--border);margin:0 4px;align-self:center;}
 .cards-view-bar .dhs-label{font-size:12px;color:var(--text-muted);font-family:'Inter',system-ui,sans-serif;letter-spacing:0.04em;white-space:nowrap;}
 .cards-view-bar .sort-tog-btn{font-size:12px;padding:5px 12px;}
-.deck-col-stack .deck-card-item{margin-bottom:-124px;}
+/* Overlap is a % of the stack's width (cards are width×1.4 tall), so the
+   visible sliver stays proportional however narrow a squeezed row gets —
+   a fixed px overlap swallows the whole card once stacks shrink. */
+.deck-col-stack .deck-card-item{margin-bottom:-95%;}
 .deck-col-stack .deck-card-item:last-child{margin-bottom:0;}
 .deck-col-stack .deck-card-item:hover{z-index:20;position:relative;}
 /* Cards visual tab — larger cards, full-width layout, generous spacing */
@@ -869,7 +873,7 @@ input.sbg-cell-sub:focus{outline:none;background:rgba(255,255,255,0.05)!importan
 /* Visual tab card stack — heavy overlap (~80%) so a 3-copy stack
    reads as a tight fan with only the top sliver of each upper card
    visible above the fully-shown bottom card. */
-#cards-visual-view .deck-col-stack .deck-card-item{margin-bottom:-180px;}
+#cards-visual-view .deck-col-stack .deck-card-item{margin-bottom:-116%;}
 #cards-visual-view .deck-col-stack .deck-card-item:last-child{margin-bottom:0;}
 #cards-visual-view .rune-h-card{width:120px;margin-left:-72px;}
 #cards-visual-view .rune-domain-block{gap:10px;padding:12px 16px;}

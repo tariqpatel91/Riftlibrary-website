@@ -3470,17 +3470,14 @@ function renderEditPreview(targetEl){
       const uniqueCards=byType[type];
       const typeTotal=uniqueCards.reduce((a,c)=>a+c.cnt,0);
       html+=`<div class="deck-type-block${type==='Gear'?' gear-type-block':''}"><div class="deck-type-lbl">${type} (${typeTotal})</div>`;
-      if(isEdit){
-        // Editor: title above the section, balanced row splits when 9+ cards.
-        html+='<div class="deck-type-rows">';
-        _splitIntoRows(uniqueCards,8).forEach(rowCards=>{
-          html+=_renderTypeRow(rowCards,type);
-        });
-        html+='</div>'; // /.deck-type-rows
-      } else {
-        // Decklist viewer: original single-row layout, title above the cards.
-        html+=_renderTypeRow(uniqueCards,type);
-      }
+      // Balanced row splits when 9+ unique cards (editor and viewer alike):
+      // one long row squeezes every stack narrower than the sections around
+      // it, so 13 spells render as 7+6 at full card width instead.
+      html+='<div class="deck-type-rows">';
+      _splitIntoRows(uniqueCards,8).forEach(rowCards=>{
+        html+=_renderTypeRow(rowCards,type);
+      });
+      html+='</div>'; // /.deck-type-rows
       html+='</div>'; // /.deck-type-block
     });
     html+='</div>';
@@ -3806,14 +3803,8 @@ function closeDeckDetail(){
 }
 
 function copyDeckLink(){
-  const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
-  try{
-    const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(d))));
-    const url=window.location.origin+window.location.pathname+'#deck='+encoded;
-    navigator.clipboard.writeText(url).then(()=>toast('Deck link copied!')).catch(()=>{
-      prompt('Copy this link:',url);
-    });
-  }catch(e){toast('Could not generate link');}
+  // Same compact share format as the deck-list "Copy Link" button.
+  if(activeDeckId!=null) shareDeckLink(activeDeckId);
 }
 function toggleExportMenu(btn){
   const drop=document.getElementById('export-drop');if(!drop)return;
@@ -5815,30 +5806,96 @@ window.addEventListener('hashchange',_checkPublicBinderHash);
  * anyone opening the link sees a read-only deck view — no account, no
  * database row, nothing stored server-side.
  */
-function shareDeckLink(deckId){
+// v2 links ("#deck=z:…") carry only card ids + counts — names, types and
+// art are re-hydrated from cards.json on open — and the JSON is deflated
+// (CompressionStream) then base64url-encoded, which cuts the URL to a
+// fraction of the old full-JSON base64. Old links still decode below.
+function _b64urlFromBytes(bytes){
+  let s='';
+  for(let i=0;i<bytes.length;i+=0x8000)s+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));
+  return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function _bytesFromB64url(str){
+  const bin=atob(str.replace(/-/g,'+').replace(/_/g,'/'));
+  const out=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);
+  return out;
+}
+async function _deflateBytes(bytes){
+  const stream=new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+async function _inflateBytes(bytes){
+  const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function shareDeckLink(deckId){
   const d=myDecks.find(x=>String(x.id)===String(deckId));if(!d){toast('Deck not found');return;}
   try{
-    const payload={
-      n:d.name,l:d.legend,dm:d.domains||[],f:d.format||'Constructed',
-      c:(d.cards||[]).map(e=>({id:e.id,n:e.n,t:e.t,cnt:e.cnt})),
-      ch:d.champion||null,
-      r:(d.runes||[]).map(e=>({id:e.id,n:e.n})),
-      b:(d.battlefields||[]).map(e=>e?{id:e.id,n:e.n}:null),
-      s:(d.sideboard||[]).map(e=>({id:e.id,n:e.n,t:e.t,cnt:e.cnt})),
-      sn:d.sideboardNotes||''
-    };
-    const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    let encoded;
+    if(typeof CompressionStream!=='undefined'){
+      const grp=list=>{const m=new Map();(list||[]).forEach(e=>{if(e)m.set(e.id,(m.get(e.id)||0)+(e.cnt||1));});return[...m.entries()];};
+      const payload={
+        v:2,n:d.name,l:d.legend,dm:d.domains||[],f:d.format||'Constructed',
+        c:(d.cards||[]).map(e=>[e.id,e.cnt||1]),
+        ch:d.champion?d.champion.id:null,
+        r:grp(d.runes),
+        b:(d.battlefields||[]).map(e=>e?e.id:null),
+        s:(d.sideboard||[]).map(e=>[e.id,e.cnt||1]),
+        sn:d.sideboardNotes||''
+      };
+      const bytes=new TextEncoder().encode(JSON.stringify(payload));
+      encoded='z:'+_b64urlFromBytes(await _deflateBytes(bytes));
+    }else{
+      // Legacy fallback for browsers without CompressionStream
+      const payload={
+        n:d.name,l:d.legend,dm:d.domains||[],f:d.format||'Constructed',
+        c:(d.cards||[]).map(e=>({id:e.id,n:e.n,t:e.t,cnt:e.cnt})),
+        ch:d.champion||null,
+        r:(d.runes||[]).map(e=>({id:e.id,n:e.n})),
+        b:(d.battlefields||[]).map(e=>e?{id:e.id,n:e.n}:null),
+        s:(d.sideboard||[]).map(e=>({id:e.id,n:e.n,t:e.t,cnt:e.cnt})),
+        sn:d.sideboardNotes||''
+      };
+      encoded=btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    }
     const url=window.location.origin+window.location.pathname+'#deck='+encoded;
     navigator.clipboard.writeText(url).then(()=>toast('Deck link copied — anyone can view it, no account needed')).catch(()=>prompt('Copy this link:',url));
   }catch(e){toast('Could not generate link');}
 }
 
-function _decodePublicDeck(hash){
+// Expand a compact v2 payload back to the shape renderPublicDeck expects,
+// looking names/types up in CARDS. Runs again once CARDS loads (the hash
+// is re-decoded), so an early pre-cards render self-heals.
+function _expandDeckV2(data){
+  const hyd=(id,cnt)=>{
+    const f=Array.isArray(CARDS)?CARDS.find(x=>x.id===id):null;
+    return{id,n:f?f.name:'',t:f?f.type:'',cnt:cnt||1};
+  };
+  return{
+    n:data.n,l:data.l,dm:data.dm||[],f:data.f||'Constructed',
+    c:(data.c||[]).map(p=>hyd(p[0],p[1])),
+    ch:data.ch?(({id,n})=>({id,n}))(hyd(data.ch,1)):null,
+    r:(data.r||[]).flatMap(p=>{const e=hyd(p[0],1);return Array.from({length:p[1]||1},()=>({id:e.id,n:e.n}));}),
+    b:(data.b||[]).map(id=>id?(({id:i,n})=>({id:i,n}))(hyd(id,1)):null),
+    s:(data.s||[]).map(p=>hyd(p[0],p[1])),
+    sn:data.sn||''
+  };
+}
+
+async function _decodePublicDeck(hash){
   try{
     const m=/(?:^|#|&)deck=([^&]+)/.exec(hash||'');
     if(!m) return null;
-    const json=decodeURIComponent(escape(atob(decodeURIComponent(m[1]))));
-    const data=JSON.parse(json);
+    const raw=decodeURIComponent(m[1]);
+    let data;
+    if(raw.startsWith('z:')){
+      const json=new TextDecoder().decode(await _inflateBytes(_bytesFromB64url(raw.slice(2))));
+      data=_expandDeckV2(JSON.parse(json));
+    }else{
+      data=JSON.parse(decodeURIComponent(escape(atob(raw))));
+    }
     if(!data||!Array.isArray(data.c)) return null;
     return data;
   }catch(e){ return null; }
@@ -5883,8 +5940,8 @@ function renderPublicDeck(data){
 
 // Run on script load, on hashchange, and again once CARDS arrives (so card
 // art resolves). Leaving the hash restores the normal app chrome.
-function _checkPublicDeckHash(){
-  const data=_decodePublicDeck(window.location.hash);
+async function _checkPublicDeckHash(){
+  const data=await _decodePublicDeck(window.location.hash);
   if(data){
     renderPublicDeck(data);
   } else if(myDecks.some(x=>x.__shared)){
