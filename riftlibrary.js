@@ -2788,7 +2788,7 @@ function renderEditSearch(){
   });
   html+='</div>';
 
-  const ESETS=['','VEN','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
+  const ESETS=['','RAD','VEN','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
   const ERARS=['','Epic','Rare','Uncommon','Common','Promo'];
   const ESUBTYPES=['','Action','Reaction','Champion','Token','Signature Card'];
   const EVARIANTS=['','Standard','Alt Art','Overnumbered','Promo','Artist Signed','Foil'];
@@ -6075,6 +6075,7 @@ function openAddToBinderModal(cardId){
 }
 
 const SET_META={
+  RAD:{label:'Radiance',    grad:'linear-gradient(135deg,#d9a520 0%,#6b4a08 60%,#1a1202 100%)',accent:'#ffd75e',textShadow:'0 0 20px rgba(255,215,94,0.55)'},
   VEN:{label:'Vendetta',    grad:'linear-gradient(135deg,#7a1010 0%,#320505 60%,#0d0101 100%)',accent:'#f5544d',textShadow:'0 0 20px rgba(245,84,77,0.5)'},
   UNL:{label:'Unleashed',   grad:'linear-gradient(135deg,#c8006a 0%,#6a0030 60%,#1a000d 100%)',accent:'#f050a0',textShadow:'0 0 20px rgba(200,0,106,0.6)'},
   SFD:{label:'Spiritforged',grad:'linear-gradient(135deg,#4a5568 0%,#1a1f2e 60%,#0d0f14 100%)',accent:'#a0aec0',textShadow:'0 0 20px rgba(160,174,192,0.4)'},
@@ -6169,7 +6170,7 @@ function renderCollection(){
   const totalCopies=Object.values(collOwned).reduce((a,v)=>a+v,0);
 
   // build set progress cards
-  const SET_ORDER=['VEN','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
+  const SET_ORDER=['RAD','VEN','UNL','SFD','SFD-NN','ARC','OGN','OGS','OGN-NN','WRLD25','OPP','JDG','PR'];
   const orderedSets=[...SET_ORDER.filter(s=>setMap[s]),...Object.keys(setMap).filter(s=>!SET_ORDER.includes(s))];
 
   // ── Binder sidebar ──

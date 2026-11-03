@@ -75,8 +75,9 @@ function mapCard(c) {
   const meta = c.metadata || {};
   const doms = (cls.domain || []).map(d => String(d).toLowerCase());
   const dom = doms[0] || 'order';
-  const ctype = cls.type || 'Unit';
-  const stype = cls.supertype || '';
+  const first = v => Array.isArray(v) ? (v[0] || '') : (v || '');
+  const ctype = first(cls.type) || 'Unit';
+  const stype = first(cls.supertype);
   const statless = (
     ctype === 'Legend' || ctype === 'Battlefield' || ctype === 'Rune' || ctype === 'Token' ||
     stype === 'Legend' || stype === 'Token'
@@ -264,8 +265,18 @@ function bool01(s) {
     const setId = (dg.id.split('-')[0] || '').toUpperCase();
     const colors = Array.isArray(dg.color) ? dg.color : [];
     const doms = colors.map(c => String(c).toLowerCase()).filter(c => c && c !== 'colorless');
-    const cardType = dg.type || 'Unit';
-    const stype = dg.supertype || '';
+    // DotGG started returning type/supertype as arrays (["Unit"]) with Radiance
+    const first = v => Array.isArray(v) ? (v[0] || '') : (v || '');
+    const cardType = first(dg.type) || 'Unit';
+    const stype = first(dg.supertype);
+    // Riftcodex carries variant metadata; for DotGG-only cards infer it from
+    // the id the same way earlier sets came out: "-STAR" = artist signed,
+    // "123A" = alternate art, plain-numbered Showcase = overnumbered.
+    const idTail = dg.id.split('-').slice(1).join('-');
+    const isSignature = /-STAR$/i.test(idTail);
+    const isAltArt = !isSignature && /^\d+A$/i.test(idTail);
+    const isOvernumbered = !isSignature && dg.rarity === 'Showcase' && /^\d+$/.test(idTail);
+    const variantSuffix = isSignature ? ' (Signature)' : isAltArt ? ' (Alternate Art)' : isOvernumbered ? ' (Overnumbered)' : '';
     const statless = (
       cardType === 'Legend' || cardType === 'Battlefield' || cardType === 'Rune' || cardType === 'Token' ||
       stype === 'Legend' || stype === 'Token'
@@ -275,13 +286,15 @@ function bool01(s) {
     const stripHtml = s => String(s || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim();
     merged.push({
       id: dg.id,
-      name: dg.name,
+      name: variantSuffix && !/\)\s*$/.test(dg.name) ? dg.name + variantSuffix : dg.name,
       type: cardType,
       supertype: stype,
-      isSignature: false,
-      isAltArt: false,
-      isOvernumbered: false,
-      variant: dg.rarity === 'Promo' ? 'Promo' : 'Standard',
+      isSignature,
+      isAltArt,
+      isOvernumbered,
+      variant: isAltArt ? 'Alt Art'
+             : isOvernumbered ? 'Overnumbered'
+             : (dg.rarity === 'Promo' ? 'Promo' : 'Standard'),
       dom: doms[0] || 'order',
       doms,
       cost,
