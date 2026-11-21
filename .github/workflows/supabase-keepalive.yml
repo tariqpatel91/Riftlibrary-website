@@ -1,0 +1,27 @@
+# Supabase pauses free-tier projects after ~7 days of inactivity, which
+# silently breaks login. This pings the project twice a week to keep it awake.
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: '17 9 * * 1,4'   # Mondays and Thursdays, 09:17 UTC
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query Supabase
+        env:
+          SUPABASE_URL: https://rxolycfdleetydbbehep.supabase.co
+          # Public publishable key, already shipped in riftlibrary.js.
+          SUPABASE_ANON: sb_publishable_mqBXbj-SNubaSctoWxjusw_b3DBBV0v
+        run: |
+          code=$(curl -s -o /tmp/out -w '%{http_code}' \
+            "$SUPABASE_URL/rest/v1/profiles?select=id&limit=1" \
+            -H "apikey: $SUPABASE_ANON")
+          echo "HTTP $code"; cat /tmp/out; echo
+          if [ "$code" -ge 400 ]; then
+            echo "::error::Supabase returned $code. The project may be paused; restore it in the dashboard."
+            exit 1
+          fi
