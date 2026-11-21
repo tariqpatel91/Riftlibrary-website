@@ -397,10 +397,24 @@ function _renderBaseBattlefield() {
   if (!el) return;
   const bf = (GS.me.bfLeft && GS.me.bfLeft[0]) || null;
   const url = bf && (bf.image || bf.imageUrl) || '';
+  el.classList.remove('bf-portrait-turn-bg');
+  el.style.removeProperty('transform');
+  el.style.removeProperty('background-size');
   if (url) {
     el.style.backgroundImage = `url("${url}")`;
     el.classList.add('has-image');
     el.title = bf.name || '';
+    // Radiance (DotGG-only) battlefield art is stored portrait; turn it to
+    // landscape like the other sets (see PORTRAIT BATTLEFIELD ART in riftlibrary.js).
+    const probe = new Image();
+    probe.onload = () => {
+      if (el.style.backgroundImage !== `url("${url}")`) return;
+      if (probe.naturalHeight > probe.naturalWidth && typeof window.bfPortraitTurn === 'function') {
+        el.classList.add('bf-portrait-turn-bg');
+        window.bfPortraitTurn(el);
+      }
+    };
+    probe.src = url;
   } else {
     el.style.backgroundImage = '';
     el.classList.remove('has-image');

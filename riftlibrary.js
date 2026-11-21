@@ -6614,6 +6614,75 @@ fetchAllCards();
 let _resizeTimer;
 window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=setTimeout(()=>{if(activeDeckId&&activeDDTab==='edit')renderEditSearch();},150);});
 
+/* ── PORTRAIT BATTLEFIELD ART ─────────────────────── */
+// Every battlefield display on the site assumes the image file is stored
+// landscape (Riftcodex art, ~1039×744): portrait frames rotate it -90°,
+// landscape frames show it as-is. Cards that only exist on DotGG — the whole
+// Radiance (RAD) set, plus a few promos/oversized — ship battlefield art as a
+// portrait file instead, so they came out sideways. When a battlefield image
+// loads and turns out to be portrait, adjust it so it matches the rest:
+//  • rotated (portrait) frames: show the portrait file upright, no rotation —
+//    the same result the -90° rotation gives a landscape file;
+//  • landscape frames: turn it +90° back to landscape without changing the
+//    element's layout box (stretch-to-box, then a counter-scale undoes the
+//    stretch once rotated).
+(function(){
+  let _urls=null,_len=-1;
+  function bfUrls(){
+    if(_len!==CARDS.length){
+      _urls=new Set();
+      CARDS.forEach(c=>{if(c&&c.type==='Battlefield'){if(c.imageUrl)_urls.add(c.imageUrl);if(c.imageUrlAlt)_urls.add(c.imageUrlAlt);}});
+      _len=CARDS.length;
+    }
+    return _urls;
+  }
+  function isRotated(el){
+    const t=getComputedStyle(el).transform;
+    if(!t||t==='none') return false;
+    const m=t.match(/matrix\(([^)]+)\)/);
+    if(!m) return false;
+    return Math.abs(parseFloat(m[1].split(',')[1]))>0.5; // b≈±1 → ~90° turn
+  }
+  // Turn a landscape-shaped element's content 90°, keeping its box. Exported
+  // so background-image boxes (play board) can use it too.
+  function turn(el){
+    const w=el.clientWidth,h=el.clientHeight;
+    if(!w||!h) return;
+    const r=w/h;
+    el.style.setProperty('transform',`rotate(90deg) scale(${1/r},${r})`,'important');
+    el.style.setProperty('object-fit','fill','important');
+    el.style.setProperty('background-size','100% 100%','important');
+  }
+  const ro=typeof ResizeObserver==='function'?new ResizeObserver(es=>es.forEach(e=>{if(e.target.classList.contains('bf-portrait-turn'))turn(e.target);})):null;
+  // Inline !important so it beats every context's own battlefield rule.
+  const UPRIGHT={position:'absolute',top:'0',left:'0',width:'100%',height:'100%','max-width':'none','object-fit':'cover',transform:'none'};
+  const PROPS=[...Object.keys(UPRIGHT),'background-size'];
+  function reset(img){
+    if(!img.classList.contains('bf-portrait-turn')&&!img.classList.contains('bf-portrait-upright')) return;
+    if(ro) ro.unobserve(img);
+    img.classList.remove('bf-portrait-turn','bf-portrait-upright');
+    PROPS.forEach(k=>img.style.removeProperty(k));
+  }
+  function fix(img){
+    const src=img.getAttribute('src')||'';
+    if(img.dataset.bfFixSrc===src) return;
+    reset(img);
+    img.dataset.bfFixSrc=src;
+    if(!img.naturalWidth||img.naturalHeight<=img.naturalWidth) return;
+    if(!Array.isArray(CARDS)||!bfUrls().has(src)) return;
+    if(isRotated(img)){
+      img.classList.add('bf-portrait-upright');
+      Object.entries(UPRIGHT).forEach(([k,v])=>img.style.setProperty(k,v,'important'));
+    } else {
+      img.classList.add('bf-portrait-turn');
+      turn(img);
+      if(ro) ro.observe(img);
+    }
+  }
+  document.addEventListener('load',e=>{const t=e.target;if(t&&t.tagName==='IMG')fix(t);},true);
+  window.bfPortraitTurn=turn;
+})();
+
 /* ── CARD HOVER ZOOM ─────────────────────────────── */
 (function(){
   const preview=document.getElementById('card-hover-preview');
@@ -7329,3 +7398,4 @@ async function saveToCloud(deckId) {
 }
 
 initAuth();
+
