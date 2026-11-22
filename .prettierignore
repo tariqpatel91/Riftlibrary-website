@@ -1,0 +1,5 @@
+# Generated card data: kept minified on purpose (it's ~3 MB and loaded by every visitor).
+cards.json
+package-lock.json
+node_modules/
+.claude/
