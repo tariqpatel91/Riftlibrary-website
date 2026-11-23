@@ -7268,6 +7268,9 @@ async function syncCloudDecks() {
         if (!myDecks[localIdx].updated_at || new Date(cd.updated_at) > new Date(myDecks[localIdx].updated_at)) {
           // Preserve local integer ID so onclick attributes stay valid
           merged.id = myDecks[localIdx].id;
+          // Decks saved before the guide was synced have no sbGuide in the
+          // cloud copy; keep the local one instead of wiping it.
+          if (!merged.sbGuide && myDecks[localIdx].sbGuide) merged.sbGuide = myDecks[localIdx].sbGuide;
           myDecks[localIdx] = merged;
         }
       } else {
