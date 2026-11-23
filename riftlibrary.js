@@ -1798,67 +1798,64 @@ function downloadSideboardGuide(){
                        .filter(o=>o.name!==''||colHasData(o.c));
   if(!cols.length){toast('Add a matchup and some swaps first');return;}
 
-  // Build the display for one card/matchup cell.
-  function cellHtml(section,r,c){
-    const vals=subsFor(section).map(([s,lbl])=>({lbl,v:rd(section,r,c,s)})).filter(o=>o.v!=='');
-    if(!vals.length)return{html:'',cls:''};
+  // Each matchup gets two columns, one per post-board game (PB 1st / PB 2nd),
+  // mirroring the two sub-cells on the site's grid.
+  const GAMES=[[0,'1st'],[1,'2nd']];
+  // One card/matchup/game cell. Main + sideboard: sub index = game index.
+  // Battlefields: sub 0 is the G1 pick, subs 1/2 are PB 1st / PB 2nd; the G1
+  // pick is shown in the 1st-game column so nothing is dropped.
+  function cellHtml(section,r,c,gi){
     if(section==='b'){
-      // Battlefields aren't sided in/out — they're a per-game pick. Show which
-      // box was marked (PB 1st / PB 2nd / G1) instead of a bare ✕.
-      const html=vals.map(o=>o.v==='✕'?esc(o.lbl):`${esc(o.lbl)}: ${esc(o.v)}`).join('<br>');
-      return{html,cls:'bf'};
+      const parts=[];
+      if(gi===0){const g1=rd('b',r,c,0);if(g1!=='')parts.push(g1==='✕'?'G1':`G1: ${esc(g1)}`);}
+      const v=rd('b',r,c,gi+1);
+      if(v!=='')parts.push(v==='✕'?'✕':esc(v));
+      return{html:parts.join('<br>'),cls:parts.length?'bf':''};
     }
-    const rep=vals[0].v,n=parseInt(rep,10);
+    const v=rd(section,r,c,gi);
+    if(v==='')return{html:'',cls:''};
+    const n=parseInt(v,10);
     let cls='';
-    if(/^-/.test(rep))cls='out';
-    else if(/^\+/.test(rep)||(!isNaN(n)&&n>0))cls='in';
-    // A bare number means "both post-board games". Only collapse to one
-    // when BOTH games have the same value; a value typed in just one game
-    // keeps its 1st/2nd label so it isn't misread as applying to both.
-    const both=vals.length===subsFor(section).length&&new Set(vals.map(o=>o.v)).size===1;
-    const html=both
-      ? esc(vals[0].v)
-      : vals.map(o=>`<span class="mini"><b>${o.lbl}</b> ${esc(o.v)}</span>`).join('');
-    return{html,cls};
+    if(/^-/.test(v))cls='out';
+    else if(/^\+/.test(v)||(!isNaN(n)&&n>0))cls='in';
+    return{html:esc(v),cls};
   }
+  const gcls=gi=>gi===0?'g1':'g2';
   // Render every card row in the section (empty cells included — the user
   // wants the full deck + sideboard list on the printout).
   function sectionRows(rows,section){
     const lblCls=section==='m'?'lbl-m':section==='s'?'lbl-s':'lbl-b';
     return rows.map((row,r)=>{
-      const cells=cols.map(o=>cellHtml(section,r,o.c));
       const champ=row.role==='champion'?'★ ':'';
       const cnt=row.cnt?`<span class="cnt">${row.cnt}</span>`:'';
-      const tds=cells.map(cl=>`<td class="${cl.cls}">${cl.html}</td>`).join('');
+      const tds=cols.map(o=>GAMES.map(([gi])=>{
+        const cl=cellHtml(section,r,o.c,gi);
+        return `<td class="${gcls(gi)} ${cl.cls}">${cl.html}</td>`;
+      }).join('')).join('');
       return `<tr><th class="rowlbl ${lblCls}">${champ}${esc(row.name)}${cnt}</th>${tds}</tr>`;
     }).join('');
   }
-  // In / Out checksum per matchup (main + sideboard), counted separately
-  // for each post-board game so a 2nd-game-only swap isn't lumped into the
-  // 1st game's total. Shown as one number when both games match.
+  // In / Out totals per matchup and per post-board game (main + sideboard).
   function totalsRow(label,kind){
-    const cells=cols.map(o=>{
-      const per=subsFor('m').map(([s,lbl])=>{
-        let n=0;
-        const add=(rows,section)=>rows.forEach((row,r)=>{
-          const v=parseInt(rd(section,r,o.c,s),10);
-          if(!isNaN(v)){if(kind==='in'&&v>0)n+=v;else if(kind==='out'&&v<0)n+=-v;}
-        });
-        add(mainRows,'m');add(sbRows,'s');
-        return{lbl,n};
+    const cells=cols.map(o=>GAMES.map(([gi])=>{
+      let n=0;
+      const add=(rows,section)=>rows.forEach((row,r)=>{
+        const v=parseInt(rd(section,r,o.c,gi),10);
+        if(!isNaN(v)){if(kind==='in'&&v>0)n+=v;else if(kind==='out'&&v<0)n+=-v;}
       });
-      if(per.every(p=>p.n===per[0].n))return `<td>${per[0].n||''}</td>`;
-      return `<td>${per.map(p=>`<span class="mini"><b>${p.lbl}</b> ${p.n}</span>`).join('')}</td>`;
-    }).join('');
-    return `<tr class="tot"><th>${label}</th>${cells}</tr>`;
+      add(mainRows,'m');add(sbRows,'s');
+      return `<td class="${gcls(gi)} ${kind}">${n||''}</td>`;
+    }).join('')).join('');
+    return `<tr class="tot ${kind}"><th>${label}</th>${cells}</tr>`;
   }
 
   const mainHtml=sectionRows(mainRows,'m');
   const sbHtml=sectionRows(sbRows,'s');
   const bfHtml=sectionRows(bfRows,'b');
-  const span=cols.length+1;
-  const colgroup=`<colgroup><col class="lblcol">${cols.map(()=>'<col class="mucol">').join('')}</colgroup>`;
-  const headRow=`<tr class="muhdr"><th class="corner">Card</th>${cols.map(o=>`<th class="mu"><span>${esc(o.name||('Matchup '+(o.c+1)))}</span></th>`).join('')}</tr>`;
+  const span=cols.length*GAMES.length+1;
+  const colgroup=`<colgroup><col class="lblcol">${cols.map(()=>GAMES.map(()=>'<col class="mucol">').join('')).join('')}</colgroup>`;
+  const headRow=`<tr class="muhdr"><th class="corner" rowspan="2">Card</th>${cols.map(o=>`<th class="mu" colspan="${GAMES.length}"><span>${esc(o.name||('Matchup '+(o.c+1)))}</span></th>`).join('')}</tr>`
+    +`<tr class="gamehdr">${cols.map(()=>GAMES.map(([gi,lbl])=>`<th class="${gcls(gi)}">PB ${lbl}</th>`).join('')).join('')}</tr>`;
   // Size the diagonal-header band to the longest matchup name so short names
   // don't leave a tall dead zone and long names don't get clipped.
   const maxLbl=cols.reduce((m,o)=>Math.max(m,(o.name||('Matchup '+(o.c+1))).length),0);
@@ -1885,7 +1882,7 @@ function downloadSideboardGuide(){
     .meta{font-size:10px;color:#555;margin:0 0 8px;}
     table{border-collapse:collapse;table-layout:fixed;}
     col.lblcol{width:160px;}
-    col.mucol{width:30px;}
+    col.mucol{width:26px;}
     th,td{border:1px solid #9a9a9a;padding:2px 3px;font-size:9px;text-align:center;vertical-align:middle;line-height:1.15;}
     /* Diagonal matchup headers — labels rise up and out to the right.
        No cell background so a long label can overflow over its neighbours
@@ -1906,10 +1903,14 @@ function downloadSideboardGuide(){
     td.out{background:#f4cccc;font-weight:bold;}
     td.in{background:#d9ead3;font-weight:bold;}
     td.bf{background:#fff2cc;font-weight:bold;font-size:7px;line-height:1.2;}
-    .mini{display:block;font-size:7px;}
-    .mini b{color:#555;}
+    /* Heavier line between matchups; a light one between PB 1st / PB 2nd. */
+    td.g1,tr.gamehdr th.g1{border-left:2px solid #444;}
+    td.g2,tr.gamehdr th.g2{border-left:1px dashed #bbb;}
+    tr.gamehdr th{background:#eef3f8;font-size:7px;font-weight:bold;padding:1px;white-space:nowrap;}
     tr.tot th{background:#fce4d6;text-align:right;font-weight:bold;}
-    tr.tot td{background:#fde9d9;font-weight:bold;}
+    tr.tot td{font-weight:bold;}
+    tr.tot.in td{background:#d9ead3;}
+    tr.tot.out td{background:#f4cccc;}
     .key{margin-top:6px;font-size:8px;color:#555;}
     .foot{margin-top:4px;font-size:8px;color:#aaa;}
     @media print{body{padding:0;}}
@@ -1917,7 +1918,7 @@ function downloadSideboardGuide(){
     <h1>${esc(deckName)} — Sideboard Guide</h1>
     ${sub?`<div class="meta">${esc(sub)}</div>`:''}
     <table>${colgroup}<thead>${headRow}</thead><tbody>${body}</tbody></table>
-    <div class="key">A plain number applies to both post-board games. <b>1st</b> / <b>2nd</b> means that game only.</div>
+    <div class="key">Each matchup has a column for each post-board game: <b>PB 1st</b> and <b>PB 2nd</b>. Red = side out, green = side in.</div>
     <div class="foot">Generated by RiftLibrary · ${new Date().toLocaleDateString()}</div>
   </body></html>`;
   w.document.write(html);w.document.close();
