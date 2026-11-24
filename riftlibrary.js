@@ -1337,7 +1337,7 @@ function renderDeckDetail(){
     <!-- PANEL: CARDS -->
     <div class="dd-panel${activeDDTab==='cards'?' active':''}" id="ddp-cards">
       <div class="sr" style="margin-bottom:1.25rem;">
-        <div class="sb"><div class="sv">${totalCards||0}</div><div class="sk">Cards</div></div>
+        <div class="sb"><div class="sv">${totalCards||0}<span class="sv-of">/40</span></div><div class="sk">${d.champion?`Main deck ${(totalCards||0)-1} + 1 champion unit`:'Cards'}</div></div>
         <div class="sb"><div class="sv">${d.wins||0}</div><div class="sk">Wins</div></div>
         <div class="sb"><div class="sv">${d.losses||0}</div><div class="sk">Losses</div></div>
         <div class="sb"><div class="sv ${wrc(w)}">${w}%</div><div class="sk">Win rate</div></div>
@@ -1373,6 +1373,10 @@ function renderDeckDetail(){
 
     <!-- PANEL: EDIT -->
     <div class="dd-panel${activeDDTab==='edit'?' active':''}" id="ddp-edit">
+      <div class="cards-view-bar edit-sort-bar">
+        <span class="dhs-label">Sort by:</span>
+        <button class="cvt-btn sort-tog-btn${deckSortMode==='energy'?' on':''}" onclick="toggleDeckSort()" title="Toggle sort order">${deckSortMode==='energy'?'⚡ Energy':'🔤 Alphabetical'}</button>
+      </div>
       <div class="edit-grid">
         <div class="edit-left" id="edit-left"></div>
         <div class="edit-right" id="edit-right"></div>
@@ -1593,7 +1597,7 @@ function toggleDeckSort(){
   deckSortMode=deckSortMode==='alpha'?'energy':'alpha';
   // Update all sort toggle buttons
   document.querySelectorAll('.sort-tog-btn').forEach(b=>{
-    b.textContent=deckSortMode==='energy'?'⚡ Energy':'🔤 Alpha';
+    b.textContent=deckSortMode==='energy'?'⚡ Energy':'🔤 Alphabetical';
     b.classList.toggle('on',deckSortMode==='energy');
   });
   // Re-render every view that depends on the sort mode
@@ -1949,6 +1953,19 @@ function sbgEyeClick(idx){
   _sbgRenderEyeModal();
 }
 function sbgEyeSetView(v){_sbgEye.view=v;_sbgRenderEyeModal();}
+// Shares the deck page's sort mode so both views stay in step.
+function sbgEyeSetSort(mode){
+  if(deckSortMode!==mode)toggleDeckSort();
+  _sbgRenderEyeModal();
+}
+// Swaps are already written locally on every click; Save also pushes the
+// deck (with its sideboard guide) to the user's account, then closes.
+function sbgEyeSave(){
+  persist();
+  if(currentUser&&activeDeckId)saveToCloud(activeDeckId);
+  sbgEyeClose();
+  toast('Sideboard plan saved');
+}
 function _sbgEyeBfClick(name){
   if(ddReadOnly)return;
   const d=myDecks.find(x=>x.id===activeDeckId);if(!d)return;
@@ -2033,7 +2050,10 @@ function _sbgRenderEyeModal(){
   const TYPE_ORDER=['Unit','Spell','Gear'];
   function _tSort(a,b){const ai=TYPE_ORDER.indexOf(a.t),bi=TYPE_ORDER.indexOf(b.t);return(ai<0?99:ai)-(bi<0?99:bi)||(a.n||'').localeCompare(b.n||'');}
   function _eSort(a,b){const ca=CARDS.find(x=>x.id===a.id);const cb=CARDS.find(x=>x.id===b.id);const ea=ca&&ca.cost!=null?ca.cost:999;const eb=cb&&cb.cost!=null?cb.cost:999;return ea!==eb?ea-eb:(a.n||'').localeCompare(b.n||'');}
-  const cmp=deckSortMode==='energy'?_eSort:_tSort;
+  // Energy: cost then name. Alphabetical: name only (the Visual layout still
+  // groups by type, then sorts inside each group with the same comparator).
+  function _aSort(a,b){return (a.n||'').localeCompare(b.n||'');}
+  const cmp=deckSortMode==='energy'?_eSort:_aSort;
   const champion=d.champion?[{...d.champion,cnt:1}]:[];
   const mainDeck=(d.cards||[]).filter(c=>c.t!=='Legend').slice().sort(cmp);
   const sb=(d.sideboard||[]).slice().sort(cmp);
@@ -2259,7 +2279,13 @@ function _sbgRenderEyeModal(){
         <button class="sbg-eye-tab${_sbgEye.view==='gallery'?' on':''}" onclick="sbgEyeSetView('gallery')" title="Gallery view">⊞ Gallery</button>
         <button class="sbg-eye-tab${_sbgEye.view==='visual'?' on':''}" onclick="sbgEyeSetView('visual')" title="Visual view">▦ Visual</button>
       </div>
-      <button class="sbg-eye-close" onclick="sbgEyeClose()" title="Close">✕</button>
+      <div class="sbg-eye-tabs sbg-eye-view-tabs" title="Sort cards">
+        <button class="sbg-eye-tab${deckSortMode==='energy'?' on':''}" onclick="sbgEyeSetSort('energy')" title="Sort by energy cost">⚡ Energy</button>
+        <button class="sbg-eye-tab${deckSortMode!=='energy'?' on':''}" onclick="sbgEyeSetSort('alpha')" title="Sort alphabetically">🔤 A–Z</button>
+      </div>
+      ${ddReadOnly
+        ?`<button class="sbg-eye-save" onclick="sbgEyeClose()" title="Close">Close</button>`
+        :`<button class="sbg-eye-save" onclick="sbgEyeSave()" title="Save this matchup plan and close">Save</button>`}
     </div>
     <div class="sbg-eye-stat-row">
       <span class="sbg-eye-stat">In <strong>${totalIn}</strong></span>
