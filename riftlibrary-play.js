@@ -2,16 +2,29 @@
 'use strict';
 
 const GS = {
-  me:  {name:'', life:20, hand:[], deck:[], discard:[], runes:[], runeIdx:0,
-         battle:[], support:[], bfLeft:[], bfRight:[], legend:null, champion:null},
-  opp: {name:'', life:20, handCount:0, battle:[], support:[], legend:null, champion:null},
+  me: {
+    name: '',
+    life: 20,
+    hand: [],
+    deck: [],
+    discard: [],
+    runes: [],
+    runeIdx: 0,
+    battle: [],
+    support: [],
+    bfLeft: [],
+    bfRight: [],
+    legend: null,
+    champion: null,
+  },
+  opp: { name: '', life: 20, handCount: 0, battle: [], support: [], legend: null, champion: null },
   myTurn: false,
   phase: 'waiting',
   roomCode: '',
   chatLog: [],
   _peer: null,
   _conn: null,
-  _isHost: false
+  _isHost: false,
 };
 
 let _dragUid = null;
@@ -30,12 +43,12 @@ let _selectedDragSnapshot = null;
 
 /* ── DECK SELECTORS ── */
 function populateDeckSelectors() {
-  const decks = (JSON.parse(localStorage.getItem('rl_decks') || '[]'));
-  ['host-deck-sel','join-deck-sel','solo-deck-sel'].forEach(id => {
+  const decks = JSON.parse(localStorage.getItem('rl_decks') || '[]');
+  ['host-deck-sel', 'join-deck-sel', 'solo-deck-sel'].forEach((id) => {
     const sel = document.getElementById(id);
     if (!sel) return;
     sel.innerHTML = '<option value="">— choose a deck —</option>';
-    decks.forEach(d => {
+    decks.forEach((d) => {
       const opt = document.createElement('option');
       opt.value = d.id;
       opt.textContent = d.name + (d.legend ? ` (${d.legend})` : '');
@@ -48,12 +61,17 @@ function populateDeckSelectors() {
 async function startSolo() {
   const deckEl = document.getElementById('solo-deck-sel');
   const statusEl = document.getElementById('solo-status');
-  if (!deckEl.value) { statusEl.textContent = 'Please select a deck first.'; return; }
+  if (!deckEl.value) {
+    statusEl.textContent = 'Please select a deck first.';
+    return;
+  }
   statusEl.textContent = '';
   // Ensure cards are loaded so images and names resolve
   if (typeof CARDS !== 'undefined' && (!CARDS.length || !cardsLoaded)) {
     statusEl.textContent = 'Loading card data…';
-    try { if (typeof fetchAllCards === 'function') await fetchAllCards(); } catch (e) {}
+    try {
+      if (typeof fetchAllCards === 'function') await fetchAllCards();
+    } catch (e) {}
     statusEl.textContent = '';
   }
   GS.me.name = 'You';
@@ -67,7 +85,7 @@ async function startSolo() {
     onConfirm: (modifiedDeck) => {
       _loadDeckIntoStateFromObj(modifiedDeck);
       startBoard(true);
-    }
+    },
   });
 }
 
@@ -76,7 +94,10 @@ function hostGame() {
   const nameEl = document.getElementById('host-name');
   const deckEl = document.getElementById('host-deck-sel');
   const statusEl = document.getElementById('host-status');
-  if (!deckEl.value) { statusEl.textContent = 'Please select a deck.'; return; }
+  if (!deckEl.value) {
+    statusEl.textContent = 'Please select a deck.';
+    return;
+  }
   GS.me.name = nameEl.value.trim() || 'Player 1';
   GS._isHost = true;
   _loadDeckIntoState(deckEl.value);
@@ -84,30 +105,33 @@ function hostGame() {
 
   const peer = new Peer();
   GS._peer = peer;
-  peer.on('open', id => {
-    GS.roomCode = 'RIFT-' + id.slice(0,6).toUpperCase();
+  peer.on('open', (id) => {
+    GS.roomCode = 'RIFT-' + id.slice(0, 6).toUpperCase();
     document.getElementById('host-game-id').textContent = GS.roomCode;
     document.getElementById('host-id-box').style.display = '';
     statusEl.textContent = '';
     document.getElementById('host-wait-msg').textContent = 'Waiting for opponent to connect…';
   });
-  peer.on('connection', conn => {
+  peer.on('connection', (conn) => {
     GS._conn = conn;
     _setupConn(conn);
-    document.getElementById('host-wait-msg').textContent = 'Opponent connected! Customize your deck…';
+    document.getElementById('host-wait-msg').textContent =
+      'Opponent connected! Customize your deck…';
     setTimeout(() => {
       showDeckCustomizer(deckEl.value, {
         meName: GS.me.name,
         oppName: GS.opp.name || 'Opponent',
         onConfirm: (modifiedDeck) => {
           _loadDeckIntoStateFromObj(modifiedDeck);
-          _send({ type:'player_join', name: GS.me.name });
+          _send({ type: 'player_join', name: GS.me.name });
           startBoard(true);
-        }
+        },
       });
     }, 200);
   });
-  peer.on('error', err => { statusEl.textContent = 'Error: ' + err.message; });
+  peer.on('error', (err) => {
+    statusEl.textContent = 'Error: ' + err.message;
+  });
 }
 
 function copyGameId() {
@@ -121,14 +145,20 @@ function joinGame() {
   const deckEl = document.getElementById('join-deck-sel');
   const codeEl = document.getElementById('join-game-id');
   const statusEl = document.getElementById('join-status');
-  if (!deckEl.value) { statusEl.textContent = 'Please select a deck.'; return; }
-  if (!codeEl.value.trim()) { statusEl.textContent = 'Please enter a Game ID.'; return; }
+  if (!deckEl.value) {
+    statusEl.textContent = 'Please select a deck.';
+    return;
+  }
+  if (!codeEl.value.trim()) {
+    statusEl.textContent = 'Please enter a Game ID.';
+    return;
+  }
   GS.me.name = nameEl.value.trim() || 'Player 2';
   GS._isHost = false;
   _loadDeckIntoState(deckEl.value);
   statusEl.textContent = 'Connecting…';
 
-  const rawId = codeEl.value.replace(/^RIFT-/i,'').toLowerCase();
+  const rawId = codeEl.value.replace(/^RIFT-/i, '').toLowerCase();
   const peer = new Peer();
   GS._peer = peer;
   peer.on('open', () => {
@@ -142,19 +172,25 @@ function joinGame() {
         oppName: GS.opp.name || 'Opponent',
         onConfirm: (modifiedDeck) => {
           _loadDeckIntoStateFromObj(modifiedDeck);
-          _send({ type:'player_join', name: GS.me.name });
+          _send({ type: 'player_join', name: GS.me.name });
           startBoard(false);
-        }
+        },
       });
     });
-    conn.on('error', err => { statusEl.textContent = 'Error: ' + err.message; });
+    conn.on('error', (err) => {
+      statusEl.textContent = 'Error: ' + err.message;
+    });
   });
-  peer.on('error', err => { statusEl.textContent = 'Error: ' + err.message; });
+  peer.on('error', (err) => {
+    statusEl.textContent = 'Error: ' + err.message;
+  });
 }
 
 /* ── CONN SETUP ── */
 function _setupConn(conn) {
-  conn.on('data', data => { handleMsg(data); });
+  conn.on('data', (data) => {
+    handleMsg(data);
+  });
   conn.on('close', () => {
     appendChat('System', 'Opponent disconnected.');
     document.getElementById('end-turn-btn').disabled = false;
@@ -185,7 +221,13 @@ function handleMsg(msg) {
       break;
     case 'play_card':
       _addToOppZone(msg.zone, msg.card);
-      logAction(oppName() + ' played ' + (msg.card && msg.card.name || 'a card') + ' → ' + (msg.zone === 'battle' ? 'BASE' : msg.zone));
+      logAction(
+        oppName() +
+          ' played ' +
+          ((msg.card && msg.card.name) || 'a card') +
+          ' → ' +
+          (msg.zone === 'battle' ? 'BASE' : msg.zone)
+      );
       break;
     case 'move_card':
       _moveOppCard(msg.uid, msg.from, msg.to);
@@ -209,32 +251,33 @@ function handleMsg(msg) {
 
 /* ── LOAD DECK ── */
 function _loadDeckIntoState(deckId) {
-  const decks = (typeof myDecks !== 'undefined' && myDecks.length)
-    ? myDecks
-    : JSON.parse(localStorage.getItem('rl_decks') || '[]');
-  const deck = decks.find(d => String(d.id) === String(deckId));
+  const decks =
+    typeof myDecks !== 'undefined' && myDecks.length
+      ? myDecks
+      : JSON.parse(localStorage.getItem('rl_decks') || '[]');
+  const deck = decks.find((d) => String(d.id) === String(deckId));
   if (!deck) return;
   _loadDeckIntoStateFromObj(deck);
 }
 
 function _loadDeckIntoStateFromObj(deck) {
   if (!deck) return;
-  const allCards = (typeof CARDS !== 'undefined' && CARDS.length) ? CARDS : (window._allCards || []);
+  const allCards = typeof CARDS !== 'undefined' && CARDS.length ? CARDS : window._allCards || [];
 
-  const lookup = id => allCards.find(c => c.id === id);
-  const _img = c => (c && (c.imageUrl || c.image)) || '';
+  const lookup = (id) => allCards.find((c) => c.id === id);
+  const _img = (c) => (c && (c.imageUrl || c.image)) || '';
   const expand = (entries, skipTypes) => {
     const out = [];
-    (entries || []).forEach(e => {
+    (entries || []).forEach((e) => {
       if (skipTypes && skipTypes.includes(e.t)) return;
       // deck format stores the card name as e.n
       const fallbackName = e.n || e.name || e.id;
-      const full = lookup(e.id) || { id:e.id, name:fallbackName };
+      const full = lookup(e.id) || { id: e.id, name: fallbackName };
       const card = {
         ...full,
         image: _img(full),
         name: (full && full.name) || fallbackName,
-        type: full.type || e.t || ''
+        type: full.type || e.t || '',
       };
       const cnt = e.cnt || e.qty || 1;
       for (let i = 0; i < cnt; i++) {
@@ -245,50 +288,68 @@ function _loadDeckIntoStateFromObj(deck) {
   };
 
   // Pull legend + champion out of every place a deck might store them
-  const legendEntry   = (deck.cards || []).find(c => c.t === 'Legend');
-  const championEntry = (deck.cards || []).find(c => c.t === 'Champion');
-  let legendFull   = legendEntry   ? lookup(legendEntry.id)   : null;
+  const legendEntry = (deck.cards || []).find((c) => c.t === 'Legend');
+  const championEntry = (deck.cards || []).find((c) => c.t === 'Champion');
+  let legendFull = legendEntry ? lookup(legendEntry.id) : null;
   let championFull = championEntry ? lookup(championEntry.id) : null;
   // Fallbacks: deck.legend (name string) or deck.champion ({id, n}) — older format
   if (!legendFull && deck.legend) {
-    legendFull = allCards.find(c => c.name === deck.legend)
-              || allCards.find(c => (c.supertype||'').toLowerCase().includes('legend') && c.name === deck.legend);
+    legendFull =
+      allCards.find((c) => c.name === deck.legend) ||
+      allCards.find(
+        (c) => (c.supertype || '').toLowerCase().includes('legend') && c.name === deck.legend
+      );
   }
   if (!championFull && deck.champion) {
-    championFull = (deck.champion.id ? lookup(deck.champion.id) : null)
-                || (deck.champion.n  ? allCards.find(c => c.name === deck.champion.n) : null);
+    championFull =
+      (deck.champion.id ? lookup(deck.champion.id) : null) ||
+      (deck.champion.n ? allCards.find((c) => c.name === deck.champion.n) : null);
   }
   // Last resort: scan the deck for a card whose supertype is Champion
   if (!championFull) {
-    const fb = (deck.cards || []).find(e => {
+    const fb = (deck.cards || []).find((e) => {
       const f = lookup(e.id);
-      return f && (f.supertype||'').toLowerCase().includes('champion');
+      return f && (f.supertype || '').toLowerCase().includes('champion');
     });
     if (fb) championFull = lookup(fb.id);
   }
 
   GS.me.legend = legendFull
-    ? { ...legendFull,   image:_img(legendFull),   _uid: crypto.randomUUID() }
-    : (deck.legend ? { name: deck.legend, _uid: crypto.randomUUID() } : null);
+    ? { ...legendFull, image: _img(legendFull), _uid: crypto.randomUUID() }
+    : deck.legend
+      ? { name: deck.legend, _uid: crypto.randomUUID() }
+      : null;
   GS.me.champion = championFull
-    ? { ...championFull, image:_img(championFull), _uid: crypto.randomUUID() }
-    : (deck.champion && deck.champion.n ? { name: deck.champion.n, _uid: crypto.randomUUID() } : null);
+    ? { ...championFull, image: _img(championFull), _uid: crypto.randomUUID() }
+    : deck.champion && deck.champion.n
+      ? { name: deck.champion.n, _uid: crypto.randomUUID() }
+      : null;
 
   // Main deck excludes Legend/Champion (they go to their dedicated zones)
-  GS.me.deck     = _shuffle(expand(deck.cards || [], ['Legend','Champion']));
-  GS.me.runes    = expand(deck.runes || []);
-  GS.me.battle   = [];
-  GS.me.support  = [];
-  GS.me.hand     = [];
-  GS.me.discard  = [];
-  GS.me.life     = 20;
+  GS.me.deck = _shuffle(expand(deck.cards || [], ['Legend', 'Champion']));
+  GS.me.runes = expand(deck.runes || []);
+  GS.me.battle = [];
+  GS.me.support = [];
+  GS.me.hand = [];
+  GS.me.discard = [];
+  GS.me.life = 20;
 
   // Chosen battlefield (single entry from deck.battlefields after the customizer narrows it down)
   const bfEntry = (deck.battlefields || []).filter(Boolean)[0];
   const bfFull = bfEntry ? lookup(bfEntry.id) : null;
   GS.me.bfLeft = bfFull
-    ? [{ ...bfFull, image: _img(bfFull), name: bfFull.name || bfEntry.n || '', type: 'Battlefield', _uid: crypto.randomUUID() }]
-    : (bfEntry ? [{ id: bfEntry.id, name: bfEntry.n || '', type: 'Battlefield', _uid: crypto.randomUUID() }] : []);
+    ? [
+        {
+          ...bfFull,
+          image: _img(bfFull),
+          name: bfFull.name || bfEntry.n || '',
+          type: 'Battlefield',
+          _uid: crypto.randomUUID(),
+        },
+      ]
+    : bfEntry
+      ? [{ id: bfEntry.id, name: bfEntry.n || '', type: 'Battlefield', _uid: crypto.randomUUID() }]
+      : [];
   GS.me.bfRight = [];
   GS.me.bfArea = [];
 }
@@ -319,20 +380,27 @@ function startBoard(isFirst) {
   _bindScoreTrack();
   // Battlefield + Base / Runes / Legend / Champion zones are locked — clear any drag/resize state from earlier sessions
   try {
-    ['bf-pos_bf-left','bf-pos_bf-right',
-     'size_play-base-zone','size_runes-zone',
-     'size_my-legend-zone','size_my-champion-zone',
-     'size_opp-legend-zone','size_opp-champion-zone']
-      .forEach(k => localStorage.removeItem('rl_' + k));
-  } catch(e) {}
+    [
+      'bf-pos_bf-left',
+      'bf-pos_bf-right',
+      'size_play-base-zone',
+      'size_runes-zone',
+      'size_my-legend-zone',
+      'size_my-champion-zone',
+      'size_opp-legend-zone',
+      'size_opp-champion-zone',
+    ].forEach((k) => localStorage.removeItem('rl_' + k));
+  } catch (e) {}
   renderFullBoard();
   updateTurnBadge();
-  logAction('Game started — ' + (GS.myTurn ? 'you go first' : (GS.opp.name||'Opponent') + ' goes first'));
+  logAction(
+    'Game started — ' + (GS.myTurn ? 'you go first' : (GS.opp.name || 'Opponent') + ' goes first')
+  );
 }
 
 function _bindScoreTrack() {
   const slots = document.querySelectorAll('.track-slot');
-  slots.forEach(s => {
+  slots.forEach((s) => {
     s.onclick = (e) => {
       const v = parseInt(s.getAttribute('data-v'), 10) || 0;
       const side = s.getAttribute('data-side');
@@ -365,20 +433,31 @@ function _bindScoreTrack() {
 
 function _renderScoreTrack(animate) {
   const slots = document.querySelectorAll('.track-slot');
-  const me  = GS.me.score  || 0;
+  const me = GS.me.score || 0;
   const opp = GS.opp.score || 0;
-  slots.forEach(s => {
+  slots.forEach((s) => {
     const v = parseInt(s.getAttribute('data-v'), 10) || 0;
     const side = s.getAttribute('data-side');
     const isWin = s.classList.contains('track-win');
-    let lit = false, who = '';
+    let lit = false,
+      who = '';
     if (isWin) {
-      if (me >= 8)  { lit = true; who = 'me'; }
-      else if (opp >= 8) { lit = true; who = 'opp'; }
-    } else if (side === 'me' && v === me) { lit = true; who = 'me'; }
-    else if (side === 'opp' && v === opp) { lit = true; who = 'opp'; }
+      if (me >= 8) {
+        lit = true;
+        who = 'me';
+      } else if (opp >= 8) {
+        lit = true;
+        who = 'opp';
+      }
+    } else if (side === 'me' && v === me) {
+      lit = true;
+      who = 'me';
+    } else if (side === 'opp' && v === opp) {
+      lit = true;
+      who = 'opp';
+    }
     const wasLit = s.classList.contains('lit-me') || s.classList.contains('lit-opp');
-    s.classList.toggle('lit-me',  lit && who === 'me');
+    s.classList.toggle('lit-me', lit && who === 'me');
     s.classList.toggle('lit-opp', lit && who === 'opp');
     if (animate && lit && !wasLit) {
       s.classList.remove('glint');
@@ -390,13 +469,16 @@ function _renderScoreTrack(animate) {
 }
 
 /* ── helpers ── */
-function _setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+function _setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
 
 function _renderBaseBattlefield() {
   const el = document.getElementById('play-base-bf');
   if (!el) return;
   const bf = (GS.me.bfLeft && GS.me.bfLeft[0]) || null;
-  const url = bf && (bf.image || bf.imageUrl) || '';
+  const url = (bf && (bf.image || bf.imageUrl)) || '';
   el.classList.remove('bf-portrait-turn-bg');
   el.style.removeProperty('transform');
   el.style.removeProperty('background-size');
@@ -439,7 +521,7 @@ function renderFullBoard() {
   // ONE merged BASE zone — both players' battle cards render into the same
   // freeform-positioned canvas. Each card keeps its own (_x, _y) so cards
   // stay where they were dropped, regardless of owner.
-  _renderFreeformZone('play-base-cards', [...(GS.me.battle||[]), ...(GS.opp.battle||[])]);
+  _renderFreeformZone('play-base-cards', [...(GS.me.battle || []), ...(GS.opp.battle || [])]);
   // Legacy render targets (kept for backward-compat with hidden control bar)
   renderZone('battle-cards', GS.me.battle);
   renderZone('opp-base-cards', GS.opp.battle);
@@ -452,7 +534,7 @@ function renderFullBoard() {
   _renderScoreTrack();
   // Hide base hint once units are placed
   const hint = document.getElementById('base-hint');
-  if (hint) hint.style.display = (GS.me.battle.length || GS.opp.battle.length) ? 'none' : '';
+  if (hint) hint.style.display = GS.me.battle.length || GS.opp.battle.length ? 'none' : '';
   // Legend/champion
   if (GS.me.legend) renderZone('my-legend-cards', [GS.me.legend]);
   if (GS.me.champion) renderZone('my-champion-cards', [GS.me.champion]);
@@ -467,7 +549,7 @@ function renderFullBoard() {
 // styles / localStorage from earlier builds that used resize/move grips, so
 // returning users don't see ghost sizes from the previous version.
 function _initResizableZones() {
-  ['bf-left', 'bf-right', 'runes-zone'].forEach(id => {
+  ['bf-left', 'bf-right', 'runes-zone'].forEach((id) => {
     try {
       localStorage.removeItem('rl_zone_size_' + id);
       localStorage.removeItem('rl_zone_offset_' + id);
@@ -479,7 +561,9 @@ function _initResizableZones() {
     el.style.width = '';
     el.style.height = '';
     el.style.transform = '';
-    el.querySelectorAll(':scope > .bf-resize-grip, :scope > .bf-move-grip').forEach(g => g.remove());
+    el.querySelectorAll(':scope > .bf-resize-grip, :scope > .bf-move-grip').forEach((g) =>
+      g.remove()
+    );
   });
 }
 
@@ -489,10 +573,11 @@ function _zoneResizeStart(e, el, id) {
   const rect = el.getBoundingClientRect();
   const startW = rect.width;
   const startH = rect.height;
-  const startX = e.clientX, startY = e.clientY;
+  const startX = e.clientX,
+    startY = e.clientY;
   function onMove(ev) {
     const w = Math.max(120, startW + (ev.clientX - startX));
-    const h = Math.max(80,  startH + (ev.clientY - startY));
+    const h = Math.max(80, startH + (ev.clientY - startY));
     el.style.flex = '0 0 ' + w + 'px';
     el.style.width = w + 'px';
     el.style.height = h + 'px';
@@ -501,10 +586,13 @@ function _zoneResizeStart(e, el, id) {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     try {
-      localStorage.setItem('rl_zone_size_' + id, JSON.stringify({
-        width:  parseFloat(el.style.width)  || 0,
-        height: parseFloat(el.style.height) || 0,
-      }));
+      localStorage.setItem(
+        'rl_zone_size_' + id,
+        JSON.stringify({
+          width: parseFloat(el.style.width) || 0,
+          height: parseFloat(el.style.height) || 0,
+        })
+      );
     } catch (e) {}
   }
   document.addEventListener('mousemove', onMove);
@@ -515,10 +603,13 @@ function _zoneMoveStart(e, el, id) {
   e.preventDefault();
   e.stopPropagation();
   // Parse the current translate offset from existing transform if any
-  const cur = (el.style.transform || '').match(/translate\(\s*(-?\d+(?:\.\d+)?)px\s*,\s*(-?\d+(?:\.\d+)?)px/);
+  const cur = (el.style.transform || '').match(
+    /translate\(\s*(-?\d+(?:\.\d+)?)px\s*,\s*(-?\d+(?:\.\d+)?)px/
+  );
   const startTX = cur ? parseFloat(cur[1]) : 0;
   const startTY = cur ? parseFloat(cur[2]) : 0;
-  const startX = e.clientX, startY = e.clientY;
+  const startX = e.clientX,
+    startY = e.clientY;
   function onMove(ev) {
     const tx = startTX + (ev.clientX - startX);
     const ty = startTY + (ev.clientY - startY);
@@ -527,12 +618,17 @@ function _zoneMoveStart(e, el, id) {
   function onUp() {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
-    const m = (el.style.transform || '').match(/translate\(\s*(-?\d+(?:\.\d+)?)px\s*,\s*(-?\d+(?:\.\d+)?)px/);
+    const m = (el.style.transform || '').match(
+      /translate\(\s*(-?\d+(?:\.\d+)?)px\s*,\s*(-?\d+(?:\.\d+)?)px/
+    );
     try {
-      localStorage.setItem('rl_zone_offset_' + id, JSON.stringify({
-        x: m ? parseFloat(m[1]) : 0,
-        y: m ? parseFloat(m[2]) : 0,
-      }));
+      localStorage.setItem(
+        'rl_zone_offset_' + id,
+        JSON.stringify({
+          x: m ? parseFloat(m[1]) : 0,
+          y: m ? parseFloat(m[2]) : 0,
+        })
+      );
     } catch (e) {}
   }
   document.addEventListener('mousemove', onMove);
@@ -575,21 +671,23 @@ function renderMyHand() {
   const n = GS.me.hand.length;
   const mx = _handCardMargin(n, _handFanWidth(), 118);
   el.style.setProperty('--hand-card-mx', mx + 'px');
-  el.innerHTML = GS.me.hand.map((c, i) => {
-    // Arch fan: middle cards sit highest, edges sweep down (parabolic arch)
-    const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0; // -1 .. 1
-    const maxSpread = Math.min(40, n * 5); // total degrees of fan
-    const rot = (maxSpread / 2) * t; // negative on left, positive on right
-    const peakLift = Math.min(48, n * 5); // px lift at center peak
-    const lift = -peakLift * (1 - t * t); // arch: 0 at edges, -peak at middle
-    const html = boardCardHTML(c, 'hand');
-    // Apply the margin inline as well as via the CSS variable so nothing in the
-    // cascade can leave a card at the default -28px when many cards are drawn.
-    return html.replace(
-      'class="board-card',
-      `style="transform:translateY(${lift}px) rotate(${rot}deg);margin:0 ${mx}px;" class="board-card`
-    );
-  }).join('');
+  el.innerHTML = GS.me.hand
+    .map((c, i) => {
+      // Arch fan: middle cards sit highest, edges sweep down (parabolic arch)
+      const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0; // -1 .. 1
+      const maxSpread = Math.min(40, n * 5); // total degrees of fan
+      const rot = (maxSpread / 2) * t; // negative on left, positive on right
+      const peakLift = Math.min(48, n * 5); // px lift at center peak
+      const lift = -peakLift * (1 - t * t); // arch: 0 at edges, -peak at middle
+      const html = boardCardHTML(c, 'hand');
+      // Apply the margin inline as well as via the CSS variable so nothing in the
+      // cascade can leave a card at the default -28px when many cards are drawn.
+      return html.replace(
+        'class="board-card',
+        `style="transform:translateY(${lift}px) rotate(${rot}deg);margin:0 ${mx}px;" class="board-card`
+      );
+    })
+    .join('');
 }
 
 function renderTrashTop() {
@@ -600,8 +698,8 @@ function renderTrashTop() {
     slot.classList.add('has-card');
     const img = top.image || top.img || '';
     slot.innerHTML = img
-      ? `<img src="${img}" alt="${top.name||''}">`
-      : `<div style="font-size:9px;color:rgba(255,255,255,0.6);text-align:center;padding:4px;">${top.name||'?'}</div>`;
+      ? `<img src="${img}" alt="${top.name || ''}">`
+      : `<div style="font-size:9px;color:rgba(255,255,255,0.6);text-align:center;padding:4px;">${top.name || '?'}</div>`;
     slot.setAttribute('data-img', img);
     slot.setAttribute('data-name', top.name || '');
   } else {
@@ -618,14 +716,17 @@ function renderOppHand() {
     const n = Math.min(GS.opp.handCount, 10);
     const mx = _handCardMargin(n, _handFanWidth(), 118);
     el.style.setProperty('--hand-card-mx', mx + 'px');
-    el.innerHTML = Array(n).fill(0).map((_, i) => {
-      const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0;
-      const maxSpread = Math.min(40, n * 5);
-      const rot = (maxSpread / 2) * t;
-      const peakLift = Math.min(48, n * 5);
-      const lift = -peakLift * (1 - t * t);
-      return `<div class="opp-card-back" style="transform:translateY(${lift}px) rotate(${rot}deg);margin:0 ${mx}px;"></div>`;
-    }).join('');
+    el.innerHTML = Array(n)
+      .fill(0)
+      .map((_, i) => {
+        const t = n > 1 ? (i / (n - 1)) * 2 - 1 : 0;
+        const maxSpread = Math.min(40, n * 5);
+        const rot = (maxSpread / 2) * t;
+        const peakLift = Math.min(48, n * 5);
+        const lift = -peakLift * (1 - t * t);
+        return `<div class="opp-card-back" style="transform:translateY(${lift}px) rotate(${rot}deg);margin:0 ${mx}px;"></div>`;
+      })
+      .join('');
   }
   const cnt = document.getElementById('opp-hand-count');
   if (cnt) cnt.textContent = GS.opp.handCount;
@@ -634,7 +735,7 @@ function renderOppHand() {
 function renderZone(rowId, cards) {
   const el = document.getElementById(rowId);
   if (!el) return;
-  el.innerHTML = cards.map(c => boardCardHTML(c, rowId)).join('');
+  el.innerHTML = cards.map((c) => boardCardHTML(c, rowId)).join('');
 }
 
 // Render cards into a freeform-positioned zone (BASE). Each card is placed
@@ -644,49 +745,54 @@ function renderZone(rowId, cards) {
 function _renderFreeformZone(rowId, cards) {
   const el = document.getElementById(rowId);
   if (!el) return;
-  el.innerHTML = cards.map((c, i) => {
-    const x = (typeof c._x === 'number') ? c._x : ((i % 10) * 92 + 8);
-    const y = (typeof c._y === 'number') ? c._y : (Math.floor(i / 10) * 130 + 8);
-    const html = boardCardHTML(c, rowId);
-    return html.replace(
-      'class="board-card',
-      `style="position:absolute;left:${x}px;top:${y}px;" class="board-card`
-    );
-  }).join('');
+  el.innerHTML = cards
+    .map((c, i) => {
+      const x = typeof c._x === 'number' ? c._x : (i % 10) * 92 + 8;
+      const y = typeof c._y === 'number' ? c._y : Math.floor(i / 10) * 130 + 8;
+      const html = boardCardHTML(c, rowId);
+      return html.replace(
+        'class="board-card',
+        `style="position:absolute;left:${x}px;top:${y}px;" class="board-card`
+      );
+    })
+    .join('');
 }
 
 function boardCardHTML(card, zone) {
   const img = card.image || card.img || '';
   const exhausted = card._exhausted ? ' exhausted' : '';
-  const bf = (card.type||'').toLowerCase().includes('battlefield');
+  const bf = (card.type || '').toLowerCase().includes('battlefield');
   const bfClass = bf ? ' bf-card' : '';
   const mine = _isMyCard(card);
-  const drag = mine ? `draggable="true" ondragstart="boardDragStart(event,'${card._uid}','${zone}')"` : '';
-  const cardJson = JSON.stringify(card).replace(/'/g,"\\'").replace(/"/g,'&quot;');
+  const drag = mine
+    ? `draggable="true" ondragstart="boardDragStart(event,'${card._uid}','${zone}')"`
+    : '';
+  const cardJson = JSON.stringify(card).replace(/'/g, "\\'").replace(/"/g, '&quot;');
   // Click on a card on the board taps it (90°). Hand cards open the action menu on click.
   // Right-click on rune-zone cards sends the rune to the bottom of the rune deck.
   // Right-click on all other in-play cards opens the action menu.
   const isHand = zone === 'hand';
   const isRuneZone = zone === 'support-cards' || zone === 'support';
   const click = mine
-    ? (isHand
-        ? `onclick="showBoardCardMenu(event,'${cardJson}','${zone}')"`
-        : isRuneZone
-          ? `onclick="event.stopPropagation();_toggleExhaustAny('${card._uid}')" oncontextmenu="event.preventDefault();event.stopPropagation();_runeBottomOfDeck('${card._uid}')"`
-          : `onclick="event.stopPropagation();_toggleExhaustAny('${card._uid}')" oncontextmenu="event.preventDefault();showBoardCardMenu(event,'${cardJson}','${zone}')"`)
+    ? isHand
+      ? `onclick="showBoardCardMenu(event,'${cardJson}','${zone}')"`
+      : isRuneZone
+        ? `onclick="event.stopPropagation();_toggleExhaustAny('${card._uid}')" oncontextmenu="event.preventDefault();event.stopPropagation();_runeBottomOfDeck('${card._uid}')"`
+        : `onclick="event.stopPropagation();_toggleExhaustAny('${card._uid}')" oncontextmenu="event.preventDefault();showBoardCardMenu(event,'${cardJson}','${zone}')"`
     : '';
-  const safeName = (card.name||'').replace(/"/g,'&quot;');
+  const safeName = (card.name || '').replace(/"/g, '&quot;');
   // ⤓ button removed — right-click now sends rune to bottom directly.
   const runeBtn = '';
-  return `<div class="board-card${exhausted}${bfClass}" ${drag} ${click} title="${safeName}" data-uid="${card._uid||''}" data-img="${img}" data-name="${safeName}">
-    ${img ? `<img src="${img}" alt="${safeName}">` : `<div style="padding:4px;font-size:9px;color:rgba(255,255,255,0.5);text-align:center;word-break:break-word;">${card.name||'?'}</div>`}
+  return `<div class="board-card${exhausted}${bfClass}" ${drag} ${click} title="${safeName}" data-uid="${card._uid || ''}" data-img="${img}" data-name="${safeName}">
+    ${img ? `<img src="${img}" alt="${safeName}">` : `<div style="padding:4px;font-size:9px;color:rgba(255,255,255,0.5);text-align:center;word-break:break-word;">${card.name || '?'}</div>`}
     ${runeBtn}
   </div>`;
 }
 
 /* ── Card hover preview ────────────────────────── */
 let _hoveredCard = null;
-const _HOVER_SEL = '.board-card, .trash-top.has-card, .pdo-card, .pdo-champion-zone.has-card, .pdo-portrait';
+const _HOVER_SEL =
+  '.board-card, .trash-top.has-card, .pdo-card, .pdo-champion-zone.has-card, .pdo-portrait';
 function _onBoardHover(e) {
   const card = e.target.closest(_HOVER_SEL);
   if (!card) return;
@@ -695,8 +801,14 @@ function _onBoardHover(e) {
   // a rune should not pop up the floating card preview.
   if (card.closest('#runes-zone, #opp-runes-zone, #rune-deck-zone, #opp-rune-deck-zone')) return;
   _hoveredCard = card;
-  const img = card.getAttribute('data-img') || (card.querySelector('img') && card.querySelector('img').src) || '';
-  const name = card.getAttribute('data-name') || (card.querySelector('img') && card.querySelector('img').alt) || '';
+  const img =
+    card.getAttribute('data-img') ||
+    (card.querySelector('img') && card.querySelector('img').src) ||
+    '';
+  const name =
+    card.getAttribute('data-name') ||
+    (card.querySelector('img') && card.querySelector('img').alt) ||
+    '';
   if (!img && !name) return;
   _showCardPreview(img, name, card);
 }
@@ -712,9 +824,10 @@ function _showCardPreview(img, name, sourceEl) {
   if (!p) return;
   p.innerHTML = img
     ? `<img src="${img}" alt="${name}" style="width:100%;height:100%;object-fit:cover;display:block;">`
-    : `<div class="nohover-name">${name||'?'}</div>`;
+    : `<div class="nohover-name">${name || '?'}</div>`;
   const rect = sourceEl.getBoundingClientRect();
-  const w = 280, h = 392;
+  const w = 280,
+    h = 392;
   let left = rect.right + 14;
   if (left + w > window.innerWidth - 8) left = rect.left - w - 14;
   if (left < 8) left = 8;
@@ -739,7 +852,7 @@ function _hideCardPreview() {
 if (typeof window !== 'undefined' && !window._cardHoverBound) {
   window._cardHoverBound = true;
   document.addEventListener('mouseover', _onBoardHover);
-  document.addEventListener('mouseout',  _onBoardHoverOut);
+  document.addEventListener('mouseout', _onBoardHoverOut);
 }
 
 // Recompute hand-fan overlap when the viewport width changes so cards keep fitting
@@ -761,12 +874,14 @@ function _isMyCard(card) {
   // bfArea is the legacy hidden battlefield-area zone — kept for backward
   // compatibility. The bf-left / bf-right zones have been removed.
   const bfA = GS.me.bfArea || [];
-  return GS.me.hand.some(c=>c._uid===card._uid) ||
-         GS.me.battle.some(c=>c._uid===card._uid) ||
-         GS.me.support.some(c=>c._uid===card._uid) ||
-         bfA.some(c=>c._uid===card._uid) ||
-         (GS.me.legend && GS.me.legend._uid===card._uid) ||
-         (GS.me.champion && GS.me.champion._uid===card._uid);
+  return (
+    GS.me.hand.some((c) => c._uid === card._uid) ||
+    GS.me.battle.some((c) => c._uid === card._uid) ||
+    GS.me.support.some((c) => c._uid === card._uid) ||
+    bfA.some((c) => c._uid === card._uid) ||
+    (GS.me.legend && GS.me.legend._uid === card._uid) ||
+    (GS.me.champion && GS.me.champion._uid === card._uid)
+  );
 }
 
 function _updateCounts() {
@@ -790,7 +905,7 @@ function boardDragStart(e, uid, zone) {
   _selectedDragSnapshot = null;
   if (_selectedUids.has(uid) && _selectedUids.size > 1) {
     _selectedDragSnapshot = {};
-    (GS.me.battle || []).forEach(c => {
+    (GS.me.battle || []).forEach((c) => {
       if (_selectedUids.has(c._uid)) {
         _selectedDragSnapshot[c._uid] = { x: c._x || 0, y: c._y || 0 };
       }
@@ -798,7 +913,9 @@ function boardDragStart(e, uid, zone) {
   }
   if (e.dataTransfer) {
     e.dataTransfer.effectAllowed = 'move';
-    try { e.dataTransfer.setData('text/plain', uid); } catch (_) {}
+    try {
+      e.dataTransfer.setData('text/plain', uid);
+    } catch (_) {}
   }
   e.stopPropagation();
 }
@@ -811,7 +928,8 @@ function dropToZone(e, toZone) {
   // whether this is a re-position within the same zone or a true cross-zone
   // move. The BASE zone renders into row ids 'play-base-cards' (visible
   // freeform) and 'battle-cards' (legacy hidden) — both count as "in base".
-  const fromBase = _dragZone === 'play-base-cards' || _dragZone === 'battle-cards' || _dragZone === 'battle';
+  const fromBase =
+    _dragZone === 'play-base-cards' || _dragZone === 'battle-cards' || _dragZone === 'battle';
   const card = _pluckMyCard(_dragUid, _dragZone);
   if (!card) return;
   // Card type check: only true Units (incl. Champions, which are type:'Unit'
@@ -838,11 +956,12 @@ function dropToZone(e, toZone) {
       try {
         const baseEl = document.getElementById('play-base-zone') || e.currentTarget;
         const rect = baseEl.getBoundingClientRect();
-        const cardW = 97, cardH = 134;
+        const cardW = 97,
+          cardH = 134;
         const maxX = Math.max(0, rect.width - cardW - 8);
         const maxY = Math.max(0, rect.height - cardH - 8);
-        card._x = Math.max(8, Math.min(maxX, e.clientX - rect.left - cardW/2));
-        card._y = Math.max(8, Math.min(maxY, e.clientY - rect.top - cardH/2));
+        card._x = Math.max(8, Math.min(maxX, e.clientX - rect.left - cardW / 2));
+        card._y = Math.max(8, Math.min(maxY, e.clientY - rect.top - cardH / 2));
       } catch (err) {}
       GS.me.battle.push(card);
       // Group drag: shift every other selected card by the same delta the
@@ -853,7 +972,7 @@ function dropToZone(e, toZone) {
         const dx = (card._x || 0) - orig.x;
         const dy = (card._y || 0) - orig.y;
         if (dx || dy) {
-          GS.me.battle.forEach(c => {
+          GS.me.battle.forEach((c) => {
             if (c._uid === card._uid) return;
             const o = _selectedDragSnapshot[c._uid];
             if (!o) return;
@@ -863,11 +982,11 @@ function dropToZone(e, toZone) {
         }
       }
       _selectedDragSnapshot = null;
-      _send({type:'play_card',zone:'battle',card});
+      _send({ type: 'play_card', zone: 'battle', card });
       break;
     case 'support':
       GS.me.support.push(card);
-      _send({type:'play_card',zone:'support',card});
+      _send({ type: 'play_card', zone: 'support', card });
       break;
     case 'battlefield-area':
       GS.me.bfArea = GS.me.bfArea || [];
@@ -914,9 +1033,21 @@ function dropToZone(e, toZone) {
   renderFullBoard();
   // Log the resulting movement. Re-positioning within BASE is noise, so skip it.
   const nm = card.name || 'a card';
-  const zoneLabels = {battle:'BASE',support:'runes',legend:'Legend',champion:'Champion',hand:'hand',deck:'deck',trash:'discard',discard:'discard','rune-deck':'rune deck'};
+  const zoneLabels = {
+    battle: 'BASE',
+    support: 'runes',
+    legend: 'Legend',
+    champion: 'Champion',
+    hand: 'hand',
+    deck: 'deck',
+    trash: 'discard',
+    discard: 'discard',
+    'rune-deck': 'rune deck',
+  };
   const zl = zoneLabels[toZone];
-  const isRepositionInBase = (toZone === 'battle' && (_dragZone === 'play-base-cards' || _dragZone === 'battle-cards' || _dragZone === 'battle'));
+  const isRepositionInBase =
+    toZone === 'battle' &&
+    (_dragZone === 'play-base-cards' || _dragZone === 'battle-cards' || _dragZone === 'battle');
   if (zl && !isRepositionInBase) logAction('You moved ' + nm + ' → ' + zl);
   _dragUid = null;
   _dragZone = null;
@@ -938,34 +1069,70 @@ function showBoardCardMenu(e, cardJson, zone) {
   const menu = document.createElement('div');
   menu.className = 'board-card-menu';
   menu.style.left = e.clientX + 'px';
-  menu.style.top  = Math.min(e.clientY, window.innerHeight - 200) + 'px';
+  menu.style.top = Math.min(e.clientY, window.innerHeight - 200) + 'px';
 
   const actions = [
-    ['Toggle Exhaust', () => { _toggleExhaust(card._uid, zone); }],
-    ['Move to Hand',   () => { _moveToHand(card._uid, zone); }],
-    ['Move to Battle', () => { _moveToZone(card._uid, zone, 'battle'); }],
-    ['Move to Support',() => { _moveToZone(card._uid, zone, 'support'); }],
-    ['Discard',        () => { _discardCard(card._uid, zone); }],
+    [
+      'Toggle Exhaust',
+      () => {
+        _toggleExhaust(card._uid, zone);
+      },
+    ],
+    [
+      'Move to Hand',
+      () => {
+        _moveToHand(card._uid, zone);
+      },
+    ],
+    [
+      'Move to Battle',
+      () => {
+        _moveToZone(card._uid, zone, 'battle');
+      },
+    ],
+    [
+      'Move to Support',
+      () => {
+        _moveToZone(card._uid, zone, 'support');
+      },
+    ],
+    [
+      'Discard',
+      () => {
+        _discardCard(card._uid, zone);
+      },
+    ],
   ];
   actions.forEach(([label, fn]) => {
     const btn = document.createElement('button');
     btn.textContent = label;
-    btn.onclick = () => { fn(); closeBoardCardMenu(); };
+    btn.onclick = () => {
+      fn();
+      closeBoardCardMenu();
+    };
     menu.appendChild(btn);
   });
 
   document.body.appendChild(menu);
-  _bcMenuClose = () => { if (menu.parentNode) menu.parentNode.removeChild(menu); };
-  setTimeout(() => document.addEventListener('click', _bcMenuClose, {once:true}), 0);
+  _bcMenuClose = () => {
+    if (menu.parentNode) menu.parentNode.removeChild(menu);
+  };
+  setTimeout(() => document.addEventListener('click', _bcMenuClose, { once: true }), 0);
 }
 
 function closeBoardCardMenu() {
-  if (_bcMenuClose) { _bcMenuClose(); _bcMenuClose = null; }
+  if (_bcMenuClose) {
+    _bcMenuClose();
+    _bcMenuClose = null;
+  }
 }
 
 function _toggleExhaust(uid, zone) {
   const card = _findMyCard(uid, zone);
-  if (card) { card._exhausted = !card._exhausted; renderFullBoard(); }
+  if (card) {
+    card._exhausted = !card._exhausted;
+    renderFullBoard();
+  }
 }
 
 // Toggle exhaust for any of my cards regardless of which zone it lives in.
@@ -976,43 +1143,54 @@ function _toggleExhaust(uid, zone) {
 function _toggleExhaustAny(uid) {
   // Batch-tap path: clicked card is in a multi-select
   if (_selectedUids.size > 1 && _selectedUids.has(uid)) {
-    const all = [GS.me.hand, GS.me.battle, GS.me.support, GS.me.bfArea]
-      .filter(Boolean).flat();
+    const all = [GS.me.hand, GS.me.battle, GS.me.support, GS.me.bfArea].filter(Boolean).flat();
     if (GS.me.legend) all.push(GS.me.legend);
     if (GS.me.champion) all.push(GS.me.champion);
-    const clicked = all.find(c => c && c._uid === uid);
+    const clicked = all.find((c) => c && c._uid === uid);
     if (clicked) {
       const newState = !clicked._exhausted;
-      all.forEach(c => { if (c && _selectedUids.has(c._uid)) c._exhausted = newState; });
+      all.forEach((c) => {
+        if (c && _selectedUids.has(c._uid)) c._exhausted = newState;
+      });
       renderFullBoard();
       return;
     }
   }
-  const arrays = [
-    GS.me.hand, GS.me.battle, GS.me.support, GS.me.bfArea
-  ];
+  const arrays = [GS.me.hand, GS.me.battle, GS.me.support, GS.me.bfArea];
   for (const arr of arrays) {
     if (!arr) continue;
-    const c = arr.find(x => x && x._uid === uid);
-    if (c) { c._exhausted = !c._exhausted; renderFullBoard(); return; }
+    const c = arr.find((x) => x && x._uid === uid);
+    if (c) {
+      c._exhausted = !c._exhausted;
+      renderFullBoard();
+      return;
+    }
   }
   if (GS.me.legend && GS.me.legend._uid === uid) {
     GS.me.legend._exhausted = !GS.me.legend._exhausted;
-    renderFullBoard(); return;
+    renderFullBoard();
+    return;
   }
   if (GS.me.champion && GS.me.champion._uid === uid) {
     GS.me.champion._exhausted = !GS.me.champion._exhausted;
-    renderFullBoard(); return;
+    renderFullBoard();
+    return;
   }
 }
 
 function _moveToHand(uid, zone) {
   const card = _pluckMyCard(uid, zone);
-  if (card) { card._exhausted = false; GS.me.hand.push(card); _sendHandCount(); renderFullBoard(); }
+  if (card) {
+    card._exhausted = false;
+    GS.me.hand.push(card);
+    _sendHandCount();
+    renderFullBoard();
+  }
 }
 
 function _moveToZone(uid, fromZone, toZone) {
-  const fromBase = fromZone === 'play-base-cards' || fromZone === 'battle-cards' || fromZone === 'battle';
+  const fromBase =
+    fromZone === 'play-base-cards' || fromZone === 'battle-cards' || fromZone === 'battle';
   const card = _pluckMyCard(uid, fromZone);
   if (!card) return;
   const isUnit = String(card.type || '').toLowerCase() === 'unit';
@@ -1020,12 +1198,13 @@ function _moveToZone(uid, fromZone, toZone) {
   // Default: untap on move. Then override for the BASE → BASE / non-BASE → BASE cases.
   card._exhausted = false;
   if (toZone === 'battle') {
-    if (fromBase) card._exhausted = wasExhausted;        // re-position keeps state
-    else if (isUnit) card._exhausted = true;             // unit entering BASE auto-taps
+    if (fromBase)
+      card._exhausted = wasExhausted; // re-position keeps state
+    else if (isUnit) card._exhausted = true; // unit entering BASE auto-taps
     GS.me.battle.push(card);
   }
   if (toZone === 'support') GS.me.support.push(card);
-  _send({type:'move_card', uid, from:fromZone, to:toZone});
+  _send({ type: 'move_card', uid, from: fromZone, to: toZone });
   renderFullBoard();
 }
 
@@ -1044,7 +1223,7 @@ function _discardCard(uid, zone) {
 // face-up rune in #runes-zone. Cards dragged to the deck zone go to the TOP
 // (via dropToZone's GS.me.deck.unshift) — this button is the "bottom" variant.
 function _runeBottomOfDeck(uid) {
-  const i = GS.me.support.findIndex(c => c && c._uid === uid);
+  const i = GS.me.support.findIndex((c) => c && c._uid === uid);
   if (i === -1) return;
   const c = GS.me.support.splice(i, 1)[0];
   c._exhausted = false;
@@ -1053,13 +1232,13 @@ function _runeBottomOfDeck(uid) {
   const targetDeck = Array.isArray(GS.me.runes) ? GS.me.runes : GS.me.deck;
   targetDeck.push(c); // bottom of the deck
   _setText('my-deck-count', GS.me.deck.length);
-  if (typeof _setText === 'function') _setText('my-rune-count', (GS.me.runes||[]).length);
+  if (typeof _setText === 'function') _setText('my-rune-count', (GS.me.runes || []).length);
   renderFullBoard();
 }
 
 function _findMyCard(uid, zone) {
-  const arr = zone==='hand'?GS.me.hand:zone==='battle'?GS.me.battle:GS.me.support;
-  return arr.find(c=>c._uid===uid);
+  const arr = zone === 'hand' ? GS.me.hand : zone === 'battle' ? GS.me.battle : GS.me.support;
+  return arr.find((c) => c._uid === uid);
 }
 
 function _pluckMyCard(uid, zone) {
@@ -1068,56 +1247,65 @@ function _pluckMyCard(uid, zone) {
   // for these slots, so a strict zone === 'legend' check would miss them and
   // the drag would silently fail.
   if (GS.me.legend && GS.me.legend._uid === uid) {
-    const c = GS.me.legend; GS.me.legend = null; return c;
+    const c = GS.me.legend;
+    GS.me.legend = null;
+    return c;
   }
   if (GS.me.champion && GS.me.champion._uid === uid) {
-    const c = GS.me.champion; GS.me.champion = null; return c;
+    const c = GS.me.champion;
+    GS.me.champion = null;
+    return c;
   }
   GS.me.bfArea = GS.me.bfArea || [];
   const zones = {
-    hand:GS.me.hand, battle:GS.me.battle, support:GS.me.support,
-    discard:GS.me.discard, trash:GS.me.discard,
-    'battlefield-area':GS.me.bfArea, 'my-battlefield-cards':GS.me.bfArea,
-    'battle-cards':GS.me.battle, 'support-cards':GS.me.support,
+    hand: GS.me.hand,
+    battle: GS.me.battle,
+    support: GS.me.support,
+    discard: GS.me.discard,
+    trash: GS.me.discard,
+    'battlefield-area': GS.me.bfArea,
+    'my-battlefield-cards': GS.me.bfArea,
+    'battle-cards': GS.me.battle,
+    'support-cards': GS.me.support,
   };
   const arr = zones[zone];
   if (!arr) {
     // Unknown zone — search every list as a fallback so drag still works
     for (const k of Object.keys(zones)) {
       const a = zones[k];
-      const i = a.findIndex(c=>c._uid===uid);
-      if (i !== -1) return a.splice(i,1)[0];
+      const i = a.findIndex((c) => c._uid === uid);
+      if (i !== -1) return a.splice(i, 1)[0];
     }
     return null;
   }
-  const idx = arr.findIndex(c=>c._uid===uid);
+  const idx = arr.findIndex((c) => c._uid === uid);
   if (idx === -1) return null;
   return arr.splice(idx, 1)[0];
 }
 
 /* ── OPP ZONE UPDATES ── */
 function _addToOppZone(zone, card) {
-  if (zone === 'battle')  GS.opp.battle.push(card);
+  if (zone === 'battle') GS.opp.battle.push(card);
   if (zone === 'support') GS.opp.support.push(card);
   renderFullBoard();
 }
 
 function _moveOppCard(uid, from, to) {
-  const zones = { battle:GS.opp.battle, support:GS.opp.support };
+  const zones = { battle: GS.opp.battle, support: GS.opp.support };
   const src = zones[from] || [];
-  const idx = src.findIndex(c=>c._uid===uid);
+  const idx = src.findIndex((c) => c._uid === uid);
   if (idx !== -1) {
-    const [card] = src.splice(idx,1);
+    const [card] = src.splice(idx, 1);
     if (zones[to]) zones[to].push(card);
   }
   renderFullBoard();
 }
 
 function _removeOppCard(uid, zone) {
-  const zones = { battle:GS.opp.battle, support:GS.opp.support };
+  const zones = { battle: GS.opp.battle, support: GS.opp.support };
   const arr = zones[zone] || [];
-  const idx = arr.findIndex(c=>c._uid===uid);
-  if (idx !== -1) arr.splice(idx,1);
+  const idx = arr.findIndex((c) => c._uid === uid);
+  if (idx !== -1) arr.splice(idx, 1);
   renderFullBoard();
 }
 
@@ -1126,17 +1314,22 @@ function adjustLife(side, delta) {
   if (side === 'me') {
     GS.me.life = Math.max(0, GS.me.life + delta);
     _setText('my-life', GS.me.life);
-    _send({ type:'life', value: GS.me.life });
-    logAction('Your life ' + (delta>0?'+':'') + delta + ' → ' + GS.me.life);
+    _send({ type: 'life', value: GS.me.life });
+    logAction('Your life ' + (delta > 0 ? '+' : '') + delta + ' → ' + GS.me.life);
   } else {
     GS.opp.life = Math.max(0, GS.opp.life + delta);
     _setText('opp-life', GS.opp.life);
-    logAction((GS.opp.name||'Opponent') + ' life ' + (delta>0?'+':'') + delta + ' → ' + GS.opp.life);
+    logAction(
+      (GS.opp.name || 'Opponent') + ' life ' + (delta > 0 ? '+' : '') + delta + ' → ' + GS.opp.life
+    );
   }
 }
 
 function drawCard() {
-  if (GS.me.deck.length === 0) { showToast && showToast('Deck empty!'); return; }
+  if (GS.me.deck.length === 0) {
+    showToast && showToast('Deck empty!');
+    return;
+  }
   GS.me.hand.push(GS.me.deck.shift());
   _sendHandCount && _sendHandCount();
   _setText('my-deck-count', GS.me.deck.length);
@@ -1146,7 +1339,10 @@ function drawCard() {
 }
 
 function playRune() {
-  if (!GS.me.runes || GS.me.runes.length === 0) { showToast && showToast('No runes left!'); return; }
+  if (!GS.me.runes || GS.me.runes.length === 0) {
+    showToast && showToast('No runes left!');
+    return;
+  }
   const rune = GS.me.runes.shift();
   rune._exhausted = true;
   GS.me.support = GS.me.support || [];
@@ -1170,21 +1366,26 @@ function viewDiscard() {
     <button onclick="document.getElementById('discard-overlay').classList.remove('open')" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">✕</button>
   </div>
   <div style="display:flex;flex-wrap:wrap;gap:8px;">
-    ${GS.me.discard.map(c => `<div class="board-card" title="${c.name||''}">${c.image?`<img src="${c.image}">`:`<div style="padding:4px;font-size:9px;">${c.name||''}</div>`}</div>`).join('')}
+    ${GS.me.discard.map((c) => `<div class="board-card" title="${c.name || ''}">${c.image ? `<img src="${c.image}">` : `<div style="padding:4px;font-size:9px;">${c.name || ''}</div>`}</div>`).join('')}
   </div>`;
   overlay.classList.add('open');
-  overlay.onclick = e => { if(e.target===overlay) overlay.classList.remove('open'); };
+  overlay.onclick = (e) => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  };
 }
 
 function endTurn() {
-  if (!GS.myTurn) { showToast("It's not your turn!"); return; }
-  GS.me.battle.forEach(c=>c._exhausted=false);
-  GS.me.support.forEach(c=>c._exhausted=false);
+  if (!GS.myTurn) {
+    showToast("It's not your turn!");
+    return;
+  }
+  GS.me.battle.forEach((c) => (c._exhausted = false));
+  GS.me.support.forEach((c) => (c._exhausted = false));
   if (GS.roomCode === 'SOLO') {
     logAction('New turn started');
   } else {
     GS.myTurn = false;
-    _send({ type:'end_turn' });
+    _send({ type: 'end_turn' });
     logAction('You ended your turn');
   }
   updateTurnBadge();
@@ -1194,14 +1395,20 @@ function endTurn() {
 function concede() {
   const label = GS.roomCode === 'SOLO' ? 'Exit practice session?' : 'Concede the game?';
   if (!confirm(label)) return;
-  if (GS.roomCode !== 'SOLO') _send({ type:'concede' });
+  if (GS.roomCode !== 'SOLO') _send({ type: 'concede' });
   logAction(GS.roomCode === 'SOLO' ? 'Practice ended' : 'You conceded the game');
   leaveBoard();
 }
 
 function leaveBoard() {
-  if (GS._conn) { GS._conn.close(); GS._conn = null; }
-  if (GS._peer) { GS._peer.destroy(); GS._peer = null; }
+  if (GS._conn) {
+    GS._conn.close();
+    GS._conn = null;
+  }
+  if (GS._peer) {
+    GS._peer.destroy();
+    GS._peer = null;
+  }
   document.getElementById('play-board').style.display = 'none';
   document.getElementById('play-lobby').style.display = '';
   document.getElementById('host-status').textContent = '';
@@ -1230,16 +1437,19 @@ function updateTurnBadge() {
 function togglePlayOptions(force) {
   const p = document.getElementById('play-options-panel');
   if (!p) return;
-  const open = (typeof force === 'boolean') ? force : !p.classList.contains('open');
+  const open = typeof force === 'boolean' ? force : !p.classList.contains('open');
   p.classList.toggle('open', open);
 }
 
 /* ── DRAG OVER HIGHLIGHT ── */
-document.addEventListener('dragover', e => {
+document.addEventListener('dragover', (e) => {
   const zone = e.target.closest('.zone');
-  if (zone) { e.preventDefault(); zone.classList.add('drag-over'); }
+  if (zone) {
+    e.preventDefault();
+    zone.classList.add('drag-over');
+  }
 });
-document.addEventListener('dragleave', e => {
+document.addEventListener('dragleave', (e) => {
   const zone = e.target.closest('.zone');
   if (zone && !zone.contains(e.relatedTarget)) zone.classList.remove('drag-over');
 });
@@ -1259,10 +1469,10 @@ function sendChat() {
   if (!text) return;
   input.value = '';
   appendChat(GS.me.name || 'Me', text);
-  _send({ type:'chat', text });
+  _send({ type: 'chat', text });
 }
 
-document.addEventListener('keydown', e => {
+document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && document.activeElement?.id === 'chat-input') sendChat();
 });
 
@@ -1274,10 +1484,8 @@ function appendChat(name, msg) {
   const isLog = name === 'System' || name === 'Log';
   div.className = 'chat-msg' + (isLog ? ' log-msg' : '');
   const t = new Date();
-  const ts = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0');
-  div.innerHTML = isLog
-    ? `<strong>${ts}</strong>${msg}`
-    : `<strong>${name}:</strong> ${msg}`;
+  const ts = String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
+  div.innerHTML = isLog ? `<strong>${ts}</strong>${msg}` : `<strong>${name}:</strong> ${msg}`;
   msgs.appendChild(div);
   msgs.scrollTop = msgs.scrollHeight;
 }
@@ -1296,7 +1504,7 @@ function clearGameLog() {
 
 /* ── HELPERS ── */
 function _sendHandCount() {
-  _send({ type:'hand_count', count: GS.me.hand.length });
+  _send({ type: 'hand_count', count: GS.me.hand.length });
 }
 
 function showToast(msg) {
@@ -1309,44 +1517,52 @@ function showToast(msg) {
 
 /* ── PRE-GAME DECK CUSTOMIZER ──────────────────── */
 function showDeckCustomizer(deckId, opts) {
-  const decks = (typeof myDecks !== 'undefined' && myDecks.length)
-    ? myDecks
-    : JSON.parse(localStorage.getItem('rl_decks') || '[]');
-  const deck = decks.find(d => String(d.id) === String(deckId));
-  if (!deck) { opts.onConfirm && opts.onConfirm(null); return; }
+  const decks =
+    typeof myDecks !== 'undefined' && myDecks.length
+      ? myDecks
+      : JSON.parse(localStorage.getItem('rl_decks') || '[]');
+  const deck = decks.find((d) => String(d.id) === String(deckId));
+  if (!deck) {
+    opts.onConfirm && opts.onConfirm(null);
+    return;
+  }
 
   // Working copies — entries with cnt counters; click swaps single copies
   // Legend is the player's portrait, never editable in the customizer — preserve it for confirm
   const allEntries = JSON.parse(JSON.stringify(deck.cards || []));
-  const legendEntries = allEntries.filter(e => e.t === 'Legend');
-  const main = allEntries.filter(e => e.t !== 'Legend');
+  const legendEntries = allEntries.filter((e) => e.t === 'Legend');
+  const main = allEntries.filter((e) => e.t !== 'Legend');
   const side = JSON.parse(JSON.stringify(deck.sideboard || []));
   // If the deck stored its champion in deck.champion (legacy), surface it as a deck entry
-  if (deck.champion && deck.champion.id && !main.find(e => e.id === deck.champion.id)) {
+  if (deck.champion && deck.champion.id && !main.find((e) => e.id === deck.champion.id)) {
     main.unshift({ id: deck.champion.id, n: deck.champion.n || '', t: 'Champion', cnt: 1 });
   }
   // Active champion slot — starts empty; user drags one in from the deck
   let activeChampion = null;
   // Battlefields: array of {id, n} (or null) — present in the deck file
-  const battlefields = (deck.battlefields || []).filter(Boolean).map(b => ({ ...b }));
+  const battlefields = (deck.battlefields || []).filter(Boolean).map((b) => ({ ...b }));
   let selectedBattlefieldId = battlefields.length ? battlefields[0].id : null;
-  const allCards = (typeof CARDS !== 'undefined' && CARDS.length) ? CARDS : (window._allCards || []);
-  const lookup = id => allCards.find(c => c.id === id);
+  const allCards = typeof CARDS !== 'undefined' && CARDS.length ? CARDS : window._allCards || [];
+  const lookup = (id) => allCards.find((c) => c.id === id);
 
   const overlay = document.getElementById('play-deck-overlay');
-  if (!overlay) { opts.onConfirm && opts.onConfirm(deck); return; }
+  if (!overlay) {
+    opts.onConfirm && opts.onConfirm(deck);
+    return;
+  }
 
   // Headers
   document.getElementById('pdo-me-name').textContent = opts.meName || 'You';
   document.getElementById('pdo-opp-name').textContent = opts.oppName || 'Opponent';
   // Set the legend art as the player portrait if found
-  const legendEntry = (deck.cards || []).find(c => c.t === 'Legend');
+  const legendEntry = (deck.cards || []).find((c) => c.t === 'Legend');
   const legendCard = legendEntry ? lookup(legendEntry.id) : null;
   const portraitEl = document.getElementById('pdo-me-portrait');
   if (portraitEl) {
-    portraitEl.innerHTML = (legendCard && legendCard.imageUrl)
-      ? `<img src="${legendCard.imageUrl}" alt="${legendCard.name||''}">`
-      : `<span style="font-size:36px;color:rgba(232,212,122,0.4);">★</span>`;
+    portraitEl.innerHTML =
+      legendCard && legendCard.imageUrl
+        ? `<img src="${legendCard.imageUrl}" alt="${legendCard.name || ''}">`
+        : `<span style="font-size:36px;color:rgba(232,212,122,0.4);">★</span>`;
   }
   const oppPortrait = document.getElementById('pdo-opp-portrait');
   if (oppPortrait) {
@@ -1363,19 +1579,18 @@ function showDeckCustomizer(deckId, opts) {
     const full = lookup(entry.id);
     const img = full && full.imageUrl ? full.imageUrl : '';
     const name = (full && full.name) || entry.n || entry.id;
-    const safeName = name.replace(/"/g,'&quot;');
-    const flag = entry.t === 'Legend' ? 'LEGEND'
-              : entry.t === 'Champion' ? 'CHAMPION'
-              : '';
+    const safeName = name.replace(/"/g, '&quot;');
+    const flag = entry.t === 'Legend' ? 'LEGEND' : entry.t === 'Champion' ? 'CHAMPION' : '';
     // Expand cnt into individual cards laid out side-by-side
     const cnt = Math.max(1, entry.cnt || 1);
     const isChampion = entry.t === 'Champion';
-    const drag = (target === 'main' && isChampion)
-      ? `draggable="true" ondragstart="_pdoChampionDragStart(event,'${entry.id}')"`
-      : '';
+    const drag =
+      target === 'main' && isChampion
+        ? `draggable="true" ondragstart="_pdoChampionDragStart(event,'${entry.id}')"`
+        : '';
     let html = '';
     for (let i = 0; i < cnt; i++) {
-      html += `<div class="pdo-card${isChampion?' is-champion':''}" data-img="${img}" data-name="${safeName}" onclick="_pdoClick('${entry.id}','${target}')" ${drag}>
+      html += `<div class="pdo-card${isChampion ? ' is-champion' : ''}" data-img="${img}" data-name="${safeName}" onclick="_pdoClick('${entry.id}','${target}')" ${drag}>
         ${img ? `<img src="${img}" alt="${safeName}">` : `<div class="pdo-card-no-img">${name}</div>`}
         ${flag ? `<span class="pdo-card-flag">${flag}</span>` : ''}
       </div>`;
@@ -1386,10 +1601,12 @@ function showDeckCustomizer(deckId, opts) {
   // Sort: Legend → Champion → cost ascending → name
   function _sortEntries(arr) {
     return arr.slice().sort((a, b) => {
-      const order = (e) => e.t === 'Legend' ? 0 : e.t === 'Champion' ? 1 : 2;
-      const oa = order(a), ob = order(b);
+      const order = (e) => (e.t === 'Legend' ? 0 : e.t === 'Champion' ? 1 : 2);
+      const oa = order(a),
+        ob = order(b);
       if (oa !== ob) return oa - ob;
-      const fa = lookup(a.id), fb = lookup(b.id);
+      const fa = lookup(a.id),
+        fb = lookup(b.id);
       const ca = fa && fa.cost != null ? fa.cost : 99;
       const cb = fb && fb.cost != null ? fb.cost : 99;
       if (ca !== cb) return ca - cb;
@@ -1405,7 +1622,7 @@ function showDeckCustomizer(deckId, opts) {
     if (activeChampion) {
       const full = lookup(activeChampion.id);
       const img = (full && full.imageUrl) || '';
-      const name = ((full && full.name) || activeChampion.n || '').replace(/"/g,'&quot;');
+      const name = ((full && full.name) || activeChampion.n || '').replace(/"/g, '&quot;');
       slot.classList.add('has-card');
       slot.setAttribute('draggable', 'true');
       slot.setAttribute('data-img', img);
@@ -1432,10 +1649,13 @@ function showDeckCustomizer(deckId, opts) {
 
   // Make deck and sideboard grids accept the champion when dragged off the slot
   function _bindDropTargets() {
-    ['pdo-deck-grid','pdo-side-grid'].forEach((id) => {
+    ['pdo-deck-grid', 'pdo-side-grid'].forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
-      el.ondragover = (e) => { e.preventDefault(); el.classList.add('drag-over'); };
+      el.ondragover = (e) => {
+        e.preventDefault();
+        el.classList.add('drag-over');
+      };
       el.ondragleave = () => el.classList.remove('drag-over');
       el.ondrop = (e) => {
         e.preventDefault();
@@ -1443,7 +1663,7 @@ function showDeckCustomizer(deckId, opts) {
         const source = e.dataTransfer ? e.dataTransfer.getData('application/x-pdo-source') : '';
         if (source !== 'champion' || !activeChampion) return;
         const targetArr = id === 'pdo-side-grid' ? side : main;
-        const existing = targetArr.find(en => en.id === activeChampion.id);
+        const existing = targetArr.find((en) => en.id === activeChampion.id);
         if (existing) existing.cnt = (existing.cnt || 0) + 1;
         else targetArr.push({ ...activeChampion, cnt: 1 });
         activeChampion = null;
@@ -1459,56 +1679,63 @@ function showDeckCustomizer(deckId, opts) {
       grid.innerHTML = `<div class="pdo-empty">No battlefields in this deck.</div>`;
       return;
     }
-    grid.innerHTML = battlefields.map(b => {
-      const full = lookup(b.id);
-      const img = (full && full.imageUrl) || '';
-      const name = ((full && full.name) || b.n || '').replace(/"/g,'&quot;');
-      const sel = b.id === selectedBattlefieldId ? ' bf-selected' : '';
-      return `<div class="pdo-card${sel}" data-img="${img}" data-name="${name}" onclick="_pdoPickBattlefield('${b.id}')">
+    grid.innerHTML = battlefields
+      .map((b) => {
+        const full = lookup(b.id);
+        const img = (full && full.imageUrl) || '';
+        const name = ((full && full.name) || b.n || '').replace(/"/g, '&quot;');
+        const sel = b.id === selectedBattlefieldId ? ' bf-selected' : '';
+        return `<div class="pdo-card${sel}" data-img="${img}" data-name="${name}" onclick="_pdoPickBattlefield('${b.id}')">
         ${img ? `<img src="${img}" alt="${name}">` : `<div class="pdo-card-no-img">${name}</div>`}
         <span class="pdo-card-flag">BATTLEFIELD</span>
       </div>`;
-    }).join('');
+      })
+      .join('');
   }
 
   // Tab switching: 'side' / 'bf' / 'rune'
   let activeBottomTab = 'side';
-  window._pdoSetBottomTab = function(tab) {
+  window._pdoSetBottomTab = function (tab) {
     activeBottomTab = tab;
-    document.querySelectorAll('.pdo-bt-tab').forEach(b => {
+    document.querySelectorAll('.pdo-bt-tab').forEach((b) => {
       b.classList.toggle('on', b.getAttribute('data-tab') === tab);
     });
     const sideGrid = document.getElementById('pdo-side-grid');
-    const bfGrid   = document.getElementById('pdo-bf-grid');
+    const bfGrid = document.getElementById('pdo-bf-grid');
     const runeGrid = document.getElementById('pdo-rune-grid');
     if (sideGrid) sideGrid.style.display = tab === 'side' ? '' : 'none';
-    if (bfGrid)   bfGrid.style.display   = tab === 'bf'   ? '' : 'none';
+    if (bfGrid) bfGrid.style.display = tab === 'bf' ? '' : 'none';
     if (runeGrid) runeGrid.style.display = tab === 'rune' ? '' : 'none';
   };
 
   function _renderRuneGrid() {
     const grid = document.getElementById('pdo-rune-grid');
     if (!grid) return;
-    const runes = (deck.runes || []);
-    if (!runes.length) { grid.innerHTML = `<div class="pdo-empty">No runes in this deck.</div>`; return; }
-    grid.innerHTML = runes.map(e => {
-      const full = lookup(e.id);
-      const img = (full && full.imageUrl) || '';
-      const name = ((full && full.name) || e.n || '').replace(/"/g,'&quot;');
-      const cnt = e.cnt || 1;
-      let html = '';
-      for (let i = 0; i < cnt; i++) {
-        html += `<div class="pdo-card" data-img="${img}" data-name="${name}">
+    const runes = deck.runes || [];
+    if (!runes.length) {
+      grid.innerHTML = `<div class="pdo-empty">No runes in this deck.</div>`;
+      return;
+    }
+    grid.innerHTML = runes
+      .map((e) => {
+        const full = lookup(e.id);
+        const img = (full && full.imageUrl) || '';
+        const name = ((full && full.name) || e.n || '').replace(/"/g, '&quot;');
+        const cnt = e.cnt || 1;
+        let html = '';
+        for (let i = 0; i < cnt; i++) {
+          html += `<div class="pdo-card" data-img="${img}" data-name="${name}">
           ${img ? `<img src="${img}" alt="${name}">` : `<div class="pdo-card-no-img">${name}</div>`}
           <span class="pdo-card-flag">RUNE</span>
         </div>`;
-      }
-      return html;
-    }).join('');
+        }
+        return html;
+      })
+      .join('');
   }
 
-  window._pdoPickBattlefield = function(id) {
-    selectedBattlefieldId = (selectedBattlefieldId === id) ? null : id;
+  window._pdoPickBattlefield = function (id) {
+    selectedBattlefieldId = selectedBattlefieldId === id ? null : id;
     _renderBattlefieldGrid();
   };
 
@@ -1516,35 +1743,40 @@ function showDeckCustomizer(deckId, opts) {
     const deckGrid = document.getElementById('pdo-deck-grid');
     const sideGrid = document.getElementById('pdo-side-grid');
     deckGrid.innerHTML = main.length
-      ? _sortEntries(main).map(e => _renderEntry(e, 'main')).join('')
+      ? _sortEntries(main)
+          .map((e) => _renderEntry(e, 'main'))
+          .join('')
       : `<div class="pdo-empty">Empty deck</div>`;
     sideGrid.innerHTML = side.length
-      ? _sortEntries(side).map(e => _renderEntry(e, 'side')).join('')
+      ? _sortEntries(side)
+          .map((e) => _renderEntry(e, 'side'))
+          .join('')
       : `<div class="pdo-empty">No sideboard cards. Click any deck card above to send a copy here.</div>`;
     _renderBattlefieldGrid();
     _renderRuneGrid();
-    const total = main.reduce((a,e)=>a+(e.cnt||1),0) + (activeChampion ? (activeChampion.cnt || 1) : 0);
-    const sideTotal = side.reduce((a,e)=>a+(e.cnt||1),0);
-    const runeTotal = (deck.runes||[]).reduce((a,e)=>a+(e.cnt||1),0);
+    const total =
+      main.reduce((a, e) => a + (e.cnt || 1), 0) + (activeChampion ? activeChampion.cnt || 1 : 0);
+    const sideTotal = side.reduce((a, e) => a + (e.cnt || 1), 0);
+    const runeTotal = (deck.runes || []).reduce((a, e) => a + (e.cnt || 1), 0);
     const deckCount = document.getElementById('pdo-deck-count');
     const sideCount = document.getElementById('pdo-side-count');
-    const bfCount   = document.getElementById('pdo-bf-count');
+    const bfCount = document.getElementById('pdo-bf-count');
     const runeCount = document.getElementById('pdo-rune-count');
     if (deckCount) deckCount.textContent = `${total} / 40`;
     if (sideCount) sideCount.textContent = String(sideTotal);
-    if (bfCount)   bfCount.textContent   = String(battlefields.length);
+    if (bfCount) bfCount.textContent = String(battlefields.length);
     if (runeCount) runeCount.textContent = String(runeTotal);
     _renderChampionSlot();
   }
 
   // Expose click handler on window so inline onclick can reach it
-  window._pdoClick = function(cardId, source) {
+  window._pdoClick = function (cardId, source) {
     const fromArr = source === 'main' ? main : side;
-    const toArr   = source === 'main' ? side : main;
-    const fIdx = fromArr.findIndex(e => e.id === cardId);
+    const toArr = source === 'main' ? side : main;
+    const fIdx = fromArr.findIndex((e) => e.id === cardId);
     if (fIdx === -1) return;
     fromArr[fIdx].cnt = Math.max(0, (fromArr[fIdx].cnt || 1) - 1);
-    const tIdx = toArr.findIndex(e => e.id === cardId);
+    const tIdx = toArr.findIndex((e) => e.id === cardId);
     if (tIdx >= 0) toArr[tIdx].cnt = (toArr[tIdx].cnt || 0) + 1;
     else toArr.push({ ...fromArr[fIdx], cnt: 1 });
     if (fromArr[fIdx].cnt === 0) fromArr.splice(fIdx, 1);
@@ -1552,19 +1784,19 @@ function showDeckCustomizer(deckId, opts) {
   };
 
   // Drag a champion card from the deck onto the champion slot
-  window._pdoChampionDragStart = function(e, cardId) {
+  window._pdoChampionDragStart = function (e, cardId) {
     if (e.dataTransfer) {
       e.dataTransfer.setData('text/plain', cardId);
       e.dataTransfer.effectAllowed = 'move';
     }
   };
-  window._pdoDropChampion = function(e) {
+  window._pdoDropChampion = function (e) {
     e.preventDefault();
     const slot = document.getElementById('pdo-champion-slot');
     if (slot) slot.classList.remove('drag-over');
     const cardId = e.dataTransfer ? e.dataTransfer.getData('text/plain') : null;
     if (!cardId) return;
-    const idx = main.findIndex(en => en.id === cardId && en.t === 'Champion');
+    const idx = main.findIndex((en) => en.id === cardId && en.t === 'Champion');
     if (idx === -1) return;
     // Remove one copy from deck
     main[idx].cnt = Math.max(0, (main[idx].cnt || 1) - 1);
@@ -1572,7 +1804,7 @@ function showDeckCustomizer(deckId, opts) {
     if (main[idx].cnt === 0) main.splice(idx, 1);
     // If a champion was already set, send it back to the deck (one copy)
     if (activeChampion) {
-      const back = main.findIndex(en => en.id === activeChampion.id);
+      const back = main.findIndex((en) => en.id === activeChampion.id);
       if (back >= 0) main[back].cnt = (main[back].cnt || 0) + 1;
       else main.push({ ...activeChampion, cnt: 1 });
     }
@@ -1581,7 +1813,7 @@ function showDeckCustomizer(deckId, opts) {
   };
 
   // Card-size sliders — controls the auto-fill min size on each grid
-  window._pdoSetSize = function(which, val) {
+  window._pdoSetSize = function (which, val) {
     const px = parseInt(val, 10) || 90;
     const id = which === 'side' ? 'pdo-side-grid' : 'pdo-deck-grid';
     const el = document.getElementById(id);
@@ -1591,14 +1823,23 @@ function showDeckCustomizer(deckId, opts) {
   document.getElementById('pdo-confirm').onclick = () => {
     overlay.classList.remove('open');
     // Re-attach legend + active champion so the loader still finds them
-    const champArr = activeChampion ? [{ id: activeChampion.id, n: activeChampion.n || '', t: 'Champion', cnt: activeChampion.cnt || 1 }] : [];
+    const champArr = activeChampion
+      ? [
+          {
+            id: activeChampion.id,
+            n: activeChampion.n || '',
+            t: 'Champion',
+            cnt: activeChampion.cnt || 1,
+          },
+        ]
+      : [];
     // Only the player-picked battlefield is loaded into the game
-    const chosenBattlefield = battlefields.find(b => b.id === selectedBattlefieldId) || null;
+    const chosenBattlefield = battlefields.find((b) => b.id === selectedBattlefieldId) || null;
     const merged = {
       ...deck,
       cards: [...legendEntries, ...champArr, ...main],
       sideboard: side,
-      battlefields: chosenBattlefield ? [chosenBattlefield] : []
+      battlefields: chosenBattlefield ? [chosenBattlefield] : [],
     };
     opts.onConfirm && opts.onConfirm(merged);
   };
@@ -1616,7 +1857,7 @@ function showDeckCustomizer(deckId, opts) {
 function _initBfDragResize() {
   const stage = document.getElementById('bf-stage');
   if (!stage) return;
-  document.querySelectorAll('.bf-large').forEach(el => {
+  document.querySelectorAll('.bf-large').forEach((el) => {
     if (el._bfDragInit) return;
     el._bfDragInit = true;
 
@@ -1631,22 +1872,22 @@ function _initBfDragResize() {
       el.style.width = saved.width + 'px';
       el.style.height = saved.height + 'px';
     } else {
-      el.style.left = (rect.left - stageRect.left) + 'px';
-      el.style.top = (rect.top - stageRect.top) + 'px';
+      el.style.left = rect.left - stageRect.left + 'px';
+      el.style.top = rect.top - stageRect.top + 'px';
       el.style.width = rect.width + 'px';
       el.style.height = rect.height + 'px';
     }
 
     // Add 4 corner resize handles
-    ['nw','ne','sw','se'].forEach(dir => {
+    ['nw', 'ne', 'sw', 'se'].forEach((dir) => {
       const h = document.createElement('div');
       h.className = 'bf-resize-handle bf-resize-' + dir;
       el.appendChild(h);
-      h.addEventListener('mousedown', e => _bfStartResize(e, el, dir));
+      h.addEventListener('mousedown', (e) => _bfStartResize(e, el, dir));
     });
 
     // Drag the body
-    el.addEventListener('mousedown', e => {
+    el.addEventListener('mousedown', (e) => {
       // Skip drag if the user clicked a corner handle, a card, or the + button
       if (e.target.closest('.bf-resize-handle, .board-card, .bf-add-btn, button')) return;
       _bfStartDrag(e, el);
@@ -1658,12 +1899,13 @@ function _initBfDragResize() {
 
 function _bfStartDrag(e, el) {
   const stage = el.parentElement;
-  const startX = e.clientX, startY = e.clientY;
+  const startX = e.clientX,
+    startY = e.clientY;
   const startLeft = parseFloat(el.style.left) || 0;
-  const startTop  = parseFloat(el.style.top)  || 0;
+  const startTop = parseFloat(el.style.top) || 0;
   function onMove(ev) {
-    el.style.left = (startLeft + ev.clientX - startX) + 'px';
-    el.style.top  = (startTop  + ev.clientY - startY) + 'px';
+    el.style.left = startLeft + ev.clientX - startX + 'px';
+    el.style.top = startTop + ev.clientY - startY + 'px';
   }
   function onUp() {
     document.removeEventListener('mousemove', onMove);
@@ -1678,25 +1920,26 @@ function _bfStartDrag(e, el) {
 function _bfStartResize(e, el, dir) {
   e.stopPropagation();
   e.preventDefault();
-  const startX = e.clientX, startY = e.clientY;
+  const startX = e.clientX,
+    startY = e.clientY;
   const startLeft = parseFloat(el.style.left) || 0;
-  const startTop  = parseFloat(el.style.top)  || 0;
-  const startW    = parseFloat(el.style.width)  || el.offsetWidth;
-  const startH    = parseFloat(el.style.height) || el.offsetHeight;
+  const startTop = parseFloat(el.style.top) || 0;
+  const startW = parseFloat(el.style.width) || el.offsetWidth;
+  const startH = parseFloat(el.style.height) || el.offsetHeight;
   function onMove(ev) {
     const dx = ev.clientX - startX;
     const dy = ev.clientY - startY;
-    if (dir.includes('e')) el.style.width  = Math.max(60, startW + dx) + 'px';
+    if (dir.includes('e')) el.style.width = Math.max(60, startW + dx) + 'px';
     if (dir.includes('s')) el.style.height = Math.max(60, startH + dy) + 'px';
     if (dir.includes('w')) {
       const w = Math.max(60, startW - dx);
       el.style.width = w + 'px';
-      el.style.left  = (startLeft + (startW - w)) + 'px';
+      el.style.left = startLeft + (startW - w) + 'px';
     }
     if (dir.includes('n')) {
       const h = Math.max(60, startH - dy);
       el.style.height = h + 'px';
-      el.style.top    = (startTop + (startH - h)) + 'px';
+      el.style.top = startTop + (startH - h) + 'px';
     }
   }
   function onUp() {
@@ -1710,17 +1953,27 @@ function _bfStartResize(e, el, dir) {
 
 function _bfSavePos(el) {
   try {
-    localStorage.setItem('rl_bf_pos_' + el.id, JSON.stringify({
-      left:   parseFloat(el.style.left)   || 0,
-      top:    parseFloat(el.style.top)    || 0,
-      width:  parseFloat(el.style.width)  || 0,
-      height: parseFloat(el.style.height) || 0
-    }));
-  } catch(e) {}
+    localStorage.setItem(
+      'rl_bf_pos_' + el.id,
+      JSON.stringify({
+        left: parseFloat(el.style.left) || 0,
+        top: parseFloat(el.style.top) || 0,
+        width: parseFloat(el.style.width) || 0,
+        height: parseFloat(el.style.height) || 0,
+      })
+    );
+  } catch (e) {}
 }
 
 /* ── Resizable zones (Base / Runes / Legend / Champion) ───────── */
-const _RESIZABLE_IDS = ['play-base-zone','runes-zone','my-legend-zone','my-champion-zone','opp-legend-zone','opp-champion-zone'];
+const _RESIZABLE_IDS = [
+  'play-base-zone',
+  'runes-zone',
+  'my-legend-zone',
+  'my-champion-zone',
+  'opp-legend-zone',
+  'opp-champion-zone',
+];
 function _initZoneResize() {
   _RESIZABLE_IDS.forEach(_makeZoneResizable);
 }
@@ -1732,42 +1985,47 @@ function _makeZoneResizable(id) {
   try {
     const saved = JSON.parse(localStorage.getItem('rl_size_' + id) || 'null');
     if (saved) {
-      if (saved.width)  el.style.width  = saved.width  + 'px';
+      if (saved.width) el.style.width = saved.width + 'px';
       if (saved.height) el.style.height = saved.height + 'px';
       // Hint to flex/grid that this should respect inline sizing
       el.style.flex = '0 0 auto';
     }
-  } catch(e) {}
+  } catch (e) {}
   if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
   // Add a corner grip
   const grip = document.createElement('div');
   grip.className = 'zone-resize-grip';
   grip.title = 'Drag to resize';
   el.appendChild(grip);
-  grip.addEventListener('mousedown', e => _zoneStartResize(e, el, id));
+  grip.addEventListener('mousedown', (e) => _zoneStartResize(e, el, id));
 }
 function _zoneStartResize(e, el, id) {
   e.preventDefault();
   e.stopPropagation();
   const rect = el.getBoundingClientRect();
-  const startX = e.clientX, startY = e.clientY;
-  const startW = rect.width, startH = rect.height;
+  const startX = e.clientX,
+    startY = e.clientY;
+  const startW = rect.width,
+    startH = rect.height;
   el.style.flex = '0 0 auto';
   function onMove(ev) {
     const w = Math.max(60, startW + (ev.clientX - startX));
     const h = Math.max(60, startH + (ev.clientY - startY));
-    el.style.width  = w + 'px';
+    el.style.width = w + 'px';
     el.style.height = h + 'px';
   }
   function onUp() {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     try {
-      localStorage.setItem('rl_size_' + id, JSON.stringify({
-        width:  parseFloat(el.style.width),
-        height: parseFloat(el.style.height)
-      }));
-    } catch(e) {}
+      localStorage.setItem(
+        'rl_size_' + id,
+        JSON.stringify({
+          width: parseFloat(el.style.width),
+          height: parseFloat(el.style.height),
+        })
+      );
+    } catch (e) {}
   }
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
@@ -1783,7 +2041,12 @@ function _zoneStartResize(e, el, id) {
 function _startMarquee(e, container) {
   if (e.button !== 0) return;
   // Don't start on cards / interactive widgets — let their own handlers run.
-  if (e.target.closest('.board-card, button, input, .bf-resize-grip, .bf-move-grip, .rune-deck-btn, .bz-deck-stack, .trash-top')) return;
+  if (
+    e.target.closest(
+      '.board-card, button, input, .bf-resize-grip, .bf-move-grip, .rune-deck-btn, .bz-deck-stack, .trash-top'
+    )
+  )
+    return;
   // Always clear previous selection on a fresh marquee start
   _clearSelection();
   _marqueeContainer = container;
@@ -1801,10 +2064,10 @@ function _updateMarquee(e) {
   const y1 = Math.min(_marqueeStart.y, e.clientY);
   const x2 = Math.max(_marqueeStart.x, e.clientX);
   const y2 = Math.max(_marqueeStart.y, e.clientY);
-  _marqueeEl.style.left   = x1 + 'px';
-  _marqueeEl.style.top    = y1 + 'px';
-  _marqueeEl.style.width  = (x2 - x1) + 'px';
-  _marqueeEl.style.height = (y2 - y1) + 'px';
+  _marqueeEl.style.left = x1 + 'px';
+  _marqueeEl.style.top = y1 + 'px';
+  _marqueeEl.style.width = x2 - x1 + 'px';
+  _marqueeEl.style.height = y2 - y1 + 'px';
 }
 function _endMarquee() {
   document.removeEventListener('mousemove', _updateMarquee);
@@ -1814,9 +2077,14 @@ function _endMarquee() {
   // click on empty space just clears the selection.
   const dragged = mr.width > 3 || mr.height > 3;
   if (dragged && _marqueeContainer) {
-    _marqueeContainer.querySelectorAll('.board-card').forEach(el => {
+    _marqueeContainer.querySelectorAll('.board-card').forEach((el) => {
       const r = el.getBoundingClientRect();
-      const intersects = !(r.right < mr.left || r.left > mr.right || r.bottom < mr.top || r.top > mr.bottom);
+      const intersects = !(
+        r.right < mr.left ||
+        r.left > mr.right ||
+        r.bottom < mr.top ||
+        r.top > mr.bottom
+      );
       if (intersects) {
         const uid = el.getAttribute('data-uid');
         if (uid) {
@@ -1834,21 +2102,21 @@ function _endMarquee() {
 function _clearSelection() {
   if (_selectedUids.size === 0) return;
   _selectedUids.clear();
-  document.querySelectorAll('.board-card.selected').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('.board-card.selected').forEach((c) => c.classList.remove('selected'));
 }
 function _applySelectedClasses() {
   // Re-apply the .selected class after every renderFullBoard so the visual
   // highlight survives card shuffles / state updates.
-  document.querySelectorAll('.board-card[data-uid]').forEach(el => {
+  document.querySelectorAll('.board-card[data-uid]').forEach((el) => {
     el.classList.toggle('selected', _selectedUids.has(el.getAttribute('data-uid')));
   });
 }
 function _initMarqueeZones() {
-  ['play-base-zone', 'runes-zone'].forEach(id => {
+  ['play-base-zone', 'runes-zone'].forEach((id) => {
     const el = document.getElementById(id);
     if (!el || el._marqueeInit) return;
     el._marqueeInit = true;
-    el.addEventListener('mousedown', e => _startMarquee(e, el));
+    el.addEventListener('mousedown', (e) => _startMarquee(e, el));
   });
 }
 
@@ -1860,16 +2128,23 @@ function _shuffleArr(arr) {
   }
 }
 function shuffleDeck() {
-  if (!GS.me.deck || GS.me.deck.length < 2) { if (typeof showToast === 'function') showToast('Nothing to shuffle'); return; }
+  if (!GS.me.deck || GS.me.deck.length < 2) {
+    if (typeof showToast === 'function') showToast('Nothing to shuffle');
+    return;
+  }
   _shuffleArr(GS.me.deck);
   if (typeof showToast === 'function') showToast('Deck shuffled (' + GS.me.deck.length + ' cards)');
   logAction('You shuffled your deck (' + GS.me.deck.length + ' cards)');
   renderFullBoard();
 }
 function shuffleRuneDeck() {
-  if (!GS.me.runes || GS.me.runes.length < 2) { if (typeof showToast === 'function') showToast('Nothing to shuffle'); return; }
+  if (!GS.me.runes || GS.me.runes.length < 2) {
+    if (typeof showToast === 'function') showToast('Nothing to shuffle');
+    return;
+  }
   _shuffleArr(GS.me.runes);
-  if (typeof showToast === 'function') showToast('Rune deck shuffled (' + GS.me.runes.length + ' cards)');
+  if (typeof showToast === 'function')
+    showToast('Rune deck shuffled (' + GS.me.runes.length + ' cards)');
   logAction('You shuffled your rune deck (' + GS.me.runes.length + ' cards)');
   renderFullBoard();
 }

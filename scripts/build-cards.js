@@ -43,14 +43,18 @@ async function fetchAllRiftcodex() {
   if (pages > 1) {
     const urls = [];
     for (let p = 2; p <= pages; p++) {
-      urls.push(`https://api.riftcodex.com/cards?size=${RIFTCODEX_PAGE_SIZE}&page=${p}&sort=collector_number`);
+      urls.push(
+        `https://api.riftcodex.com/cards?size=${RIFTCODEX_PAGE_SIZE}&page=${p}&sort=collector_number`
+      );
     }
-    const responses = await Promise.all(urls.map(u =>
-      fetch(u).then(r => {
-        if (!r.ok) throw new Error(`Riftcodex ${u}: HTTP ${r.status}`);
-        return r.json();
-      })
-    ));
+    const responses = await Promise.all(
+      urls.map((u) =>
+        fetch(u).then((r) => {
+          if (!r.ok) throw new Error(`Riftcodex ${u}: HTTP ${r.status}`);
+          return r.json();
+        })
+      )
+    );
     for (const r of responses) items.push(...(r.items || []));
   }
   return items;
@@ -73,15 +77,18 @@ function mapCard(c) {
   const med = c.media || {};
   const set = c.set || {};
   const meta = c.metadata || {};
-  const doms = (cls.domain || []).map(d => String(d).toLowerCase());
+  const doms = (cls.domain || []).map((d) => String(d).toLowerCase());
   const dom = doms[0] || 'order';
-  const first = v => Array.isArray(v) ? (v[0] || '') : (v || '');
+  const first = (v) => (Array.isArray(v) ? v[0] || '' : v || '');
   const ctype = first(cls.type) || 'Unit';
   const stype = first(cls.supertype);
-  const statless = (
-    ctype === 'Legend' || ctype === 'Battlefield' || ctype === 'Rune' || ctype === 'Token' ||
-    stype === 'Legend' || stype === 'Token'
-  );
+  const statless =
+    ctype === 'Legend' ||
+    ctype === 'Battlefield' ||
+    ctype === 'Rune' ||
+    ctype === 'Token' ||
+    stype === 'Legend' ||
+    stype === 'Token';
   const cost = statless ? 0 : (attr.energy ?? 0);
   const might = statless ? 0 : (attr.might ?? 0);
   const power = statless ? 0 : (attr.power ?? 0);
@@ -93,9 +100,13 @@ function mapCard(c) {
     isSignature: meta.signature || false,
     isAltArt: meta.alternate_art || false,
     isOvernumbered: meta.overnumbered || false,
-    variant: meta.alternate_art ? 'Alt Art'
-           : meta.overnumbered ? 'Overnumbered'
-           : (cls.rarity === 'Promo' ? 'Promo' : 'Standard'),
+    variant: meta.alternate_art
+      ? 'Alt Art'
+      : meta.overnumbered
+        ? 'Overnumbered'
+        : cls.rarity === 'Promo'
+          ? 'Promo'
+          : 'Standard',
     dom,
     doms,
     cost,
@@ -121,28 +132,47 @@ function mapCard(c) {
 // set uses "Champ - Title". DotGG names are the clean reference, but DotGG also
 // appends promo descriptors ("(Origins Nexus Night Promo)") we don't want, so
 // only borrow DotGG's base name for the specific breakages above.
-function stripParenSuffix(n) { return String(n || '').replace(/\s*\([^)]*\)\s*$/, '').trim(); }
-function parenSuffix(n) { const m = String(n || '').match(/\s*(\([^)]*\))\s*$/); return m ? ' ' + m[1] : ''; }
-function normName(n) { return stripParenSuffix(n).toLowerCase().split(/ - |, /).join('|'); }
+function stripParenSuffix(n) {
+  return String(n || '')
+    .replace(/\s*\([^)]*\)\s*$/, '')
+    .trim();
+}
+function parenSuffix(n) {
+  const m = String(n || '').match(/\s*(\([^)]*\))\s*$/);
+  return m ? ' ' + m[1] : '';
+}
+function normName(n) {
+  return stripParenSuffix(n)
+    .toLowerCase()
+    .split(/ - |, /)
+    .join('|');
+}
 // Used to sanity-check the collector-number fallback match: special collector
 // numbers (sp1, r01…) collide with regular ones and pair unrelated cards.
 function namesCompatible(rcName, dgName) {
-  const a = normName(rcName), b = normName(dgName);
-  return a === b ||
-    a.endsWith('|' + b) || b.endsWith('|' + a) ||
-    a.startsWith(b + '|') || b.startsWith(a + '|');
+  const a = normName(rcName),
+    b = normName(dgName);
+  return (
+    a === b ||
+    a.endsWith('|' + b) ||
+    b.endsWith('|' + a) ||
+    a.startsWith(b + '|') ||
+    b.startsWith(a + '|')
+  );
 }
 function reconcileName(rcName, dgName) {
   const rcBase = stripParenSuffix(rcName);
   const dgBase = stripParenSuffix(dgName);
-  const a = normName(rcName), b = normName(dgName);
+  const a = normName(rcName),
+    b = normName(dgName);
   if (a !== b) {
     // Tag prefix ("Yordle, Kennen - X") or title-only ("X") → take DotGG's name
     if (a.endsWith('|' + b) || b.endsWith('|' + a)) return dgBase + parenSuffix(rcName);
     return rcName;
   }
   // Same words, comma instead of dash ("Kennen, Keeper of Balance") → DotGG's
-  if (rcBase !== dgBase && rcBase.replace(', ', ' - ') === dgBase) return dgBase + parenSuffix(rcName);
+  if (rcBase !== dgBase && rcBase.replace(', ', ' - ') === dgBase)
+    return dgBase + parenSuffix(rcName);
   return rcName;
 }
 
@@ -247,7 +277,7 @@ function bool01(s) {
     const prev = byRid.get(m.riftboundId);
     if (!prev || (m._score || 0) > (prev._score || 0)) byRid.set(m.riftboundId, m);
   }
-  merged = merged.filter(m => {
+  merged = merged.filter((m) => {
     if (!m.riftboundId) return true;
     if (byRid.get(m.riftboundId) === m) return true;
     dupesDropped++;
@@ -264,9 +294,9 @@ function bool01(s) {
     if (!dg.id || usedDotGGIds.has(dg.id)) continue;
     const setId = (dg.id.split('-')[0] || '').toUpperCase();
     const colors = Array.isArray(dg.color) ? dg.color : [];
-    const doms = colors.map(c => String(c).toLowerCase()).filter(c => c && c !== 'colorless');
+    const doms = colors.map((c) => String(c).toLowerCase()).filter((c) => c && c !== 'colorless');
     // DotGG started returning type/supertype as arrays (["Unit"]) with Radiance
-    const first = v => Array.isArray(v) ? (v[0] || '') : (v || '');
+    const first = (v) => (Array.isArray(v) ? v[0] || '' : v || '');
     const cardType = first(dg.type) || 'Unit';
     const stype = first(dg.supertype);
     // Riftcodex carries variant metadata; for DotGG-only cards infer it from
@@ -276,14 +306,27 @@ function bool01(s) {
     const isSignature = /-STAR$/i.test(idTail);
     const isAltArt = !isSignature && /^\d+A$/i.test(idTail);
     const isOvernumbered = !isSignature && dg.rarity === 'Showcase' && /^\d+$/.test(idTail);
-    const variantSuffix = isSignature ? ' (Signature)' : isAltArt ? ' (Alternate Art)' : isOvernumbered ? ' (Overnumbered)' : '';
-    const statless = (
-      cardType === 'Legend' || cardType === 'Battlefield' || cardType === 'Rune' || cardType === 'Token' ||
-      stype === 'Legend' || stype === 'Token'
-    );
+    const variantSuffix = isSignature
+      ? ' (Signature)'
+      : isAltArt
+        ? ' (Alternate Art)'
+        : isOvernumbered
+          ? ' (Overnumbered)'
+          : '';
+    const statless =
+      cardType === 'Legend' ||
+      cardType === 'Battlefield' ||
+      cardType === 'Rune' ||
+      cardType === 'Token' ||
+      stype === 'Legend' ||
+      stype === 'Token';
     const cost = statless ? 0 : (num(dg.cost) ?? 0);
     const might = statless ? 0 : (num(dg.might) ?? 0);
-    const stripHtml = s => String(s || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim();
+    const stripHtml = (s) =>
+      String(s || '')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .trim();
     merged.push({
       id: dg.id,
       name: variantSuffix && !/\)\s*$/.test(dg.name) ? dg.name + variantSuffix : dg.name,
@@ -292,9 +335,13 @@ function bool01(s) {
       isSignature,
       isAltArt,
       isOvernumbered,
-      variant: isAltArt ? 'Alt Art'
-             : isOvernumbered ? 'Overnumbered'
-             : (dg.rarity === 'Promo' ? 'Promo' : 'Standard'),
+      variant: isAltArt
+        ? 'Alt Art'
+        : isOvernumbered
+          ? 'Overnumbered'
+          : dg.rarity === 'Promo'
+            ? 'Promo'
+            : 'Standard',
       dom: doms[0] || 'order',
       doms,
       cost,
@@ -337,7 +384,8 @@ function bool01(s) {
   let foilCount = 0;
   const foils = [];
   for (const c of merged) {
-    const hasFoilPrinting = c.hasFoil === true || (typeof c.foilPrice === 'number' && c.foilPrice > 0);
+    const hasFoilPrinting =
+      c.hasFoil === true || (typeof c.foilPrice === 'number' && c.foilPrice > 0);
     if (!hasFoilPrinting) continue;
     foils.push({
       ...c,
@@ -367,12 +415,14 @@ function bool01(s) {
   const sizeKb = (fs.statSync(outPath).size / 1024).toFixed(1);
 
   console.log(`\nMerged ${merged.length} cards`);
-  console.log(`  Riftcodex: ${rcItems.length} cards (${hits} matched DotGG, ${misses} no DotGG match)`);
+  console.log(
+    `  Riftcodex: ${rcItems.length} cards (${hits} matched DotGG, ${misses} no DotGG match)`
+  );
   console.log(`  Duplicate Riftcodex records dropped: ${dupesDropped}`);
   console.log(`  DotGG-only additions: ${dotggOnly}`);
   console.log(`  Foil entries generated: ${foilCount}`);
   console.log(`Wrote ${outPath} (${sizeKb} KB) in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-})().catch(err => {
+})().catch((err) => {
   console.error(err);
   process.exit(1);
 });
