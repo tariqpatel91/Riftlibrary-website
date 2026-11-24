@@ -2708,7 +2708,7 @@ function downloadSideboardGuide() {
        No cell background so a long label can overflow over its neighbours
        (rather than being painted over and clipped). */
     .muhdr th.mu{height:${hdrH}px;border:none;padding:0;background:transparent;vertical-align:bottom;position:relative;}
-    .muhdr th.mu span{position:absolute;left:4px;bottom:3px;transform-origin:left bottom;transform:rotate(-45deg);white-space:nowrap;font-size:9px;font-weight:bold;border-bottom:1px solid #9a9a9a;padding:2px 7px 2px 2px;}
+    .muhdr th.mu span{position:absolute;left:calc(50% - 3px);bottom:3px;transform-origin:left bottom;transform:rotate(-45deg);white-space:nowrap;font-size:9px;font-weight:bold;border-bottom:1px solid #9a9a9a;padding:2px 7px 2px 2px;}
     th.corner{background:#cfe2f3;text-align:left;vertical-align:bottom;}
     th.rowlbl{text-align:left;font-weight:normal;background:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     th.rowlbl.lbl-m{background:#dce6f1;}
