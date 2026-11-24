@@ -796,10 +796,10 @@ function loadStorage() {
   }
 }
 function persist() {
-  if (activeDeckId) {
-    const d = myDecks.find((x) => String(x.id) === String(activeDeckId));
-    if (d) d.updated_at = new Date().toISOString();
-  }
+  _persistLocal();
+  if (typeof scheduleCloudPush === 'function') scheduleCloudPush();
+}
+function _persistLocal() {
   // Decks opened via a #deck=… share link live only in memory — never save them
   try {
     localStorage.setItem('rl_decks', JSON.stringify(myDecks.filter((d) => !d.__shared)));
@@ -10699,9 +10699,15 @@ async function updateProfilePassword() {
 }
 
 async function logOut() {
+  // Upload anything pending, then forget decks that are safely in the cloud
+  // so the next person on this browser doesn't see them. Decks that never
+  // reached the cloud stay here.
+  await flushCloudPush();
   await _sb.auth.signOut();
   currentUser = null;
-  myDecks = [];
+  _cloudReady = false;
+  myDecks = myDecks.filter((d) => !d.__shared && !(d.cloud_id && _deckHash(d) === d.cloud_base));
+  _persistLocal();
   myEvents = [];
   collOwned = {};
   collWanted = {};
@@ -10712,59 +10718,160 @@ async function logOut() {
   toast('Logged out');
 }
 
-async function syncCloudDecks() {
-  if (!currentUser) return;
-  try {
-    const { data: cloudDecks, error } = await _sb
-      .from('decks')
-      .select('*')
-      .eq('user_id', currentUser.id);
-    if (error) throw error;
-    cloudDecks.forEach((cd) => {
-      const localIdx = myDecks.findIndex((d) => d.cloud_id === cd.id);
-      const merged = cloudToLocal(cd);
-      if (localIdx >= 0) {
-        if (
-          !myDecks[localIdx].updated_at ||
-          new Date(cd.updated_at) > new Date(myDecks[localIdx].updated_at)
-        ) {
-          // Preserve local integer ID so onclick attributes stay valid
-          merged.id = myDecks[localIdx].id;
-          // Decks saved before the guide was synced have no sbGuide in the
-          // cloud copy; keep the local one instead of wiping it.
-          if (!merged.sbGuide && myDecks[localIdx].sbGuide)
-            merged.sbGuide = myDecks[localIdx].sbGuide;
-          myDecks[localIdx] = merged;
-        }
-      } else {
-        // Assign a stable local integer ID to any new cloud deck
-        merged.id = nextId++;
-        myDecks.unshift(merged);
+/* ── DECK CLOUD SYNC ─────────────────────────────────────────────
+ * Every personal deck is mirrored to the `decks` table. Each local deck
+ * remembers `cloud_base`: a hash of its contents the last time this browser
+ * and the cloud agreed. Comparing local, cloud and base tells us who changed:
+ *   • only the cloud changed  → take the cloud copy
+ *   • only this browser changed → upload it
+ *   • both changed            → keep the cloud copy and save this browser's
+ *                               version as a separate "(other version)" deck,
+ *                               so nothing is ever thrown away.
+ * Edits upload a moment after they happen (persist() → scheduleCloudPush),
+ * and the cloud is re-read on login, page load and when the tab regains
+ * focus. All cloud work runs one job at a time through _cloudQueue. */
+let _cloudReady = false; // first pull for this login has finished
+let _cloudQueue = Promise.resolve();
+let _cloudPushTimer = null;
+let _cloudLastPull = 0;
+let _cloudErrorShown = false;
+
+function _cloudRun(job) {
+  _cloudQueue = _cloudQueue.then(job).catch((e) => console.warn('Cloud sync job failed:', e));
+  return _cloudQueue;
+}
+
+// JSON with object keys sorted, so the same deck hashes the same whether it
+// came from this browser or back from Postgres (jsonb reorders keys).
+function _stableStringify(v) {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v === undefined ? null : v);
+  if (Array.isArray(v)) return '[' + v.map(_stableStringify).join(',') + ']';
+  return (
+    '{' +
+    Object.keys(v)
+      .filter((k) => v[k] !== undefined)
+      .sort()
+      .map((k) => JSON.stringify(k) + ':' + _stableStringify(v[k]))
+      .join(',') +
+    '}'
+  );
+}
+
+function _hashString(str) {
+  let h1 = 0xdeadbeef,
+    h2 = 0x41c6ce57;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (h2 >>> 0).toString(16) + (h1 >>> 0).toString(16);
+}
+
+function _deckHash(deck) {
+  const p = _deckContent(deck);
+  return _hashString(_stableStringify([p.name, p.legend, p.wins, p.losses, p.data]));
+}
+
+function _cloudSaveFailed(e) {
+  console.warn('Cloud save failed:', e);
+  if (!_cloudErrorShown) {
+    _cloudErrorShown = true;
+    toast('⚠ Could not save your decks online. They are still saved in this browser.');
+  }
+}
+
+function _refreshDeckViews() {
+  if (document.getElementById('page-decks').classList.contains('active')) {
+    if (activeDeckId && document.getElementById('dd').style.display !== 'none') {
+      if (myDecks.some((d) => String(d.id) === String(activeDeckId))) renderDeckDetail();
+      else closeDeckDetail();
+    } else renderDecks();
+  }
+}
+
+// Pull every deck from the cloud and merge it with this browser's copies.
+function syncCloudDecks() {
+  return _cloudRun(async () => {
+    if (!currentUser) return;
+    const userId = currentUser.id;
+    const { data: cloudDecks, error } = await _sb.from('decks').select('*').eq('user_id', userId);
+    if (error) {
+      console.warn('Sync failed:', error);
+      return;
+    }
+    if (!currentUser || currentUser.id !== userId) return;
+    let changed = false;
+    const seen = new Set();
+    for (const cd of cloudDecks) {
+      seen.add(cd.id);
+      const cloudDeck = cloudToLocal(cd);
+      const cloudHash = _deckHash(cloudDeck);
+      cloudDeck.cloud_base = cloudHash;
+      const idx = myDecks.findIndex((d) => d.cloud_id === cd.id);
+      if (idx < 0) {
+        cloudDeck.id = nextId++;
+        myDecks.unshift(cloudDeck);
+        changed = true;
+        continue;
       }
-    });
-    const localOnlyDecks = myDecks.filter((d) => !d.cloud_id && !d.__shared);
-    for (const local of localOnlyDecks) {
-      try {
-        const { data: created, error: e2 } = await _sb
-          .from('decks')
-          .insert(localToCloud(local))
-          .select()
-          .single();
-        if (e2) throw e2;
-        const idx = myDecks.findIndex((d) => d.id === local.id);
-        if (idx >= 0) myDecks[idx].cloud_id = created.id;
-      } catch (e) {
-        console.warn('Failed to push local deck:', e);
+      const local = myDecks[idx];
+      const localHash = _deckHash(local);
+      if (localHash === cloudHash) {
+        if (local.cloud_base !== cloudHash) {
+          local.cloud_base = cloudHash;
+          changed = true;
+        }
+      } else if (local.cloud_base && local.cloud_base === localHash) {
+        // Only the cloud changed: take it.
+        cloudDeck.id = local.id;
+        myDecks[idx] = cloudDeck;
+        changed = true;
+      } else if (local.cloud_base && local.cloud_base === cloudHash) {
+        // Only this browser changed: the push below uploads it.
+      } else {
+        // Both sides changed (or this deck predates change tracking):
+        // keep the cloud copy and save this browser's version separately.
+        cloudDeck.id = local.id;
+        myDecks[idx] = cloudDeck;
+        const copy = Object.assign({}, local, {
+          id: nextId++,
+          name: local.name + ' (other version)',
+          cloud_id: undefined,
+          cloud_base: undefined,
+        });
+        myDecks.splice(idx + 1, 0, copy);
+        changed = true;
       }
     }
-    persist();
-    if (document.getElementById('page-decks').classList.contains('active')) renderDecks();
-    toast('Decks synced ☁');
-  } catch (e) {
-    console.warn('Sync failed:', e);
-  }
-  loadEventsFromCloud();
-  loadCollectionFromCloud();
+    // Decks deleted on another device: drop them here unless they were edited
+    // here since (those get uploaded again as new decks).
+    for (let i = myDecks.length - 1; i >= 0; i--) {
+      const d = myDecks[i];
+      if (!d.cloud_id || !d.cloud_base || seen.has(d.cloud_id)) continue;
+      if (_deckHash(d) === d.cloud_base) myDecks.splice(i, 1);
+      else {
+        d.cloud_id = undefined;
+        d.cloud_base = undefined;
+      }
+      changed = true;
+    }
+    const firstPull = !_cloudReady;
+    _cloudReady = true;
+    _cloudLastPull = Date.now();
+    if (changed) {
+      _persistLocal();
+      _refreshDeckViews();
+    }
+    await _pushDirtyDecks();
+    if (firstPull) {
+      toast('Decks synced ☁');
+      loadEventsFromCloud();
+      loadCollectionFromCloud();
+    }
+  });
 }
 
 function cloudToLocal(cd) {
@@ -10791,9 +10898,9 @@ function cloudToLocal(cd) {
   };
 }
 
-function localToCloud(local) {
+// The deck fields stored in the cloud (no user id, so it works logged out).
+function _deckContent(local) {
   return {
-    user_id: currentUser.id,
     name: local.name,
     legend: local.legend,
     wins: local.wins || 0,
@@ -10813,6 +10920,74 @@ function localToCloud(local) {
     },
   };
 }
+
+function localToCloud(local) {
+  return Object.assign({ user_id: currentUser.id }, _deckContent(local));
+}
+
+// Upload every deck that changed in this browser since it last matched the
+// cloud. Runs inside _cloudRun.
+async function _pushDirtyDecks() {
+  if (!currentUser || !_cloudReady) return;
+  let changed = false;
+  for (const deck of myDecks.slice()) {
+    if (deck.__shared) continue;
+    // A deck with a cloud id but no base was never matched to this account's
+    // cloud copy (e.g. left over from another login): don't touch it.
+    if (deck.cloud_id && !deck.cloud_base) continue;
+    const hash = _deckHash(deck);
+    if (deck.cloud_id && hash === deck.cloud_base) continue;
+    try {
+      const payload = localToCloud(deck);
+      if (deck.cloud_id) {
+        const { data, error } = await _sb
+          .from('decks')
+          .update(payload)
+          .eq('id', deck.cloud_id)
+          .select('id');
+        if (error) throw error;
+        if (!data || !data.length) {
+          // Deleted on another device meanwhile: the next pull decides.
+          continue;
+        }
+      } else {
+        const { data: created, error } = await _sb.from('decks').insert(payload).select().single();
+        if (error) throw error;
+        deck.cloud_id = created.id;
+      }
+      deck.cloud_base = hash;
+      deck.updated_at = new Date().toISOString();
+      changed = true;
+    } catch (e) {
+      _cloudSaveFailed(e);
+    }
+  }
+  if (changed) _persistLocal();
+}
+
+// Called from persist(): upload changes shortly after the last edit.
+function scheduleCloudPush() {
+  if (!currentUser || !_cloudReady) return;
+  clearTimeout(_cloudPushTimer);
+  _cloudPushTimer = setTimeout(() => {
+    _cloudPushTimer = null;
+    _cloudRun(_pushDirtyDecks);
+  }, 1200);
+}
+
+// Upload pending changes right away (also used when leaving a deck).
+function flushCloudPush() {
+  clearTimeout(_cloudPushTimer);
+  _cloudPushTimer = null;
+  return _cloudRun(_pushDirtyDecks);
+}
+
+// Re-read the cloud when coming back to the tab, and upload before leaving.
+document.addEventListener('visibilitychange', () => {
+  if (!currentUser || !_cloudReady) return;
+  if (document.visibilityState === 'hidden') flushCloudPush();
+  else if (Date.now() - _cloudLastPull > 10000) syncCloudDecks();
+});
 
 async function saveEventsToCloud() {
   if (!currentUser) return;
@@ -10910,24 +11085,9 @@ async function loadCollectionFromCloud() {
   }
 }
 
-async function saveToCloud(deckId) {
+function saveToCloud() {
   if (!currentUser) return;
-  const deck = myDecks.find((d) => d.id === deckId);
-  if (!deck) return;
-  try {
-    const payload = localToCloud(deck);
-    if (deck.cloud_id) {
-      const { error } = await _sb.from('decks').update(payload).eq('id', deck.cloud_id);
-      if (error) throw error;
-    } else {
-      const { data: created, error } = await _sb.from('decks').insert(payload).select().single();
-      if (error) throw error;
-      deck.cloud_id = created.id;
-      persist();
-    }
-  } catch (e) {
-    console.warn('Cloud save failed:', e);
-  }
+  return flushCloudPush();
 }
 
 initAuth();
