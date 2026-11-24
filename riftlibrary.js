@@ -1673,10 +1673,11 @@ function renderDecks() {
     if (fd && !(d.domains || []).includes(fd)) return false;
     return true;
   });
-  // Most recently edited first. persist() stamps updated_at on the open deck
-  // for every change (cards, sideboard guide, results…). Decks never edited
-  // since this was added keep their old relative order at the end.
-  const _ts = (d) => (d.updated_at ? Date.parse(d.updated_at) || 0 : 0);
+  // Most recently used first: a deck moves to the top as soon as it's opened
+  // (or edited). Opens are kept in localStorage so a cloud sync can't undo
+  // them. Decks never opened or edited keep their old order at the end.
+  const _opened = _deckOpenTimes();
+  const _ts = (d) => Math.max(_opened[d.id] || 0, d.updated_at ? Date.parse(d.updated_at) || 0 : 0);
   list.sort((a, b) => _ts(b) - _ts(a));
   if (!list.length) {
     g.innerHTML = `<div class="es" style="grid-column:1/-1;"><h3>No decks yet</h3><p>Create your first deck above.</p></div>`;
@@ -1763,9 +1764,26 @@ function populateDeckSelectors() {
   });
 }
 
+function _deckOpenTimes() {
+  try {
+    return JSON.parse(localStorage.getItem('rl_deck_opened') || '{}') || {};
+  } catch (e) {
+    return {};
+  }
+}
+function _markDeckOpened(id) {
+  const m = _deckOpenTimes();
+  m[id] = Date.now();
+  try {
+    localStorage.setItem('rl_deck_opened', JSON.stringify(m));
+  } catch (e) {
+    /* storage full or blocked: ordering just falls back to edit time */
+  }
+}
 function openDD(id, readOnly) {
   const d = myDecks.find((x) => String(x.id) === String(id));
   if (!d) return;
+  if (!d.__shared) _markDeckOpened(d.id);
   ddReadOnly = !!readOnly;
   if (ddReadOnly && activeDDTab === 'edit') activeDDTab = 'cards';
   activeDeckId = d.id;
