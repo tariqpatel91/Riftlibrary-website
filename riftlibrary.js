@@ -1673,6 +1673,11 @@ function renderDecks() {
     if (fd && !(d.domains || []).includes(fd)) return false;
     return true;
   });
+  // Most recently edited first. persist() stamps updated_at on the open deck
+  // for every change (cards, sideboard guide, results…). Decks never edited
+  // since this was added keep their old relative order at the end.
+  const _ts = (d) => (d.updated_at ? Date.parse(d.updated_at) || 0 : 0);
+  list.sort((a, b) => _ts(b) - _ts(a));
   if (!list.length) {
     g.innerHTML = `<div class="es" style="grid-column:1/-1;"><h3>No decks yet</h3><p>Create your first deck above.</p></div>`;
     return;
@@ -2752,7 +2757,7 @@ function downloadSideboardGuide() {
    G2/G3 toggle picks which sub-cell gets updated. Right-click / shift-
    click on a card undoes one tick. All state lives in d.sbGuide.cells so
    it stays in sync with the manual entries in the grid. */
-let _sbgEye = { col: 0, sub: 0, view: 'gallery' };
+let _sbgEye = { col: 0, sub: 0, view: 'visual' };
 let _sbgEyeScroll = 0; // remembered between re-renders so a click on a card
 // doesn't yank the body scrollTop back to 0
 function _sbgLoadEyeSize() {
