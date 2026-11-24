@@ -1785,6 +1785,9 @@ function openDD(id, readOnly) {
   const d = myDecks.find((x) => String(x.id) === String(id));
   if (!d) return;
   if (!d.__shared) _markDeckOpened(d.id);
+  // Record which card each sideboard-guide row belongs to before any edit,
+  // so removing or adding cards later can't shift swaps onto other cards.
+  if (d.sbGuide) _sbgEnsure(d);
   ddReadOnly = !!readOnly;
   if (ddReadOnly && activeDDTab === 'edit') activeDDTab = 'cards';
   activeDeckId = d.id;
@@ -2425,7 +2428,52 @@ function _sbgEnsure(d) {
   if (!d.sbGuide) d.sbGuide = { matchups: Array(SBG_DEFAULT_COLS).fill(''), cells: {} };
   if (!Array.isArray(d.sbGuide.matchups)) d.sbGuide.matchups = Array(SBG_DEFAULT_COLS).fill('');
   if (!d.sbGuide.cells || typeof d.sbGuide.cells !== 'object') d.sbGuide.cells = {};
+  _sbgSyncRows(d, d.sbGuide);
   return d.sbGuide;
+}
+// Cells are keyed by row index (`section|row|col|sub`), and rows are the
+// deck's cards in sorted order, so adding or removing a card shifts every
+// row after it. To stop a card's swaps landing on its neighbour, the guide
+// remembers which card each row index meant (g.rows). Whenever the deck's
+// rows differ from that snapshot, cells are moved to the card's new index,
+// and cells for cards no longer in the deck are dropped.
+function _sbgRowIds(rows) {
+  // Name plus occurrence count, so two rows with the same name stay distinct.
+  const seen = {};
+  return rows.map((r) => {
+    const n = r.name || '';
+    seen[n] = (seen[n] || 0) + 1;
+    return seen[n] > 1 ? `${n}#${seen[n]}` : n;
+  });
+}
+function _sbgSyncRows(d, g) {
+  const { mainRows, sbRows, bfRows } = _sbgRowLabels(d);
+  const now = { m: _sbgRowIds(mainRows), s: _sbgRowIds(sbRows), b: _sbgRowIds(bfRows) };
+  const prev = g.rows;
+  // First time (or a guide saved before this existed): trust the current
+  // order, since there's no record of what the old indexes meant.
+  if (!prev || typeof prev !== 'object') {
+    g.rows = now;
+    return;
+  }
+  const same = ['m', 's', 'b'].every(
+    (sec) => JSON.stringify(prev[sec] || []) === JSON.stringify(now[sec])
+  );
+  if (same) return;
+  const fresh = {};
+  Object.keys(g.cells).forEach((k) => {
+    const parts = k.split('|');
+    const sec = parts[0];
+    const oldIdx = parseInt(parts[1], 10);
+    const id = (prev[sec] || [])[oldIdx];
+    if (id === undefined) return; // index with no known card: drop it
+    const newIdx = now[sec] ? now[sec].indexOf(id) : -1;
+    if (newIdx < 0) return; // card left the deck: drop its swaps
+    parts[1] = String(newIdx);
+    fresh[parts.join('|')] = g.cells[k];
+  });
+  g.cells = fresh;
+  g.rows = now;
 }
 function _sbgRowLabels(d) {
   // Champion always sits at the top of the main-deck section.
