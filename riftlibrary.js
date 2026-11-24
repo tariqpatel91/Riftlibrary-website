@@ -3091,7 +3091,10 @@ function _sbgRenderEyeModal() {
   // Effective totals — reflect copies after the planned swaps are applied,
   // so the "X/40" tally moves with the user's clicks. Sideboard tally also
   // moves and can exceed 8 (per spec: ignore the 8-card cap in this view).
-  const mainCnt = effMain.reduce((a, c) => a + (c.cnt || 1), 0) + (d.champion ? 1 : 0);
+  // The champion sits in its own strip above, so the main-deck tally leaves
+  // it out: a legal deck with a champion reads 39/39 here.
+  const mainCnt = effMain.reduce((a, c) => a + (c.cnt || 1), 0);
+  const mainMax = d.champion ? 39 : 40;
   const sbCnt = effSb.reduce((a, c) => a + (c.cnt || 1), 0);
   // BF picks live in the BATTLEFIELDS section of d.sbGuide.cells. The modal
   // sub maps to the BF sub-cell: G2 (sub 0) → BF sub 1, G3 (sub 1) → BF
@@ -3119,10 +3122,10 @@ function _sbgRenderEyeModal() {
   topStripHtml += `<div class="gallery-section gallery-section-compact sbg-eye-bf-section"><div class="gallery-section-hdr">Battlefields<span class="gallery-section-tally">${battlefields.length}/3</span></div><div class="cards-gallery-view-bf">${battlefields.length ? battlefields.map(_bfTile).join('') : '<div style="font-size:11px;color:var(--text-muted);opacity:0.5;padding:8px;">No battlefields in this deck.</div>'}</div></div>`;
   bodyHtml += `<div class="sbg-eye-top-strip">${topStripHtml}</div>`;
   if (_sbgEye.view === 'visual') {
-    bodyHtml += typeGroupedSection('Main Deck', `${mainCnt}/40`, effMain, 'm');
+    bodyHtml += typeGroupedSection('Main Deck', `${mainCnt}/${mainMax}`, effMain, 'm');
     bodyHtml += typeGroupedSection('Sideboard', `${sbCnt}/10`, effSb, 's');
   } else {
-    bodyHtml += section('Main Deck', `${mainCnt}/40`, gcardsSwap(effMain, 'm'));
+    bodyHtml += section('Main Deck', `${mainCnt}/${mainMax}`, gcardsSwap(effMain, 'm'));
     bodyHtml += section('Sideboard', `${sbCnt}/10`, gcardsSwap(effSb, 's'));
   }
   const galleryBody = `<div class="gallery-all-sections${_sbgEye.view === 'visual' ? ' sbg-eye-mode-visual' : ''}">${bodyHtml}</div>`;
