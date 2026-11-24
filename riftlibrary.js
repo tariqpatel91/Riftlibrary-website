@@ -1740,6 +1740,7 @@ function renderDecks() {
               <button class="dc-hmenu-item ${isPublishedTeam(d.id) ? 'is-on' : ''}" onclick="event.stopPropagation();closeDeckMenus();publishDeckToTeam('${d.id}')">${isPublishedTeam(d.id) ? '✓ On Team' : 'Publish to Team'}</button>
               <button class="dc-hmenu-item ${isPublishedTeam2(d.id) ? 'is-on' : ''}" onclick="event.stopPropagation();closeDeckMenus();publishDeckToTeam2('${d.id}')">${isPublishedTeam2(d.id) ? '✓ On Public Lists' : 'Publish to Public Lists'}</button>
               <button class="dc-hmenu-item" onclick="event.stopPropagation();closeDeckMenus();shareDeckLink('${d.id}')">Copy Share Link</button>
+              <button class="dc-hmenu-item" onclick="event.stopPropagation();closeDeckMenus();copyDeck('${d.id}')">Copy Deck</button>
               <button class="dc-hmenu-item dc-hmenu-danger" onclick="event.stopPropagation();closeDeckMenus();delDeck('${d.id}')">Delete</button>
             </div>
           </div>
@@ -6218,6 +6219,40 @@ function exportDeck(type) {
     w.document.close();
     setTimeout(() => w.print(), 500);
   }
+}
+// Clone a deck into a new deck profile named "<name> copy N", using the
+// next free N for that base name (copying "X copy 2" makes "X copy 3", not
+// "X copy 2 copy 1"). Everything is copied (cards, champion, battlefields,
+// runes, sideboard, notes, sideboard guide) except the match record, which
+// starts fresh for the new profile.
+function copyDeck(id) {
+  const src = myDecks.find((d) => String(d.id) === String(id));
+  if (!src) {
+    toast('Deck not found');
+    return;
+  }
+  const base = (src.name || 'Deck').replace(/\s+copy\s*\d+$/i, '');
+  const esc = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('^' + esc + '\\s+copy\\s*(\\d+)$', 'i');
+  const used = myDecks
+    .map((d) => (re.exec(d.name || '') || [])[1])
+    .filter(Boolean)
+    .map(Number);
+  const n = used.length ? Math.max(...used) + 1 : 1;
+  const copy = JSON.parse(JSON.stringify(src));
+  delete copy.cloud_id;
+  delete copy.__shared;
+  copy.id = nextId++;
+  copy.name = `${base} copy ${n}`;
+  copy.wins = 0;
+  copy.losses = 0;
+  copy.results = [];
+  copy.updated_at = new Date().toISOString();
+  myDecks.unshift(copy);
+  persist();
+  renderDecks();
+  toast(`Created "${copy.name}"`);
+  if (currentUser) setTimeout(() => saveToCloud(copy.id), 100);
 }
 function delDeck(id) {
   if (!confirm('Delete this deck?')) return;
